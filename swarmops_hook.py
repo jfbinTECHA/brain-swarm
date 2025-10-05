@@ -53,6 +53,48 @@ class TicketCreator:
         else:
             raise ValueError(f"Unsupported ticket system: {self.system}")
 
+    async def close_ticket(self, ticket_system: str, ticket_id: str, resolution_reason: str = "Alert resolved") -> bool:
+        """Close a ticket when alert is resolved"""
+        try:
+            # Trigger GitHub Actions workflow to close the incident
+            github_token = os.getenv("GITHUB_TOKEN")
+            github_owner = os.getenv("GITHUB_OWNER")
+            github_repo = os.getenv("GITHUB_REPO")
+
+            if github_token and github_owner and github_repo:
+                # Calculate resolution time (would be passed from Alertmanager)
+                resolution_time = time.time()
+
+                payload = {
+                    "event_type": "alert_resolved",
+                    "client_payload": {
+                        "ticket_system": ticket_system,
+                        "ticket_id": ticket_id,
+                        "resolution_reason": resolution_reason,
+                        "alert_name": "Alert Resolution",  # Would be passed from webhook
+                        "resolution_time": resolution_time
+                    }
+                }
+
+                headers = {
+                    "Authorization": f"token {github_token}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+
+                url = f"https://api.github.com/repos/{github_owner}/{github_repo}/dispatches"
+                response = await self.client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+
+                print(f"✅ GitHub Actions workflow triggered to close {ticket_system} ticket {ticket_id}")
+                return True
+            else:
+                print("⚠️  GitHub credentials not configured for incident closure")
+                return False
+
+        except Exception as e:
+            print(f"❌ Failed to trigger incident closure: {str(e)}")
+            return False
+
     async def _create_jira_ticket(self, alert_group: AlertGroup) -> Dict[str, Any]:
         """Create a Jira ticket"""
         url = f"{self.config['base_url']}/rest/api/3/issue"
@@ -267,10 +309,14 @@ async def shutdown_event():
 
 @app.post("/webhook")
 async def alertmanager_webhook(alert_group: AlertGroup, background_tasks: BackgroundTasks, request: Request):
-    """Handle Alertmanager webhook and create tickets"""
+    """Handle Alertmanager webhook and create/close tickets"""
     print(f"📨 Received alert group: {alert_group.groupKey} ({len(alert_group.alerts)} alerts)")
 
-    # Only process firing alerts (not resolved ones)
+    # Handle resolved alerts - close tickets
+    if alert_group.status == "resolved":
+        return await handle_resolved_alerts(alert_group, background_tasks)
+
+    # Only process firing alerts
     if alert_group.status != "firing":
         return {"status": "ignored", "reason": "not firing status"}
 
@@ -292,6 +338,36 @@ async def alertmanager_webhook(alert_group: AlertGroup, background_tasks: Backgr
     return {
         "status": "accepted",
         "ticket_system": ticket_system,
+        "alerts_count": len(alert_group.alerts)
+    }
+
+async def handle_resolved_alerts(alert_group: AlertGroup, background_tasks: BackgroundTasks):
+    """Handle resolved alerts by closing corresponding tickets"""
+    print(f"🔄 Processing resolved alerts for: {alert_group.groupKey}")
+
+    # Extract ticket information from alert annotations (would be stored when ticket was created)
+    # In a real implementation, you'd have a database mapping alerts to tickets
+    # For now, we'll use a simple approach with alert fingerprints
+
+    resolved_alerts = []
+
+    for alert in alert_group.alerts:
+        alert_name = alert.get("labels", {}).get("alertname", "Unknown")
+        ticket_system = os.getenv("DEFAULT_TICKET_SYSTEM", "jira")
+        ticket_id = f"auto-{hash(alert_name) % 10000:04d}"  # Simplified - would be stored in DB
+
+        # Close ticket in background
+        background_tasks.add_task(close_ticket_background, ticket_system, ticket_id, alert_name)
+
+        resolved_alerts.append({
+            "alert_name": alert_name,
+            "ticket_system": ticket_system,
+            "ticket_id": ticket_id
+        })
+
+    return {
+        "status": "resolved_processed",
+        "resolved_alerts": resolved_alerts,
         "alerts_count": len(alert_group.alerts)
     }
 
@@ -324,6 +400,27 @@ async def create_ticket_background(creator: TicketCreator, alert_group: AlertGro
     except Exception as e:
         print(f"❌ Failed to create ticket: {str(e)}")
         # In production, you'd want to retry or send to a dead letter queue
+
+async def close_ticket_background(ticket_system: str, ticket_id: str, alert_name: str):
+    """Close ticket in background task when alert is resolved"""
+    try:
+        # Get the appropriate ticket creator
+        creator = get_ticket_creator(ticket_system)
+        if not creator:
+            print(f"⚠️  Ticket system '{ticket_system}' not configured for closure")
+            return
+
+        # Close the ticket
+        resolution_reason = f"Alert '{alert_name}' has been resolved by the monitoring system"
+        success = await creator.close_ticket(ticket_system, ticket_id, resolution_reason)
+
+        if success:
+            print(f"✅ Ticket closed: {ticket_system} #{ticket_id}")
+        else:
+            print(f"⚠️  Ticket closure may have failed: {ticket_system} #{ticket_id}")
+
+    except Exception as e:
+        print(f"❌ Failed to close ticket {ticket_system} #{ticket_id}: {str(e)}")
 
 @app.get("/health")
 async def health_check():
