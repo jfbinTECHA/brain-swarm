@@ -1,0 +1,74 @@
+{{- if .Values.monitoring.alertmanager.enabled }}
+{{- if .Values.monitoring.alertmanager.webhook.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmops-hook-kilo
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-hook-kilo
+spec:
+  replicas: {{ .Values.monitoring.alertmanager.webhook.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "brain-swarm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: swarmops-hook-kilo
+  template:
+    metadata:
+      labels:
+        {{- include "brain-swarm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: swarmops-hook-kilo
+    spec:
+      containers:
+        - name: swarmops-hook-kilo
+          image: "{{ .Values.monitoring.alertmanager.webhook.kilo.image | default .Values.monitoring.alertmanager.webhook.image.repository }}:{{ .Values.monitoring.alertmanager.webhook.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.monitoring.alertmanager.webhook.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: BRAIN_SWARM_API_URL
+              value: "{{ .Values.monitoring.alertmanager.webhook.brainSwarmApiUrl | default "http://brain-swarm-api.brainswarm.svc.cluster.local:8000" }}"
+            - name: BRAIN_SWARM_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: brain_swarm_api_token
+            - name: JWT_AUDIENCE
+              value: "{{ .Values.monitoring.alertmanager.webhook.kilo.jwtAudience }}"
+            - name: JWT_SCOPE
+              value: "{{ .Values.monitoring.alertmanager.webhook.kilo.jwtScope }}"
+            {{- with .Values.monitoring.alertmanager.webhook.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.monitoring.alertmanager.webhook.resources | nindent 12 }}
+      {{- with .Values.monitoring.alertmanager.webhook.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitoring.alertmanager.webhook.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitoring.alertmanager.webhook.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}

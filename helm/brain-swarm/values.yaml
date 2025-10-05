@@ -260,6 +260,12 @@ monitoring:
       servicenow:
         enabled: false
         assignmentGroup: ""
+      brainSwarmApiUrl: "http://brain-swarm-api.brainswarm.svc.cluster.local:8000"
+      kilo:
+        image: "jfbintecha/swarmops-hook:latest"
+        manifest: "kilo/manifest.json"
+        jwtAudience: "kilo-agents"
+        jwtScope: "incident:read,incident:write"
       resources:
         limits:
           cpu: 200m
@@ -267,6 +273,11 @@ monitoring:
         requests:
           cpu: 100m
           memory: 128Mi
+      extraEnvVars:
+        - name: JWT_AUDIENCE
+          value: "kilo-agents"
+        - name: JWT_SCOPE
+          value: "incident:read,incident:write"
       nodeSelector: {}
       tolerations: []
       affinity: {}

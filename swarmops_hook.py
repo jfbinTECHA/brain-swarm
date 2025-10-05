@@ -18,23 +18,14 @@ import httpx
 import asyncio
 from enum import Enum
 
+from schemas.incident import AlertGroup
+
 app = FastAPI(title="SwarmOps Alert Webhook Handler", version="1.0.0")
 
 class TicketSystem(Enum):
     JIRA = "jira"
     GITHUB = "github"
     SERVICENOW = "servicenow"
-
-class AlertGroup(BaseModel):
-    version: str
-    groupKey: str
-    status: str  # "firing" or "resolved"
-    receiver: str
-    groupLabels: Dict[str, str]
-    commonLabels: Dict[str, str]
-    commonAnnotations: Dict[str, str]
-    externalURL: str
-    alerts: List[Dict[str, Any]]
 
 class TicketCreator:
     def __init__(self, system: TicketSystem, config: Dict[str, Any]):
@@ -312,6 +303,9 @@ async def alertmanager_webhook(alert_group: AlertGroup, background_tasks: Backgr
     """Handle Alertmanager webhook and create/close tickets"""
     print(f"📨 Received alert group: {alert_group.groupKey} ({len(alert_group.alerts)} alerts)")
 
+    # Send alert to AI for processing
+    background_tasks.add_task(send_alert_to_ai, alert_group)
+
     # Handle resolved alerts - close tickets
     if alert_group.status == "resolved":
         return await handle_resolved_alerts(alert_group, background_tasks)
@@ -421,6 +415,33 @@ async def close_ticket_background(ticket_system: str, ticket_id: str, alert_name
 
     except Exception as e:
         print(f"❌ Failed to close ticket {ticket_system} #{ticket_id}: {str(e)}")
+
+async def send_alert_to_ai(alert_group: AlertGroup):
+    """Send alert to AI orchestration endpoint for processing"""
+    try:
+        # Get API endpoint from environment
+        api_base_url = os.getenv("BRAIN_SWARM_API_URL", "http://brain-swarm-api.brainswarm.svc.cluster.local:8000")
+        api_url = f"{api_base_url}/alerts"
+
+        # Prepare alert data using the shared schema
+        alert_data = alert_group.dict()
+
+        # Get auth token if available
+        headers = {"Content-Type": "application/json"}
+        auth_token = os.getenv("BRAIN_SWARM_API_TOKEN")
+        if auth_token:
+            headers["Authorization"] = f"Bearer {auth_token}"
+
+        # Send to AI endpoint
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(api_url, json=alert_data, headers=headers)
+            response.raise_for_status()
+
+            result = response.json()
+            print(f"🤖 Alert sent to AI: {alert_group.groupKey} - Task: {result.get('task_id', 'unknown')}")
+
+    except Exception as e:
+        print(f"❌ Failed to send alert to AI: {str(e)}")
 
 @app.get("/health")
 async def health_check():

@@ -1,0 +1,20 @@
+{
+  "task": "respond_to_incident",
+  "trigger": "incident_created",
+  "actions": [
+    {
+      "type": "fetch_context",
+      "endpoint": "/api/incidents",
+      "params": {"status": "open"}
+    },
+    {
+      "type": "generate_response",
+      "model": "gpt-4o-mini",
+      "prompt": "Summarize the incident and propose remediation steps."
+    },
+    {
+      "type": "post_comment",
+      "endpoint": "/api/incidents/{id}/comments"
+    }
+  ]
+}

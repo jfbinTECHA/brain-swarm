@@ -15,3 +15,8 @@ sources:
 maintainers:
   - name: Brain Swarm Team
     email: team@brain-swarm.dev
+
+dependencies:
+  - name: kilo
+    repository: https://jfbintecha.github.io/kilo-charts/
+    version: ">=1.0.0"
