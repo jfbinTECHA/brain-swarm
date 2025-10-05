@@ -226,3 +226,17 @@ monitoring:
     enabled: false
   prometheus:
     enabled: false
+  alertmanager:
+    enabled: false
+    smtp:
+      enabled: false
+      smarthost: "smtp.gmail.com:587"
+      from: "alerts@brainswarm.ai"
+      username: "alerts@brainswarm.ai"
+    slack:
+      enabled: false
+      webhookUrl: ""
+      channel: "#brainswarm-alerts"
+    webhook:
+      enabled: false
+      url: "https://brainswarm.ai/alert-hook"
