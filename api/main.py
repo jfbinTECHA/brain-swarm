@@ -29,6 +29,7 @@ from ..security.auth import (
 )
 from ..plugin_registry import agent_registry
 from ..message_queue import message_queue
+from ..cortex.api.routes import router as cortex_router
 from ..config import settings
 
 # Conditional imports for scalability
@@ -863,6 +864,9 @@ async def resolve_alert(alert_id: str, resolved_by: str = "api_user"):
         prometheus_metrics.record_api_request(f"/monitoring/alerts/{alert_id}/resolve", "POST", 200, 0.001)
 
         return {"status": "resolved", "alert_id": alert_id, "correlation_id": correlation_id}
+
+# Include cortex router
+app.include_router(cortex_router)
 
 # Error handlers
 @app.exception_handler(Exception)
