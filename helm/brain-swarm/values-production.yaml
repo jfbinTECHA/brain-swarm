@@ -1,0 +1,308 @@
+# Production Values for Brain Swarm with Full Observability Stack
+# Deploy with: helm upgrade --install brain-swarm ./helm/brain-swarm -f values-production.yaml -n brainswarm
+
+# Global settings
+global:
+  imageRegistry: ""  # Set to your registry if using private images
+  imagePullSecrets: []
+  storageClass: "gp3"  # Use gp3 for production workloads
+
+# Brain Swarm API settings
+api:
+  enabled: true
+  replicaCount: 3  # Production scaling
+
+  image:
+    repository: jfbintecha/brain-swarm  # Your production image
+    tag: "latest"
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - api
+          topologyKey: kubernetes.io/hostname
+
+  config:
+    environment: production
+    node:
+      swarmId: "production-swarm"
+      host: "0.0.0.0"
+      port: 8000
+      maxAgents: 50
+      maxAgentLoad: 5
+    database:
+      url: "postgresql://brain_swarm:password@brain-swarm-postgres:5432/brain_swarm"
+    logging:
+      level: INFO
+    federation:
+      enabled: true
+      auth_token: "secure-federation-token-prod-2024"
+    scalability:
+      enabled: true
+      messageQueueMode: "cluster"
+      redisUrls: ["redis://brain-swarm-redis-cluster:6379"]
+      partitions: 16
+      asyncAgentsEnabled: true
+      agentPoolMin: 10
+      agentPoolMax: 50
+      loadBalancingStrategy: "least_loaded"
+      multiClusterEnabled: true
+      clusterId: "prod-cluster-1"
+      clusterRole: "primary"
+      autoScalingEnabled: true
+    security:
+      jwtSecret: "change-this-in-production-to-a-secure-random-string"
+      jwtAlgorithm: "HS256"
+      jwtExpirationHours: 24
+
+# Operations Server
+operations:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: jfbintecha/brain-swarm
+    tag: "latest"
+    pullPolicy: Always
+
+  service:
+    type: ClusterIP
+    port: 8001
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# Redis settings (clustered for production)
+redis:
+  enabled: true
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 6379
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  persistence:
+    enabled: true
+    size: 50Gi
+
+# Redis Exporter
+redisExporter:
+  enabled: true
+
+  image:
+    repository: oliver006/redis_exporter
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 9121
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Knowledge Cortex settings (FULLY ENABLED)
+cortex:
+  enabled: true
+  summarizer:
+    enabled: true
+    schedule: "*/15 * * * *"  # Every 15 minutes
+    successfulJobsHistoryLimit: 5
+    failedJobsHistoryLimit: 3
+  chroma:
+    enabled: true
+    image:
+      repository: chromadb/chroma
+      tag: "0.4.18"
+      pullPolicy: IfNotPresent
+    service:
+      port: 8000
+    persistence:
+      enabled: true
+      size: 100Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 8Gi
+      requests:
+        cpu: 1000m
+        memory: 4Gi
+  s3:
+    enabled: true
+    bucket: "brain-swarm-cortex-archive"
+    region: "us-east-1"
+    endpointUrl: ""
+  persistence:
+    enabled: true
+    size: 200Gi
+
+# Swarm View Dashboard
+swarmview:
+  enabled: true
+  replicas: 2
+  image:
+    repository: jfbintecha/brain-swarm-swarmview
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# Monitoring configuration (FULLY ENABLED)
+monitoring:
+  grafana:
+    enabled: true
+  prometheus:
+    enabled: true
+  alertmanager:
+    enabled: true
+    smtp:
+      enabled: true
+      smarthost: "smtp.gmail.com:587"
+      from: "alerts@brainswarm.ai"
+      username: "alerts@brainswarm.ai"
+    slack:
+      enabled: true
+      webhookUrl: ""  # Set via secret
+      channel: "#brainswarm-alerts"
+    webhook:
+      enabled: true
+      url: "http://brain-swarm-swarmops-hook.brainswarm.svc.cluster.local:8080/webhook"
+      image:
+        repository: jfbintecha/brain-swarm-swarmops-hook
+        tag: "latest"
+        pullPolicy: Always
+      service:
+        type: ClusterIP
+        port: 8080
+      replicas: 2
+      defaultSystem: "jira"
+      criticalSystem: "servicenow"  # Critical alerts to ServiceNow
+      jira:
+        enabled: true
+        projectKey: "ALERT"
+      github:
+        enabled: true
+      servicenow:
+        enabled: true
+        assignmentGroup: "Platform Engineering"
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+
+# Ingress for external access
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: brain-swarm.yourcompany.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: brain-swarm-tls
+      hosts:
+        - brain-swarm.yourcompany.com
+
+# Service account with necessary permissions
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/brain-swarm-service-role"
+  name: "brain-swarm-sa"
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# Additional volumes (for secrets, configmaps, etc.)
+extraVolumes:
+  - name: cortex-secrets
+    secret:
+      secretName: brain-swarm-cortex-secrets
+  - name: webhook-secrets
+    secret:
+      secretName: brain-swarm-webhook-secrets
+
+extraVolumeMounts:
+  - name: cortex-secrets
+    mountPath: /secrets/cortex
+    readOnly: true
+  - name: webhook-secrets
+    mountPath: /secrets/webhook
+    readOnly: true
+
+# Environment variables
+extraEnvVars:
+  - name: ENVIRONMENT
+    value: "production"
+  - name: LOG_LEVEL
+    value: "INFO"
+  - name: METRICS_ENABLED
+    value: "true"
