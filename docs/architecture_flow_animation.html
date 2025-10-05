@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Swarm Architecture Flow Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .animation-container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+        }
+
+        .title {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2em;
+            font-weight: 300;
+            color: #64b5f6;
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .flow-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .node-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            margin-bottom: 10px;
+            position: relative;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .node-label {
+            font-size: 0.9em;
+            font-weight: 600;
+            text-align: center;
+            color: #b0b0b0;
+            transition: all 0.3s ease;
+        }
+
+        /* Component specific styles */
+        .webhooks { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); }
+        .bridge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .cortex { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .kilo { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .grafana { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+
+        /* Active state with glow */
+        .flow-node.active .node-icon {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(100, 181, 246, 0.8);
+        }
+
+        .flow-node.active .node-label {
+            color: #64b5f6;
+            text-shadow: 0 0 10px rgba(100, 181, 246, 0.5);
+        }
+
+        /* Connection arrows */
+        .connection {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 3px;
+            background: linear-gradient(90deg, #333 0%, #555 100%);
+            z-index: 5;
+            transition: all 0.3s ease;
+        }
+
+        .connection.active {
+            background: linear-gradient(90deg, #64b5f6 0%, #4CAF50 50%, #00bcd4 100%);
+            box-shadow: 0 0 15px rgba(100, 181, 246, 0.6);
+        }
+
+        /* Data flow animation */
+        .data-packet {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #64b5f6 0%, #4CAF50 100%);
+            z-index: 15;
+            opacity: 0;
+            animation: flow 4s linear infinite;
+            box-shadow: 0 0 10px rgba(100, 181, 246, 0.8);
+        }
+
+        @keyframes flow {
+            0% {
+                left: 80px;
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                left: calc(100% - 80px);
+                opacity: 0;
+            }
+        }
+
+        /* Pulse animation for active nodes */
+        .pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        /* Component icons */
+        .webhooks::before { content: "🔗"; }
+        .bridge::before { content: "🌉"; }
+        .cortex::before { content: "🧠"; }
+        .kilo::before { content: "🤖"; }
+        .grafana::before { content: "📊"; }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .flow-diagram {
+                flex-direction: column;
+                gap: 30px;
+            }
+
+            .connection {
+                width: 3px;
+                height: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                top: auto;
+                bottom: -15px;
+            }
+
+            .data-packet {
+                animation: flow-vertical 4s linear infinite;
+            }
+
+            @keyframes flow-vertical {
+                0% {
+                    top: 80px;
+                    opacity: 0;
+                }
+                10% {
+                    opacity: 1;
+                }
+                90% {
+                    opacity: 1;
+                }
+                100% {
+                    top: calc(100% - 80px);
+                    opacity: 0;
+                }
+            }
+        }
+
+        /* Info panel */
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 300px;
+            z-index: 20;
+        }
+
+        .info-title {
+            color: #64b5f6;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .info-description {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="animation-container">
+        <h1 class="title">Brain Swarm Architecture Flow</h1>
+
+        <div class="flow-diagram">
+            <!-- Webhooks -->
+            <div class="flow-node" id="webhooks">
+                <div class="node-icon webhooks"></div>
+                <div class="node-label">Webhooks</div>
+            </div>
+
+            <!-- Connection 1 -->
+            <div class="connection" id="conn1"></div>
+
+            <!-- Bridge -->
+            <div class="flow-node" id="bridge">
+                <div class="node-icon bridge"></div>
+                <div class="node-label">Bridge</div>
+            </div>
+
+            <!-- Connection 2 -->
+            <div class="connection" id="conn2"></div>
+
+            <!-- Cortex -->
+            <div class="flow-node" id="cortex">
+                <div class="node-icon cortex"></div>
+                <div class="node-label">Cortex</div>
+            </div>
+
+            <!-- Connection 3 -->
+            <div class="connection" id="conn3"></div>
+
+            <!-- Kilo -->
+            <div class="flow-node" id="kilo">
+                <div class="node-icon kilo"></div>
+                <div class="node-label">Kilo</div>
+            </div>
+
+            <!-- Connection 4 -->
+            <div class="connection" id="conn4"></div>
+
+            <!-- Grafana -->
+            <div class="flow-node" id="grafana">
+                <div class="node-icon grafana"></div>
+                <div class="node-label">Grafana</div>
+            </div>
+
+            <!-- Data packet animation -->
+            <div class="data-packet" id="dataPacket"></div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="info-panel">
+            <div class="info-title" id="infoTitle">Incident Response Flow</div>
+            <div class="info-description" id="infoDescription">
+                Watch as alerts flow through the Brain Swarm architecture: from webhooks to bridge, through Cortex processing, AI orchestration with Kilo, and finally visualization in Grafana.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ArchitectureFlowAnimation {
+            constructor() {
+                this.nodes = ['webhooks', 'bridge', 'cortex', 'kilo', 'grafana'];
+                this.connections = ['conn1', 'conn2', 'conn3', 'conn4'];
+                this.currentStep = 0;
+                this.isAnimating = true;
+                this.stepDuration = 2000; // 2 seconds per step
+                this.infoTexts = {
+                    webhooks: {
+                        title: "Webhooks - Alert Ingestion",
+                        description: "External systems send alerts via webhooks. ServiceNow, monitoring tools, and other services push incident data to the Brain Swarm platform."
+                    },
+                    bridge: {
+                        title: "Bridge - Data Transformation",
+                        description: "The webhook bridge normalizes and transforms incoming alert data into a standardized format for processing by the Cortex system."
+                    },
+                    cortex: {
+                        title: "Cortex - Incident Processing",
+                        description: "Cortex analyzes alerts, correlates related incidents, and determines the appropriate triage strategy based on severity and impact."
+                    },
+                    kilo: {
+                        title: "Kilo - AI Orchestration",
+                        description: "Kilo Code AI provides intelligent analysis, suggests remediation steps, and orchestrates automated responses across the swarm."
+                    },
+                    grafana: {
+                        title: "Grafana - Visualization",
+                        description: "Real-time dashboards display incident status, system health, and AI-driven insights for human operators and stakeholders."
+                    }
+                };
+
+                this.init();
+                this.startAnimation();
+            }
+
+            init() {
+                // Set up connection widths dynamically
+                this.updateConnections();
+                window.addEventListener('resize', () => this.updateConnections());
+            }
+
+            updateConnections() {
+                const container = document.querySelector('.flow-diagram');
+                const nodes = container.querySelectorAll('.flow-node');
+                const connections = container.querySelectorAll('.connection');
+
+                for (let i = 0; i < connections.length; i++) {
+                    const conn = connections[i];
+                    const nextNode = nodes[i + 1];
+
+                    if (window.innerWidth <= 768) {
+                        // Vertical layout
+                        conn.style.width = '3px';
+                        conn.style.height = '30px';
+                        conn.style.left = '50%';
+                        conn.style.transform = 'translateX(-50%)';
+                        conn.style.top = 'auto';
+                        conn.style.bottom = '-15px';
+                    } else {
+                        // Horizontal layout
+                        const nodeWidth = 80; // node-icon width
+                        const spacing = (container.offsetWidth - (nodes.length * nodeWidth)) / (nodes.length - 1);
+                        conn.style.width = `${spacing - nodeWidth}px`;
+                        conn.style.left = `${(i + 1) * nodeWidth + i * (spacing - nodeWidth) + nodeWidth/2}px`;
+                    }
+                }
+            }
+
+            startAnimation() {
+                if (!this.isAnimating) return;
+
+                this.animateStep();
+                setInterval(() => {
+                    if (this.isAnimating) {
+                        this.animateStep();
+                    }
+                }, this.stepDuration);
+            }
+
+            animateStep() {
+                // Reset all nodes and connections
+                this.nodes.forEach(nodeId => {
+                    document.getElementById(nodeId).classList.remove('active', 'pulse');
+                });
+                this.connections.forEach(connId => {
+                    document.getElementById(connId).classList.remove('active');
+                });
+
+                // Activate current step
+                const currentNodeId = this.nodes[this.currentStep];
+                const currentNode = document.getElementById(currentNodeId);
+                currentNode.classList.add('active', 'pulse');
+
+                // Activate connection to next node (if not last)
+                if (this.currentStep < this.connections.length) {
+                    document.getElementById(this.connections[this.currentStep]).classList.add('active');
+                }
+
+                // Update info panel
+                const info = this.infoTexts[currentNodeId];
+                document.getElementById('infoTitle').textContent = info.title;
+                document.getElementById('infoDescription').textContent = info.description;
+
+                // Move to next step
+                this.currentStep = (this.currentStep + 1) % this.nodes.length;
+            }
+
+            pause() {
+                this.isAnimating = false;
+            }
+
+            resume() {
+                this.isAnimating = true;
+                this.startAnimation();
+            }
+        }
+
+        // Initialize animation when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.flowAnimation = new ArchitectureFlowAnimation();
+
+            // Add keyboard controls
+            document.addEventListener('keydown', (e) => {
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    if (window.flowAnimation.isAnimating) {
+                        window.flowAnimation.pause();
+                    } else {
+                        window.flowAnimation.resume();
+                    }
+                }
+            });
+
+            console.log('🧠 Brain Swarm Architecture Flow Animation loaded');
+            console.log('🎮 Press SPACE to pause/resume animation');
+        });
+    </script>
+</body>
+</html>

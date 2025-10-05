@@ -1,0 +1,33 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="brainGradientLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1976d2;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#388e3c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0097a7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="glowGradientLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1976d2;stop-opacity:0.2" />
+      <stop offset="50%" style="stop-color:#388e3c;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#0097a7;stop-opacity:0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer glow for light background -->
+  <circle cx="16" cy="16" r="15" fill="url(#glowGradientLight)"/>
+
+  <!-- Brain outline -->
+  <path d="M16 4c-1.5 0-3 0.5-4 1.5-1 1-1.5 2.5-1 4 0.5 1.5 2 2.5 3.5 2.5s3-1 3.5-2.5c0.5-1.5 0-3-1-4C19 4.5 17.5 4 16 4z" fill="url(#brainGradientLight)"/>
+  <path d="M12 10c-1 0-2 0.5-2.5 1.5-0.5 1-0.5 2.5 0.5 3.5 1 1 2.5 1.5 4 1 1.5-0.5 2.5-2 2.5-3.5C16.5 11.5 14.5 10 12 10z" fill="url(#brainGradientLight)"/>
+  <path d="M20 10c1 0 2 0.5 2.5 1.5 0.5 1 0.5 2.5-0.5 3.5-1 1-2.5 1.5-4 1-1.5-0.5-2.5-2-2.5-3.5C15.5 11.5 17.5 10 20 10z" fill="url(#brainGradientLight)"/>
+  <path d="M8 16c-1 0-2 0.5-2.5 1.5-0.5 1-0.5 2.5 0.5 3.5 1 1 2.5 1.5 4 1 1.5-0.5 2.5-2 2.5-3.5C14.5 17.5 12.5 16 8 16z" fill="url(#brainGradientLight)"/>
+  <path d="M24 16c1 0 2 0.5 2.5 1.5 0.5 1 0.5 2.5-0.5 3.5-1 1-2.5 1.5-4 1-1.5-0.5-2.5-2-2.5-3.5C19.5 17.5 21.5 16 24 16z" fill="url(#brainGradientLight)"/>
+  <path d="M16 20c-1.5 0-3 0.5-4 1.5-1 1-1.5 2.5-1 4 0.5 1.5 2 2.5 3.5 2.5s3-1 3.5-2.5c0.5-1.5 0-3-1-4C19 20.5 17.5 20 16 20z" fill="url(#brainGradientLight)"/>
+
+  <!-- Neural connections -->
+  <line x1="16" y1="8" x2="12" y2="12" stroke="url(#brainGradientLight)" stroke-width="1.5" opacity="0.9"/>
+  <line x1="16" y1="8" x2="20" y2="12" stroke="url(#brainGradientLight)" stroke-width="1.5" opacity="0.9"/>
+  <line x1="12" y1="14" x2="8" y2="18" stroke="url(#brainGradientLight)" stroke-width="1.5" opacity="0.9"/>
+  <line x1="20" y1="14" x2="24" y2="18" stroke="url(#brainGradientLight)" stroke-width="1.5" opacity="0.9"/>
+  <line x1="12" y1="14" x2="16" y2="22" stroke="url(#brainGradientLight)" stroke-width="1.5" opacity="0.9"/>
+  <line x1="20" y1="14" x2="16" y2="22" stroke="url(#brainGradientLight)" stroke-width="1.5" opacity="0.9"/>
+</svg>

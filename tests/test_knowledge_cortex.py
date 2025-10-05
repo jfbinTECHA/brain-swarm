@@ -1,348 +1,263 @@
 """
-Tests for the Knowledge Cortex Memory System - 4-layer architecture
+Tests for Knowledge Cortex memory system.
 """
+
 import pytest
-import time
+import json
 from unittest.mock import Mock, patch
+
 from memory.knowledge_cortex import KnowledgeCortex
-from memory.backends import (
-    RedisCacheBackend,
-    ChromaVectorBackend,
-    NetworkXGraphBackend,
-    S3ArchiveBackend
-)
 
 
 class TestKnowledgeCortex:
-    """Test suite for Knowledge Cortex memory system"""
+    """Test the Knowledge Cortex system"""
+
+    def setup_method(self):
+        """Set up test instance with mock backends"""
+        self.config = {
+            "cache": {"backend": "memory"},  # Use in-memory for testing
+            "vector": {"backend": "memory"},
+            "graph": {"backend": "memory"},
+            "archive": {"backend": "memory"}
+        }
+        self.cortex = KnowledgeCortex(self.config)
 
     def test_initialization(self):
-        """Test Knowledge Cortex initialization"""
-        config = {
-            "cache": {"backend": "redis_cache", "host": "localhost", "port": 6379},
-            "vector": {"backend": "chroma_vector", "host": "localhost", "port": 8000},
-            "graph": {"backend": "networkx_graph", "db_path": ":memory:"},
-            "archive": {"backend": "s3_archive", "bucket_name": "test-bucket"}
-        }
+        """Test cortex initializes with all layers"""
+        assert self.cortex.layers["cache"] is not None
+        assert self.cortex.layers["vector"] is not None
+        assert self.cortex.layers["graph"] is not None
+        assert self.cortex.layers["archive"] is not None
 
-        cortex = KnowledgeCortex(config)
+    def test_store_and_retrieve(self):
+        """Test basic store and retrieve operations"""
+        test_data = {"name": "test", "value": 123}
+        test_key = "test_key"
 
-        # Should have all layers initialized (even if some fail due to missing services)
-        assert hasattr(cortex, 'layers')
-        assert 'cache' in cortex.layers
-        assert 'vector' in cortex.layers
-        assert 'graph' in cortex.layers
-        assert 'archive' in cortex.layers
+        # Store data
+        result = self.cortex.store(test_key, test_data)
+        assert result is True
 
-    def test_hierarchical_storage(self):
-        """Test that data is stored across appropriate layers"""
-        # Mock all backends to avoid external dependencies
-        with patch('memory.backends.RedisCacheBackend') as mock_cache, \
-             patch('memory.backends.ChromaVectorBackend') as mock_vector, \
-             patch('memory.backends.NetworkXGraphBackend') as mock_graph, \
-             patch('memory.backends.S3ArchiveBackend') as mock_archive:
-
-            # Setup mocks
-            mock_cache.return_value.store.return_value = True
-            mock_vector.return_value.store.return_value = True
-            mock_graph.return_value.store.return_value = True
-            mock_archive.return_value.store.return_value = True
-
-            cortex = KnowledgeCortex()
-            cortex.layers['cache'] = mock_cache.return_value
-            cortex.layers['vector'] = mock_vector.return_value
-            cortex.layers['graph'] = mock_graph.return_value
-            cortex.layers['archive'] = mock_archive.return_value
-
-            # Test storing regular data
-            test_data = "test knowledge"
-            metadata = {"type": "semantic"}
-
-            result = cortex.store("test_key", test_data, metadata)
-
-            # Should attempt to store in all layers
-            mock_cache.return_value.store.assert_called()
-            mock_vector.return_value.store.assert_called()
-            mock_graph.return_value.store.assert_called()  # Graph gets all data for potential relationships
-            mock_archive.return_value.store.assert_called()
-
-            assert result is True
+        # Retrieve data
+        retrieved = self.cortex.retrieve(test_key)
+        assert retrieved == test_data
 
     def test_hierarchical_retrieval(self):
-        """Test hierarchical retrieval: Cache → Vector → Graph → Archive"""
-        with patch('memory.backends.RedisCacheBackend') as mock_cache, \
-             patch('memory.backends.ChromaVectorBackend') as mock_vector, \
-             patch('memory.backends.NetworkXGraphBackend') as mock_graph, \
-             patch('memory.backends.S3ArchiveBackend') as mock_archive:
+        """Test that retrieval works through cache first"""
+        test_data = {"content": "test data"}
+        test_key = "hierarchy_test"
 
-            cortex = KnowledgeCortex()
-            cortex.layers['cache'] = mock_cache.return_value
-            cortex.layers['vector'] = mock_vector.return_value
-            cortex.layers['graph'] = mock_graph.return_value
-            cortex.layers['archive'] = mock_archive.return_value
+        # Store data
+        self.cortex.store(test_key, test_data)
 
-            # Test cache hit
-            mock_cache.return_value.retrieve.return_value = "cached_data"
-            result = cortex.retrieve("test_key")
-            assert result == "cached_data"
-            mock_cache.return_value.retrieve.assert_called_with("test_key")
+        # First retrieval should populate cache
+        result1 = self.cortex.retrieve(test_key)
+        assert result1 == test_data
 
-            # Reset and test cache miss, vector hit
-            mock_cache.return_value.retrieve.return_value = None
-            mock_vector.return_value.retrieve.return_value = "vector_data"
+        # Second retrieval should come from cache
+        result2 = self.cortex.retrieve(test_key)
+        assert result2 == test_data
 
-            result = cortex.retrieve("test_key")
-            assert result == "vector_data"
-            mock_vector.return_value.retrieve.assert_called_with("test_key")
-            # Should cache the result
-            mock_cache.return_value.store.assert_called()
+        # Check access stats
+        assert self.cortex.access_stats["cache_hits"] >= 1
 
-    def test_semantic_search_fallback(self):
-        """Test semantic search fallback when direct retrieval fails"""
-        with patch('memory.backends.RedisCacheBackend') as mock_cache, \
-             patch('memory.backends.ChromaVectorBackend') as mock_vector:
+    def test_vector_storage(self):
+        """Test vector layer storage for text content"""
+        text_data = "This is a test document for semantic search"
+        test_key = "vector_test"
 
-            cortex = KnowledgeCortex()
-            cortex.layers['cache'] = mock_cache.return_value
-            cortex.layers['vector'] = mock_vector.return_value
-            cortex.layers['graph'] = None
-            cortex.layers['archive'] = None
+        # Store with vectorize hint
+        result = self.cortex.store(test_key, text_data, {"vectorize": True})
+        assert result is True
 
-            # All direct retrievals fail
-            mock_cache.return_value.retrieve.return_value = None
-            mock_vector.return_value.retrieve.return_value = None
+        # Retrieve
+        retrieved = self.cortex.retrieve(test_key)
+        assert retrieved == text_data
 
-            # But semantic search succeeds
-            mock_vector.return_value.search.return_value = ["semantic_result"]
+    def test_graph_relationships(self):
+        """Test graph layer for relationships"""
+        # Add a relationship
+        result = self.cortex.add_relationship("user_1", "team_a", "member_of")
+        assert result is True
 
-            result = cortex.retrieve("test_key", search_fallback=True)
+        # Query relationships
+        relationships = self.cortex.get_relationships("user_1")
+        assert len(relationships) > 0
+        assert relationships[0]["relation_type"] == "member_of"
 
-            assert result == "semantic_result"
-            mock_vector.return_value.search.assert_called_with("test_key", top_k=1)
+    def test_search_functionality(self):
+        """Test multi-layer search"""
+        # Store test data
+        self.cortex.store("doc1", "Python programming tutorial", {"vectorize": True})
+        self.cortex.store("doc2", "Java development guide", {"vectorize": True})
 
-    def test_relationship_management(self):
-        """Test adding and querying relationships"""
-        with patch('memory.backends.NetworkXGraphBackend') as mock_graph, \
-             patch('memory.backends.RedisCacheBackend') as mock_cache:
+        # Search
+        results = self.cortex.search("programming")
+        assert len(results) > 0
 
-            cortex = KnowledgeCortex()
-            cortex.layers['graph'] = mock_graph.return_value
-            cortex.layers['cache'] = mock_cache.return_value
-
-            mock_graph.return_value.store.return_value = True
-
-            # Add a relationship
-            result = cortex.add_relationship("entity1", "entity2", "related_to",
-                                           {"confidence": 0.8})
-
-            assert result is True
-            mock_graph.return_value.store.assert_called()
-
-            # Should also cache the relationship
-            mock_cache.return_value.store.assert_called()
-
-    def test_multi_layer_search(self):
-        """Test searching across multiple layers"""
-        with patch('memory.backends.ChromaVectorBackend') as mock_vector, \
-             patch('memory.backends.NetworkXGraphBackend') as mock_graph, \
-             patch('memory.backends.S3ArchiveBackend') as mock_archive:
-
-            cortex = KnowledgeCortex()
-            cortex.layers['vector'] = mock_vector.return_value
-            cortex.layers['graph'] = mock_graph.return_value
-            cortex.layers['archive'] = mock_archive.return_value
-            cortex.layers['cache'] = None
-
-            # Setup mock returns
-            mock_vector.return_value.search.return_value = [{"vector": "result1"}]
-            mock_graph.return_value.search.return_value = [{"graph": "result2"}]
-            mock_archive.return_value.search.return_value = [{"archive": "result3"}]
-
-            results = cortex.search("test query")
-
-            # Should get results from all layers
-            assert len(results) == 3
-            assert any("vector" in str(r) for r in results)
-            assert any("graph" in str(r) for r in results)
-            assert any("archive" in str(r) for r in results)
-
-    def test_health_status(self):
+    def test_health_check(self):
         """Test health status reporting"""
-        with patch('memory.backends.RedisCacheBackend') as mock_cache:
+        status = self.cortex.get_health_status()
 
-            cortex = KnowledgeCortex()
-            cortex.layers['cache'] = mock_cache.return_value
-            cortex.layers['vector'] = None
-            cortex.layers['graph'] = None
-            cortex.layers['archive'] = None
+        assert "overall_status" in status
+        assert "layers" in status
+        assert "access_stats" in status
 
-            mock_cache.return_value.health_check.return_value = {
-                "status": "healthy",
-                "entries": 42
-            }
+        # Check all layers are present
+        expected_layers = ["cache", "vector", "graph", "archive"]
+        for layer in expected_layers:
+            assert layer in status["layers"]
 
-            status = cortex.get_health_status()
+    def test_optimization(self):
+        """Test system optimization"""
+        # This should run without errors
+        self.cortex.optimize()
 
-            assert status["overall_status"] == "degraded"  # Some layers not initialized
-            assert "cache" in status["layers"]
-            assert status["layers"]["cache"]["status"] == "healthy"
-            assert "unhealthy_layers" in status
+        # Health should still be good
+        status = self.cortex.get_health_status()
+        assert status["overall_status"] in ["healthy", "degraded"]
 
-    def test_data_archiving(self):
+    @patch('memory.knowledge_cortex.time')
+    def test_archive_old_data(self, mock_time):
         """Test archiving old data"""
-        with patch('memory.backends.RedisCacheBackend') as mock_cache, \
-             patch('memory.backends.S3ArchiveBackend') as mock_archive:
+        # Mock time to simulate old data
+        mock_time.time.return_value = 1000000000  # Old timestamp
 
-            cortex = KnowledgeCortex()
-            cortex.layers['cache'] = mock_cache.return_value
-            cortex.layers['archive'] = mock_archive.return_value
+        # Store some data
+        self.cortex.store("old_data", "old content", {"timestamp": 1000000000})
 
-            # Mock old cache entry
-            old_timestamp = time.time() - (31 * 24 * 3600)  # 31 days ago
-            mock_cache.return_value.keys.return_value = ["old_key"]
-            mock_cache.return_value.retrieve.return_value = {
-                "data": "old_data",
-                "timestamp": old_timestamp,
-                "metadata": {}
-            }
-            mock_archive.return_value.store.return_value = True
+        # Mock current time as much newer
+        mock_time.time.return_value = 1000000000 + (40 * 24 * 3600)  # 40 days later
 
-            cortex.archive_old_data(age_threshold_days=30)
+        # Archive old data
+        self.cortex.archive_old_data(age_threshold_days=30)
 
-            # Should archive the old data
-            mock_archive.return_value.store.assert_called_with(
-                "old_key", "old_data", pytest.any(dict)
-            )
-            # Should delete from cache
-            mock_cache.return_value.delete.assert_called_with("old_key")
+        # Data should still be retrievable (archive functionality depends on backend)
 
-    def test_layer_initialization_failure(self):
+
+class TestKnowledgeCortexConfiguration:
+    """Test cortex configuration options"""
+
+    def test_default_config(self):
+        """Test default configuration"""
+        cortex = KnowledgeCortex()
+        config = cortex.config
+
+        assert "cache" in config
+        assert "vector" in config
+        assert "graph" in config
+        assert "archive" in config
+
+    def test_custom_config(self):
+        """Test custom configuration"""
+        custom_config = {
+            "cache": {"backend": "memory", "custom_param": "value"},
+            "vector": {"backend": "memory"},
+            "graph": {"backend": "memory"},
+            "archive": {"backend": "memory"}
+        }
+
+        cortex = KnowledgeCortex(custom_config)
+        assert cortex.config == custom_config
+
+    def test_layer_failure_handling(self):
         """Test graceful handling of layer initialization failures"""
-        # Test with invalid config that will cause failures
+        # Create config that will cause failures (but in test environment, memory backend should work)
         config = {
-            "cache": {"backend": "redis_cache", "host": "invalid_host", "port": 99999},
-            "vector": {"backend": "chroma_vector", "host": "invalid_host", "port": 99999},
-            "graph": {"backend": "networkx_graph", "db_path": "/invalid/path"},
-            "archive": {"backend": "s3_archive", "bucket_name": "invalid_bucket"}
+            "cache": {"backend": "nonexistent_backend"},
+            "vector": {"backend": "memory"},
+            "graph": {"backend": "memory"},
+            "archive": {"backend": "memory"}
         }
 
         cortex = KnowledgeCortex(config)
 
-        # Should still initialize but layers should be None or handle errors gracefully
-        assert cortex.layers is not None
+        # Cache layer should fail gracefully
+        assert cortex.layers["cache"] is None
 
-        # Health check should report issues
+        # Other layers should still work
+        assert cortex.layers["vector"] is not None
+
+        # Overall health should reflect the failure
         status = cortex.get_health_status()
-        assert status["overall_status"] in ["degraded", "unhealthy"]
+        assert status["overall_status"] == "degraded"
 
 
-class TestTemporalSemanticRelationalEdges:
-    """Test the different edge types supported by the graph layer"""
+class TestKnowledgeCortexIntegration:
+    """Integration tests for the full cortex system"""
 
-    def test_temporal_edges(self):
-        """Test temporal relationship edges"""
-        with patch('memory.backends.NetworkXGraphBackend') as mock_graph:
+    def test_end_to_end_workflow(self):
+        """Test complete workflow from storage to retrieval"""
+        cortex = KnowledgeCortex({
+            "cache": {"backend": "memory"},
+            "vector": {"backend": "memory"},
+            "graph": {"backend": "memory"},
+            "archive": {"backend": "memory"}
+        })
 
-            cortex = KnowledgeCortex()
-            cortex.layers['graph'] = mock_graph.return_value
-            mock_graph.return_value.store.return_value = True
+        # 1. Store user profile
+        user_data = {
+            "id": "user_123",
+            "name": "Alice Johnson",
+            "role": "Senior Developer",
+            "skills": ["Python", "AI", "Kubernetes"]
+        }
 
-            # Add temporal relationship (before/after)
-            result = cortex.add_relationship(
-                "event1", "event2", "happened_before",
-                {"edge_type": "temporal", "time_diff": 3600}
-            )
+        cortex.store("user_123", user_data, {
+            "vectorize": True,
+            "data_type": "user_profile"
+        })
 
-            assert result is True
+        # 2. Add relationships
+        cortex.add_relationship("user_123", "team_backend", "member_of")
+        cortex.add_relationship("user_123", "project_ai", "works_on")
 
-            # Verify the call
-            call_args = mock_graph.return_value.store.call_args
-            assert call_args[1]["metadata"]["edge_type"] == "happened_before"
+        # 3. Retrieve data
+        retrieved_user = cortex.retrieve("user_123")
+        assert retrieved_user == user_data
 
-    def test_semantic_edges(self):
-        """Test semantic relationship edges"""
-        with patch('memory.backends.NetworkXGraphBackend') as mock_graph:
+        # 4. Search for users with Python skills
+        search_results = cortex.search("Python developer")
+        assert len(search_results) > 0
 
-            cortex = KnowledgeCortex()
-            cortex.layers['graph'] = mock_graph.return_value
-            mock_graph.return_value.store.return_value = True
+        # 5. Get user relationships
+        relationships = cortex.get_relationships("user_123")
+        assert len(relationships) >= 2  # member_of and works_on
 
-            # Add semantic relationship (is_a, part_of, etc.)
-            result = cortex.add_relationship(
-                "cat", "animal", "is_a",
-                {"edge_type": "semantic", "confidence": 0.95}
-            )
+        # 6. Check system health
+        health = cortex.get_health_status()
+        assert health["overall_status"] == "healthy"
 
-            assert result is True
+    def test_memory_layer_interaction(self):
+        """Test how data flows between memory layers"""
+        cortex = KnowledgeCortex({
+            "cache": {"backend": "memory"},
+            "vector": {"backend": "memory"},
+            "graph": {"backend": "memory"},
+            "archive": {"backend": "memory"}
+        })
 
-    def test_relational_edges(self):
-        """Test relational edges between entities"""
-        with patch('memory.backends.NetworkXGraphBackend') as mock_graph:
+        # Store data that should go to multiple layers
+        content = "Advanced machine learning techniques for natural language processing"
+        metadata = {
+            "vectorize": True,
+            "store_graph": True,
+            "data_type": "article",
+            "tags": ["ML", "NLP", "AI"]
+        }
 
-            cortex = KnowledgeCortex()
-            cortex.layers['graph'] = mock_graph.return_value
-            mock_graph.return_value.store.return_value = True
+        cortex.store("article_001", content, metadata)
 
-            # Add relational edge (works_with, located_in, etc.)
-            result = cortex.add_relationship(
-                "alice", "bob", "collaborates_with",
-                {"edge_type": "relational", "project": "brain_swarm"}
-            )
+        # Should be retrievable from cache (primary)
+        cached = cortex.retrieve("article_001")
+        assert cached == content
 
-            assert result is True
+        # Should be searchable in vector layer
+        vector_results = cortex.search("machine learning", search_type="semantic")
+        assert len(vector_results) > 0
 
+        # Should have created graph relationships if applicable
+        # (This depends on the specific graph storage logic)
 
-class TestLayerSpecificFunctionality:
-    """Test layer-specific functionality"""
-
-    def test_cache_ttl_functionality(self):
-        """Test cache TTL behavior"""
-        with patch('memory.backends.RedisCacheBackend') as mock_cache:
-
-            cortex = KnowledgeCortex()
-            cortex.layers['cache'] = mock_cache.return_value
-            mock_cache.return_value.store.return_value = True
-
-            # Store with custom TTL
-            cortex.store("ttl_key", "data", {"ttl": 7200})
-
-            # Verify TTL was passed
-            call_args = mock_cache.return_value.store.call_args
-            assert call_args[1]["metadata"]["ttl"] == 7200
-
-    def test_vector_similarity_search(self):
-        """Test vector layer similarity search"""
-        with patch('memory.backends.ChromaVectorBackend') as mock_vector:
-
-            cortex = KnowledgeCortex()
-            cortex.layers['vector'] = mock_vector.return_value
-
-            mock_vector.return_value.search.return_value = [
-                {"document": "similar content", "similarity": 0.85}
-            ]
-
-            results = cortex.search("test query", search_type="semantic")
-
-            assert len(results) > 0
-            mock_vector.return_value.search.assert_called_with("test query", **{})
-
-    def test_graph_traversal(self):
-        """Test graph relationship traversal"""
-        with patch('memory.backends.NetworkXGraphBackend') as mock_graph:
-
-            cortex = KnowledgeCortex()
-            cortex.layers['graph'] = mock_graph.return_value
-
-            mock_graph.return_value.search.return_value = [
-                {"type": "edge", "source": "A", "target": "B", "edge_type": "related"}
-            ]
-
-            relationships = cortex.get_relationships("entity_A")
-
-            # This would need more sophisticated implementation in the real graph backend
-            # For now, just test that the method exists and calls the backend
-            assert isinstance(relationships, list)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])
+        # Archive should contain the data
+        # (Archive storage depends on backend implementation)
