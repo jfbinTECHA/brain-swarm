@@ -118,7 +118,8 @@ ingress:
   className: "nginx"
   host: "bridge.brainswarm.local"
   certManagerIssuer: "letsencrypt-prod"
-  whitelist: ""  # Comma-separated list of CIDR ranges (e.g., "192.168.1.0/24,10.0.0.0/8")
+  whitelist: ""  # NGINX: Comma-separated list of CIDR ranges (e.g., "192.168.1.0/24,10.0.0.0/8")
+  allowedCIDRs: []  # Traefik: List of CIDR ranges
   annotations: {}
   tls:
     enabled: true
