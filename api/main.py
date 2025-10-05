@@ -123,6 +123,15 @@ async def startup_event():
             scalable_ops = start_scalable_cloud_ops()
             logger.log("INFO", "API", "Scalable cloud operations started")
 
+        # Initialize scheduled summarizer job
+        try:
+            from ..cortex.scheduled_summarizer import scheduled_summarizer
+            if scheduled_summarizer:
+                await scheduled_summarizer.start()
+                logger.log("INFO", "API", "Scheduled summarizer job started")
+        except Exception as e:
+            logger.log("WARNING", "API", f"Failed to start scheduled summarizer: {e}")
+
     except Exception as e:
         logger.log("ERROR", "API", f"Failed to initialize services: {e}")
         raise
@@ -167,6 +176,124 @@ async def shutdown_event():
 
 # Global coordinator instance
 coordinator = None
+
+async def get_swarm_graph_data(coord) -> Dict[str, Any]:
+    """Generate graph visualization data for swarm view"""
+    graph_data = {
+        "nodes": [],
+        "edges": [],
+        "metadata": {
+            "node_types": ["agent", "task", "coordinator"],
+            "edge_types": ["assigned_to", "communicates_with", "depends_on"],
+            "timestamp": time.time()
+        }
+    }
+
+    # Add coordinator node
+    graph_data["nodes"].append({
+        "id": f"coordinator_{coord.swarm_id}",
+        "label": f"Coordinator\n{coord.swarm_id}",
+        "type": "coordinator",
+        "size": 20,
+        "color": "#3b82f6",
+        "position": {"x": 0, "y": 0}
+    })
+
+    # Add agent nodes
+    agent_nodes = []
+    for i, agent_id in enumerate(coord.registered_agents):
+        load = coord.agent_loads.get(agent_id, 0)
+        status = "active" if load < coord.max_agent_load else "busy"
+
+        # Position agents in a circle around coordinator
+        angle = (2 * 3.14159 * i) / max(1, len(coord.registered_agents))
+        radius = 100
+        x = radius * 3.14159 * 0.5  # cos(angle) approximation
+        y = radius * 3.14159 * 0.5  # sin(angle) approximation
+
+        agent_node = {
+            "id": agent_id,
+            "label": f"{agent_id}\nLoad: {load}",
+            "type": "agent",
+            "size": 15 + min(load * 2, 10),  # Size based on load
+            "color": "#22c55e" if status == "active" else "#eab308",
+            "position": {"x": x, "y": y},
+            "properties": {
+                "load": load,
+                "status": status,
+                "max_load": coord.max_agent_load
+            }
+        }
+        agent_nodes.append(agent_node)
+
+        # Connect agent to coordinator
+        graph_data["edges"].append({
+            "id": f"coord_to_{agent_id}",
+            "from": f"coordinator_{coord.swarm_id}",
+            "to": agent_id,
+            "type": "manages",
+            "color": "#6b7280",
+            "width": 2
+        })
+
+    graph_data["nodes"].extend(agent_nodes)
+
+    # Add task nodes
+    task_nodes = []
+    for task_id, task_info in coord.delegation_system.active_tasks.items():
+        assigned_agent = task_info["task"].assigned_agent
+
+        # Position task near its assigned agent
+        agent_index = list(coord.registered_agents.keys()).index(assigned_agent) if assigned_agent in coord.registered_agents else 0
+        base_x = agent_nodes[agent_index]["position"]["x"] if agent_index < len(agent_nodes) else 0
+        base_y = agent_nodes[agent_index]["position"]["y"] if agent_index < len(agent_nodes) else 0
+
+        task_node = {
+            "id": task_id,
+            "label": task_info["task"].description[:20] + "..." if len(task_info["task"].description) > 20 else task_info["task"].description,
+            "type": "task",
+            "size": 10,
+            "color": "#f59e0b",
+            "position": {"x": base_x + 30, "y": base_y + 30},
+            "properties": {
+                "status": task_info["status"],
+                "priority": task_info.get("priority", 1),
+                "assigned_agent": assigned_agent
+            }
+        }
+        task_nodes.append(task_node)
+
+        # Connect task to assigned agent
+        if assigned_agent:
+            graph_data["edges"].append({
+                "id": f"{task_id}_to_{assigned_agent}",
+                "from": task_id,
+                "to": assigned_agent,
+                "type": "assigned_to",
+                "color": "#22c55e",
+                "width": 3
+            })
+
+    graph_data["nodes"].extend(task_nodes)
+
+    # Add communication edges between agents (simplified)
+    # In a real implementation, this would track actual message passing
+    for i, agent1 in enumerate(coord.registered_agents):
+        for j, agent2 in enumerate(coord.registered_agents):
+            if i < j:  # Avoid duplicate edges
+                # Add occasional communication edges for visualization
+                if (hash(f"{agent1}_{agent2}") % 10) < 3:  # 30% chance
+                    graph_data["edges"].append({
+                        "id": f"comm_{agent1}_{agent2}",
+                        "from": agent1,
+                        "to": agent2,
+                        "type": "communicates_with",
+                        "color": "#a855f7",
+                        "width": 1,
+                        "style": "dashed"
+                    })
+
+    return graph_data
 
 def create_app():
     """Factory function to create FastAPI app for testing"""
@@ -628,8 +755,16 @@ async def swarm_view_websocket(websocket: WebSocket):
         }
     })
 
-    # Send periodic system metrics
+    # Send initial graph visualization data
+    graph_data = await get_swarm_graph_data(coord)
+    await websocket.send_json({
+        "type": "graph_visualization",
+        "data": graph_data
+    })
+
+    # Send periodic system metrics and graph updates
     async def send_metrics():
+        graph_update_counter = 0
         while True:
             try:
                 coord = get_coordinator()
@@ -643,6 +778,17 @@ async def swarm_view_websocket(websocket: WebSocket):
                     }
                 }
                 await websocket.send_json(metrics_data)
+
+                # Send graph updates every 30 seconds (6 * 5 seconds)
+                graph_update_counter += 1
+                if graph_update_counter >= 6:
+                    graph_data = await get_swarm_graph_data(coord)
+                    await websocket.send_json({
+                        "type": "graph_update",
+                        "data": graph_data
+                    })
+                    graph_update_counter = 0
+
                 await asyncio.sleep(5)  # Send every 5 seconds
             except Exception as e:
                 logger.log("ERROR", "WebSocket", f"Error sending metrics: {e}")

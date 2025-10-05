@@ -168,3 +168,54 @@ extraVolumeMounts: []
 
 # Environment variables
 extraEnvVars: []
+
+# Knowledge Cortex settings
+cortex:
+  enabled: false
+  summarizer:
+    enabled: true
+    schedule: "*/15 * * * *"  # Every 15 minutes
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 2
+  chroma:
+    enabled: true
+    image:
+      repository: chromadb/chroma
+      tag: "0.4.18"
+      pullPolicy: IfNotPresent
+    service:
+      port: 8000
+    persistence:
+      enabled: true
+      size: 10Gi
+  s3:
+    enabled: false
+    bucket: "brain-swarm-cortex"
+    region: "us-east-1"
+    endpointUrl: ""
+  persistence:
+    enabled: true
+    size: 20Gi
+
+# Swarm View Dashboard settings
+swarmview:
+  enabled: false
+  replicas: 1
+  image:
+    repository: brain-swarm-swarmview
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: ""
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

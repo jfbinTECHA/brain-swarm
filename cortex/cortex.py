@@ -10,21 +10,24 @@ from .adapters.cache_redis import CacheRedis
 from .adapters.vector_chroma_faiss import VectorStore
 from .adapters.graph_nx_duckdb import GraphStore
 from .adapters.archive_s3_duckdb import ArchiveStore
+from .adapters.embedding_adapter import embedding_adapter
 
-# Placeholder: you likely already have an embedding function wrapper
-# Plug your existing model adapter here
-
+# Use the embedding adapter for text embeddings
 def embed_texts(texts: List[str]) -> List[List[float]]:
-    # TODO: replace with real embedding call (OpenAI/Text-Embedding, etc.)
-    import hashlib
-    import numpy as np
-    out = []
-    for t in texts:
-        h = hashlib.sha256(t.encode()).digest()
-        vec = np.frombuffer(h[:256], dtype=np.uint8).astype("float32")
-        vec = vec / (np.linalg.norm(vec) + 1e-9)
-        out.append(vec.tolist())
-    return out
+    """Embed texts using the configured embedding adapter"""
+    if embedding_adapter:
+        return embedding_adapter.embed_texts(texts)
+    else:
+        # Fallback to SHA256 if adapter failed to initialize
+        import hashlib
+        import numpy as np
+        out = []
+        for t in texts:
+            h = hashlib.sha256(t.encode()).digest()
+            vec = np.frombuffer(h[:256], dtype=np.uint8).astype("float32")
+            vec = vec / (np.linalg.norm(vec) + 1e-9)
+            out.append(vec.tolist())
+        return out
 
 class KnowledgeCortex:
     def __init__(self):

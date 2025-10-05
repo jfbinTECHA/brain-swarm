@@ -423,6 +423,26 @@ class MetricsCollector:
                 mount_point="/"
             ).set(disk_bytes)
 
+    def track_summarizer_job(self, duration: float, events_processed: int,
+                           summaries_created: int, status: str):
+        """Track summarizer job execution"""
+        # Record as a custom business metric
+        self.business_value_created.labels(
+            value_type="event_summarization",
+            task_category="system_maintenance"
+        ).inc(summaries_created)
+
+        # Record duration as API request duration (reuse existing metric)
+        self.api_request_duration.labels(
+            endpoint="/internal/summarizer",
+            method="JOB"
+        ).observe(duration)
+
+        logger.log("INFO", "MetricsCollector", f"Summarizer job tracked: {events_processed} events, "
+                  f"{summaries_created} summaries, status: {status}",
+                  {"duration": duration, "events_processed": events_processed,
+                   "summaries_created": summaries_created, "status": status})
+
     def get_metrics_output(self) -> str:
         """Get Prometheus metrics output"""
         return generate_latest(self.registry).decode('utf-8')
