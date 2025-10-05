@@ -223,7 +223,7 @@ swarmview:
 # Monitoring configuration
 monitoring:
   grafana:
-    enabled: false
+    enabled: true
   prometheus:
     enabled: false
   alertmanager:
