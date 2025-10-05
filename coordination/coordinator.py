@@ -15,6 +15,7 @@ from ..security.policy_layer import (
     PolicyEngine, evaluate_task_policy, check_ethical_alignment,
     get_governance_status, report_policy_violation
 )
+from .adaptive_broker import AdaptiveTaskBroker
 import time
 import statistics
 from collections import deque
@@ -1413,6 +1414,9 @@ class SwarmCoordinator(BaseAgent):
         self.max_agent_load = 3  # Maximum concurrent tasks per agent
         self.mini_coordinators = {}  # Track active mini-coordinators
 
+        # Adaptive Task Broker for reinforcement learning-based routing
+        self.adaptive_broker = AdaptiveTaskBroker(alpha=0.1, reward_window=50)
+
         # Fault tolerance and retry system
         self.retry_manager = RetryManager(max_retries=3, base_delay=2.0, max_delay=300.0)
 
@@ -1443,6 +1447,8 @@ class SwarmCoordinator(BaseAgent):
         """Register an agent with the coordinator"""
         if agent_id not in self.registered_agents:
             self.registered_agents.append(agent_id)
+            # Register with adaptive broker for learning
+            self.adaptive_broker.register_agent(agent_id)
 
     def set_memory_systems(self, working_memory, long_term_memory):
         """Set working and long-term memory systems"""
@@ -1543,6 +1549,10 @@ class SwarmCoordinator(BaseAgent):
 
             # Record for existing forecaster
             self.load_forecaster.record_task_completion(assigned_agent, task_type, completion_time)
+
+            # Update adaptive broker with task outcome for learning
+            resource_cost = 0.5  # Placeholder - could be calculated based on actual resource usage
+            self.adaptive_broker.complete_task(task_id, success, completion_time, resource_cost)
 
             # Record for new comprehensive predictors
             self.task_completion_predictor.record_task_completion(
@@ -1886,12 +1896,19 @@ class SwarmCoordinator(BaseAgent):
         # Check for auto-scaling needs
         self._check_auto_scaling()
 
-        # Initial agent selection with load balancing consideration
-        assigned_agent = self.get_least_loaded_agent()
+        # Use adaptive broker for intelligent task routing
+        task_type = self._infer_task_type(subtask_desc)
+        assigned_agent = self.adaptive_broker.assign_task(
+            subtask_id, subtask_desc, self.registered_agents, task_type
+        )
+
+        # Fallback to traditional methods if adaptive broker fails
         if not assigned_agent:
-            assigned_agent = self.delegation_system.assign_subtask(
-                subtask_desc, self.registered_agents, agent_assignments
-            )
+            assigned_agent = self.get_least_loaded_agent()
+            if not assigned_agent:
+                assigned_agent = self.delegation_system.assign_subtask(
+                    subtask_desc, self.registered_agents, agent_assignments
+                )
 
         if assigned_agent:
             # Predictive control: Check if task should be rerouted to prevent failure
@@ -2174,6 +2191,7 @@ class SwarmCoordinator(BaseAgent):
             'goal_statistics': get_goal_statistics() if self.autonomous_goal_generator else {},
             'governance_status': get_governance_status(),
             'retry_statistics': self.retry_manager.get_retry_statistics(),
+            'adaptive_broker_performance': self.adaptive_broker.get_performance_report(),
             'recommendations': [],
             'risk_assessment': {},
             'timestamp': time.time()

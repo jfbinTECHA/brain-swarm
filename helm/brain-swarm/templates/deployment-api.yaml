@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-api
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "brain-swarm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "brain-swarm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "brain-swarm.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.global.imageRegistry }}{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.service.port }}
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.api.config.environment | quote }}
+            - name: NODE__SWARM_ID
+              value: {{ .Values.api.config.node.swarmId | quote }}
+            - name: NODE__HOST
+              value: {{ .Values.api.config.node.host | quote }}
+            - name: NODE__PORT
+              value: {{ .Values.api.config.node.port | quote }}
+            - name: NODE__MAX_AGENTS
+              value: {{ .Values.api.config.node.maxAgents | quote }}
+            - name: NODE__MAX_AGENT_LOAD
+              value: {{ .Values.api.config.node.maxAgentLoad | quote }}
+            - name: DATABASE__URL
+              value: {{ .Values.api.config.database.url | quote }}
+            - name: LOGGING__LEVEL
+              value: {{ .Values.api.config.logging.level | quote }}
+            - name: FEDERATION__ENABLED
+              value: {{ .Values.api.config.federation.enabled | quote }}
+            - name: SCALABILITY__ENABLED
+              value: {{ .Values.api.config.scalability.enabled | quote }}
+            - name: SCALABILITY__MESSAGE_QUEUE_MODE
+              value: {{ .Values.api.config.scalability.messageQueueMode | quote }}
+            - name: SCALABILITY__REDIS_URLS
+              value: {{ .Values.api.config.scalability.redisUrls | toJson | quote }}
+            - name: SCALABILITY__PARTITIONS
+              value: {{ .Values.api.config.scalability.partitions | quote }}
+            - name: SCALABILITY__ASYNC_AGENTS_ENABLED
+              value: {{ .Values.api.config.scalability.asyncAgentsEnabled | quote }}
+            - name: SCALABILITY__AGENT_POOL_MIN
+              value: {{ .Values.api.config.scalability.agentPoolMin | quote }}
+            - name: SCALABILITY__AGENT_POOL_MAX
+              value: {{ .Values.api.config.scalability.agentPoolMax | quote }}
+            - name: SCALABILITY__LOAD_BALANCING_STRATEGY
+              value: {{ .Values.api.config.scalability.loadBalancingStrategy | quote }}
+            - name: SCALABILITY__MULTI_CLUSTER_ENABLED
+              value: {{ .Values.api.config.scalability.multiClusterEnabled | quote }}
+            - name: SCALABILITY__CLUSTER_ID
+              value: {{ .Values.api.config.scalability.clusterId | quote }}
+            - name: SCALABILITY__CLUSTER_ROLE
+              value: {{ .Values.api.config.scalability.clusterRole | quote }}
+            - name: SCALABILITY__AUTO_SCALING_ENABLED
+              value: {{ .Values.api.config.scalability.autoScalingEnabled | quote }}
+            - name: SECURITY__JWT_SECRET
+              value: {{ .Values.api.config.security.jwtSecret | quote }}
+            - name: SECURITY__JWT_ALGORITHM
+              value: {{ .Values.api.config.security.jwtAlgorithm | quote }}
+            - name: SECURITY__JWT_EXPIRATION_HOURS
+              value: {{ .Values.api.config.security.jwtExpirationHours | quote }}
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "brain-swarm.fullname" . }}-data
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
