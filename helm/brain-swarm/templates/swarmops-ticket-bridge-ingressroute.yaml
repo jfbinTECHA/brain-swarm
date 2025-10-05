@@ -12,16 +12,22 @@ spec:
   routes:
     - match: Host(`{{ .Values.ticketBridge.ingress.host }}`) && PathPrefix(`/gh-webhook`)
       kind: Rule
+      middlewares:
+        - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge-security
       services:
         - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
           port: 80
     - match: Host(`{{ .Values.ticketBridge.ingress.host }}`) && PathPrefix(`/jira-webhook`)
       kind: Rule
+      middlewares:
+        - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge-security
       services:
         - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
           port: 80
     - match: Host(`{{ .Values.ticketBridge.ingress.host }}`) && PathPrefix(`/servicenow-webhook`)
       kind: Rule
+      middlewares:
+        - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge-security
       services:
         - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
           port: 80

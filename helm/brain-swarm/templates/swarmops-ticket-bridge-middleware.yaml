@@ -1,0 +1,18 @@
+{{- if .Values.ticketBridge.ingress.traefikEnabled }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-ticket-bridge-security
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-ticket-bridge
+spec:
+  rateLimit:
+    average: 30        # requests per second
+    burst: 10
+  ipWhiteList:
+    sourceRange:
+      {{- range .Values.ticketBridge.ingress.allowedCIDRs }}
+      - {{ . | quote }}
+      {{- end }}
+{{- end }}
