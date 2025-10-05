@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: cortex-summarizer
+  labels:
+    app.kubernetes.io/part-of: brain-swarm
+    app.kubernetes.io/component: cortex-summarizer
+spec:
+  entrypoint: summarizer
+  templates:
+    - name: summarizer
+      metadata:
+        labels:
+          app.kubernetes.io/component: cortex-summarizer
+      container:
+        image: jfbintecha/brain-swarm:latest
+        imagePullPolicy: Always
+        command: ["python", "-m", "cortex.scheduled_summarizer"]
+        env:
+          - name: REDIS_URL
+            valueFrom:
+              secretKeyRef:
+                name: brain-swarm-cortex-secrets
+                key: redis_url
+          - name: OPENAI_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: brain-swarm-cortex-secrets
+                key: openai_api_key
+          - name: CORTEX_S3_BUCKET
+            valueFrom:
+              secretKeyRef:
+                name: brain-swarm-cortex-secrets
+                key: s3_bucket
+          - name: CORTEX_S3_REGION
+            valueFrom:
+              secretKeyRef:
+                name: brain-swarm-cortex-secrets
+                key: s3_region
+          - name: CORTEX_S3_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: brain-swarm-cortex-secrets
+                key: s3_access_key
+          - name: CORTEX_S3_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: brain-swarm-cortex-secrets
+                key: s3_secret_key
+          - name: CORTEX_CHROMA_HOST
+            value: "brain-swarm-chroma"
+          - name: CORTEX_DUCKDB_PATH
+            value: "/data/cortex.duckdb"
+          - name: CORTEX_FAISS_INDEX_PATH
+            value: "/data/faiss.index"
+        volumeMounts:
+          - name: cortex-data
+            mountPath: /data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+        - name: cortex-data
+          persistentVolumeClaim:
+            claimName: brain-swarm-cortex-data
+      retryStrategy:
+        limit: 3
+        retryPolicy: OnFailure

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmview
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmview
+spec:
+  type: {{ .Values.swarmview.service.type }}
+  ports:
+    - port: {{ .Values.swarmview.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.swarmview.service.type "NodePort") .Values.swarmview.service.nodePort }}
+      nodePort: {{ .Values.swarmview.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "brain-swarm.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmview
