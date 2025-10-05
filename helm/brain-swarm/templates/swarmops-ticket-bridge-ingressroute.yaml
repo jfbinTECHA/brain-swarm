@@ -1,0 +1,30 @@
+{{- if .Values.ticketBridge.ingress.traefikEnabled }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-ticket-bridge
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`{{ .Values.ticketBridge.ingress.host }}`) && PathPrefix(`/gh-webhook`)
+      kind: Rule
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+          port: 80
+    - match: Host(`{{ .Values.ticketBridge.ingress.host }}`) && PathPrefix(`/jira-webhook`)
+      kind: Rule
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+          port: 80
+    - match: Host(`{{ .Values.ticketBridge.ingress.host }}`) && PathPrefix(`/servicenow-webhook`)
+      kind: Rule
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+          port: 80
+  tls:
+    secretName: {{ .Values.ticketBridge.ingress.tls.secretName | default (printf "%s-ticket-bridge-tls" (include "brain-swarm.fullname" .)) }}
+{{- end }}
