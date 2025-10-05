@@ -8,6 +8,24 @@ This guide explains how to configure ServiceNow to send real-time webhook notifi
 - Admin access to configure REST messages and business rules
 - BrainSwarmOps deployed and accessible
 
+## Environment Configuration
+
+Add these environment variables to your BrainSwarmOps deployment:
+
+```bash
+SERVICENOW_URL: https://yourinstance.service-now.com
+SERVICENOW_TOKEN: <personal_access_token>
+```
+
+Or via Kubernetes secret:
+
+```bash
+kubectl create secret generic cortex-secrets \
+  --from-literal=servicenow_instance_url=https://yourinstance.service-now.com \
+  --from-literal=servicenow_access_token=<personal_access_token> \
+  -n brainswarm
+```
+
 ## Method 1: Outbound REST Message
 
 ### Step 1: Create REST Message
