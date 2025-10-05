@@ -94,6 +94,25 @@ operations:
   tolerations: []
   affinity: {}
 
+# Ticket Bridge microservice (optional standalone service for ticket synchronization)
+ticketBridge:
+enabled: false  # Set to true to deploy as separate microservice
+image:
+repository: brain-swarm-swarmops-hook
+tag: "latest"
+pullPolicy: IfNotPresent
+replicas: 1
+redisUrl: "redis://brain-swarm-redis:6379"
+enablePolling: true
+pollIntervalSeconds: 600
+resources:
+limits:
+ cpu: 250m
+ memory: 256Mi
+requests:
+ cpu: 100m
+ memory: 128Mi
+
 # Redis settings
 redis:
   enabled: true
