@@ -314,24 +314,12 @@ async def alertmanager_webhook(alert_group: AlertGroup, background_tasks: Backgr
     if alert_group.status != "firing":
         return {"status": "ignored", "reason": "not firing status"}
 
-    # Determine which ticket system to use based on severity or configuration
-    severity = alert_group.commonLabels.get("severity", "warning")
-    ticket_system = os.getenv("DEFAULT_TICKET_SYSTEM", "jira")
-
-    # Override based on severity
-    if severity == "critical" and os.getenv("CRITICAL_TICKET_SYSTEM"):
-        ticket_system = os.getenv("CRITICAL_TICKET_SYSTEM")
-
-    creator = get_ticket_creator(ticket_system)
-    if not creator:
-        raise HTTPException(status_code=500, detail=f"Ticket system '{ticket_system}' not configured")
-
-    # Create ticket in background
-    background_tasks.add_task(create_ticket_background, creator, alert_group, request)
+    # Process each alert in the group
+    for alert in alert_group.alerts:
+        background_tasks.add_task(process_individual_alert, alert, alert_group)
 
     return {
         "status": "accepted",
-        "ticket_system": ticket_system,
         "alerts_count": len(alert_group.alerts)
     }
 
@@ -415,6 +403,164 @@ async def close_ticket_background(ticket_system: str, ticket_id: str, alert_name
 
     except Exception as e:
         print(f"❌ Failed to close ticket {ticket_system} #{ticket_id}: {str(e)}")
+
+async def process_individual_alert(alert: dict, alert_group: AlertGroup):
+    """Process individual alert: create ticket and emit events"""
+    try:
+        # Extract alert details
+        severity = alert.get('labels', {}).get('severity', 'info')
+        alertname = alert.get('labels', {}).get('alertname', 'Unknown Alert')
+
+        # Create ticket title and description
+        title = f"[{severity.upper()}] {alertname}"
+        desc = f"**Summary:** {alert.get('annotations', {}).get('summary', 'N/A')}\n"
+        desc += f"**Description:** {alert.get('annotations', {}).get('description', 'N/A')}\n"
+        desc += f"**Alertmanager URL:** {alert_group.externalURL}"
+
+        issue_url = None
+
+        # Try to create ticket based on available systems
+        if os.getenv("GITHUB_ENABLED", "false").lower() == "true":
+            issue_url = await create_github_issue(title, desc)
+        elif os.getenv("JIRA_ENABLED", "false").lower() == "true":
+            issue_url = await create_jira_issue(title, desc)
+        elif os.getenv("SERVICENOW_ENABLED", "false").lower() == "true":
+            issue_url = await create_servicenow_issue(title, desc)
+
+        # Import metrics and Redis client
+        from cortex.incident_broadcast import INCIDENT_EVENT, redis_client
+
+        # Emit Prometheus metric with issue URL
+        labels = {
+            "event": "created",
+            "actor": "system",
+            "severity": severity
+        }
+        if issue_url:
+            labels["issue_url"] = issue_url
+
+        INCIDENT_EVENT.labels(**labels).inc()
+
+        # Emit Redis stream event
+        event_data = {
+            "event": "created",
+            "actor": "system",
+            "severity": severity,
+            "alertname": alertname,
+            "issue_url": issue_url or "",
+            "timestamp": str(time.time())
+        }
+        redis_client.xadd("cortex:incidents", event_data)
+
+        print(f"✅ Alert processed: {title} - Ticket: {issue_url}")
+
+    except Exception as e:
+        print(f"❌ Failed to process alert: {str(e)}")
+
+async def create_github_issue(title: str, description: str) -> str:
+    """Create GitHub issue and return URL"""
+    try:
+        github_token = os.getenv("GITHUB_TOKEN")
+        github_owner = os.getenv("GITHUB_OWNER")
+        github_repo = os.getenv("GITHUB_REPO")
+
+        if not all([github_token, github_owner, github_repo]):
+            return None
+
+        url = f"https://api.github.com/repos/{github_owner}/{github_repo}/issues"
+        headers = {
+            "Authorization": f"token {github_token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+
+        payload = {
+            "title": title,
+            "body": description,
+            "labels": ["alert", "brain-swarm", f"severity-{title.split(']')[0].strip('[').lower()}"]
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+
+            result = response.json()
+            return result.get("html_url")
+
+    except Exception as e:
+        print(f"❌ Failed to create GitHub issue: {str(e)}")
+        return None
+
+async def create_jira_issue(title: str, description: str) -> str:
+    """Create Jira issue and return URL"""
+    try:
+        jira_url = os.getenv("JIRA_BASE_URL")
+        jira_username = os.getenv("JIRA_USERNAME")
+        jira_token = os.getenv("JIRA_API_TOKEN")
+        jira_project = os.getenv("JIRA_PROJECT_KEY", "ALERT")
+
+        if not all([jira_url, jira_username, jira_token]):
+            return None
+
+        url = f"{jira_url}/rest/api/3/issue"
+        auth = (jira_username, jira_token)
+
+        payload = {
+            "fields": {
+                "project": {"key": jira_project},
+                "summary": title,
+                "description": description,
+                "issuetype": {"name": "Bug"},
+                "priority": {"name": "High" if "CRITICAL" in title else "Medium"}
+            }
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload, auth=auth)
+            response.raise_for_status()
+
+            result = response.json()
+            issue_key = result.get("key")
+            return f"{jira_url}/browse/{issue_key}"
+
+    except Exception as e:
+        print(f"❌ Failed to create Jira issue: {str(e)}")
+        return None
+
+async def create_servicenow_issue(title: str, description: str) -> str:
+    """Create ServiceNow incident and return URL"""
+    try:
+        sn_url = os.getenv("SERVICENOW_INSTANCE_URL")
+        sn_token = os.getenv("SERVICENOW_ACCESS_TOKEN")
+
+        if not all([sn_url, sn_token]):
+            return None
+
+        url = f"{sn_url}/api/now/table/incident"
+        headers = {
+            "Authorization": f"Bearer {sn_token}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "short_description": title,
+            "description": description,
+            "urgency": "1" if "CRITICAL" in title else "2",
+            "impact": "2",
+            "category": "Software",
+            "subcategory": "Application"
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+
+            result = response.json()
+            sys_id = result.get("result", {}).get("sys_id")
+            return f"{sn_url}/nav_to.do?uri=incident.do?sys_id={sys_id}"
+
+    except Exception as e:
+        print(f"❌ Failed to create ServiceNow incident: {str(e)}")
+        return None
 
 async def send_alert_to_ai(alert_group: AlertGroup):
     """Send alert to AI orchestration endpoint for processing"""
