@@ -655,6 +655,33 @@ async def jira_webhook(request: Request):
         print(f"❌ Jira webhook error: {str(e)}")
         return {"status": "error", "message": str(e)}
 
+@app.post("/servicenow-webhook")
+async def servicenow_webhook(request: Request):
+    """Handle ServiceNow webhook for incident updates"""
+    try:
+        payload = await request.json()
+        inc = payload.get("result") or payload
+        sys_id = inc.get("sys_id")
+        number = inc.get("number")
+        state = inc.get("state")
+
+        if not all([sys_id, number]):
+            return {"status": "ignored", "reason": "missing required fields"}
+
+        servicenow_url = os.getenv("SERVICENOW_INSTANCE_URL", "https://instance.servicenow.com")
+        url = f"{servicenow_url}/nav_to.do?uri=incident.do?sys_id={sys_id}"
+
+        # Check if incident is resolved/closed
+        if state in ("7", "Resolved", "Closed") or str(state).lower() in ("resolved", "closed"):
+            await mark_resolved_webhook(number, url, "servicenow")
+            return {"status": "processed", "incident_id": number}
+
+        return {"status": "ignored", "reason": "not resolution event"}
+
+    except Exception as e:
+        print(f"❌ ServiceNow webhook error: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 async def mark_resolved_webhook(incident_id: str, issue_url: str, system: str):
     """Mark incident as resolved from webhook"""
     from cortex.incident_broadcast import INCIDENT_EVENT, redis_client
