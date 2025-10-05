@@ -1,0 +1,3091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Swarm Federation Operations Platform</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io@4.7.2/dist/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .platform-container {
+            display: grid;
+            grid-template-columns: 350px 1fr 300px;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+
+        .header .status-bar {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected { background: #dc3545; }
+        .status-indicator.connecting { background: #ffc107; }
+
+        /* Control Panel */
+        .control-panel {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #333;
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .control-section h3 {
+            color: #64b5f6;
+            margin-bottom: 12px;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-section h3::before {
+            content: "⚙️";
+            font-size: 1.2em;
+        }
+
+        .control-btn {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            background: #64b5f6;
+            color: white;
+        }
+
+        .control-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(100, 181, 246, 0.3); }
+        .control-btn.danger { background: #f44336; }
+        .control-btn.success { background: #4CAF50; }
+        .control-btn:disabled { background: #666; cursor: not-allowed; }
+
+        /* Main Visualization Area */
+        .main-area {
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f23 100%);
+        }
+
+        .topology-canvas {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Swarm Nodes */
+        .swarm-node {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10;
+            border: 3px solid transparent;
+        }
+
+        .swarm-node:hover {
+            transform: scale(1.1);
+            z-index: 20;
+        }
+
+        .swarm-enterprise { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .swarm-cloud { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .swarm-home { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+        .swarm-active {
+            animation: pulse 2s ease-in-out infinite;
+            border-color: #4CAF50;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .swarm-inactive {
+            opacity: 0.6;
+            border-color: #666;
+            background: linear-gradient(135deg, #666 0%, #888 100%);
+            filter: grayscale(50%);
+        }
+
+        .swarm-error, .swarm-failed {
+            animation: error-pulse 1s ease-in-out infinite;
+            border-color: #f44336;
+            box-shadow: 0 0 20px rgba(244, 67, 54, 0.6);
+            background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+        }
+
+        .swarm-overloaded {
+            animation: warning-pulse 1s ease-in-out infinite;
+            border-color: #ff9800;
+            box-shadow: 0 0 18px rgba(255, 152, 0, 0.5);
+        }
+
+        .swarm-busy {
+            animation: busy-pulse 1.5s ease-in-out infinite;
+            border-color: #ff5722;
+            box-shadow: 0 0 16px rgba(255, 87, 34, 0.5);
+            background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
+        }
+
+        .swarm-starting {
+            animation: starting-pulse 1s ease-in-out infinite;
+            border-color: #2196F3;
+            box-shadow: 0 0 14px rgba(33, 150, 243, 0.4);
+        }
+
+        .swarm-stopping {
+            animation: stopping-fade 2s ease-in-out infinite;
+            border-color: #ff5722;
+            opacity: 0.7;
+        }
+
+        .node-label {
+            text-align: center;
+            margin-top: 2px;
+        }
+
+        .node-metrics {
+            font-size: 9px;
+            opacity: 0.8;
+            margin-top: 1px;
+        }
+
+        .node-status {
+            font-size: 8px;
+            opacity: 0.7;
+            margin-top: 1px;
+            text-align: center;
+        }
+
+        /* Connections */
+        .connection {
+            position: absolute;
+            height: 3px;
+            background: linear-gradient(90deg, transparent 0%, #64b5f6 20%, #64b5f6 80%, transparent 100%);
+            transform-origin: left center;
+            z-index: 5;
+            border-radius: 2px;
+        }
+
+        .connection.discovery {
+            background: linear-gradient(90deg, transparent 0%, #2196F3 20%, #2196F3 80%, transparent 100%);
+        }
+
+        .connection.security {
+            background: linear-gradient(90deg, transparent 0%, #f44336 20%, #f44336 80%, transparent 100%);
+        }
+
+        .connection.federation {
+            background: linear-gradient(90deg, transparent 0%, #4CAF50 20%, #4CAF50 80%, transparent 100%);
+            height: 4px;
+            animation: data-flow 3s ease-in-out infinite;
+        }
+
+        .connection.active {
+            animation: connection-pulse 2s ease-in-out infinite;
+        }
+
+        .connection.error {
+            background: linear-gradient(90deg, transparent 0%, #f44336 20%, #f44336 80%, transparent 100%);
+            animation: error-flow 1s ease-in-out infinite;
+        }
+
+        /* Data packets */
+        .data-packet {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4CAF50;
+            z-index: 15;
+            animation: move-packet 3s linear infinite;
+            box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+        }
+
+        /* Discovery Events */
+        .discovery-wave {
+            position: absolute;
+            border: 2px solid #64b5f6;
+            border-radius: 50%;
+            z-index: 12;
+            animation: discovery-wave 2s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .registry-discovery {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(45deg, #2196F3, #64b5f6);
+            border-radius: 50%;
+            z-index: 14;
+            animation: registry-discovery 3s ease-in-out forwards;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .lan-broadcast {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: linear-gradient(45deg, #FF9800, #FFC107);
+            border-radius: 50%;
+            z-index: 13;
+            animation: lan-broadcast 2.5s ease-out forwards;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .discovery-pulse {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid rgba(100, 181, 246, 0.8);
+            border-radius: 50%;
+            z-index: 11;
+            animation: discovery-pulse 1.5s ease-out forwards;
+            pointer-events: none;
+        }
+
+        /* Task Processing Visualizations */
+        .task-progress-bar {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            right: 5px;
+            height: 4px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 2px;
+            overflow: hidden;
+            z-index: 12;
+        }
+
+        .task-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 2px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .task-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: progress-shine 2s ease-in-out infinite;
+        }
+
+        .task-processing {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 16px;
+            height: 16px;
+            background: #FFC107;
+            border-radius: 50%;
+            z-index: 13;
+            animation: task-processing-spin 1s linear infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: white;
+        }
+
+        .task-completed {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 16px;
+            height: 16px;
+            background: #4CAF50;
+            border-radius: 50%;
+            z-index: 13;
+            animation: task-completed-bounce 0.6s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: white;
+        }
+
+        .task-failed {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 16px;
+            height: 16px;
+            background: #f44336;
+            border-radius: 50%;
+            z-index: 13;
+            animation: task-failed-shake 0.5s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: white;
+        }
+
+        .task-queue-flow {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #2196F3;
+            border-radius: 50%;
+            z-index: 14;
+            animation: task-queue-flow 3s linear infinite;
+            box-shadow: 0 0 4px rgba(33, 150, 243, 0.6);
+        }
+
+        .task-progress-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(76, 175, 80, 0.1), rgba(139, 195, 74, 0.1));
+            border-radius: 50%;
+            z-index: 11;
+            animation: task-progress-pulse 2s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        /* Metrics Panel */
+        .metrics-panel {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid #333;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 20px;
+        }
+
+        .metrics-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .metrics-section h4 {
+            color: #64b5f6;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .metrics-section h4::before {
+            content: "📊";
+            font-size: 1.1em;
+        }
+
+        .metric-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .metric-group h4 {
+            color: #64b5f6;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+        }
+
+        .metric-label {
+            color: #b0b0b0;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #64b5f6;
+        }
+
+        .metric-trend {
+            font-size: 0.8em;
+            margin-left: 8px;
+        }
+
+        .metric-trend.up { color: #4CAF50; }
+        .metric-trend.down { color: #f44336; }
+
+        /* Alerts Panel */
+        .alerts-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 400px;
+            z-index: 30;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .alert-critical { background: rgba(244, 67, 54, 0.2); border-left: 3px solid #f44336; }
+        .alert-warning { background: rgba(255, 152, 0, 0.2); border-left: 3px solid #ff9800; }
+        .alert-info { background: rgba(100, 181, 246, 0.2); border-left: 3px solid #64b5f6; }
+
+        /* Authentication Modal */
+        .auth-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .auth-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .auth-form input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #555;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 16px;
+        }
+
+        .auth-form button {
+            width: 100%;
+            padding: 12px;
+            background: #64b5f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes error-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(244, 67, 54, 0); }
+        }
+
+        @keyframes warning-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7); }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 152, 0, 0); }
+        }
+
+        @keyframes busy-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.7); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(255, 87, 34, 0); }
+        }
+
+        @keyframes starting-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.6); }
+            50% { transform: scale(1.03); box-shadow: 0 0 0 6px rgba(33, 150, 243, 0); }
+        }
+
+        @keyframes stopping-fade {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes connection-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @keyframes data-flow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        @keyframes error-flow {
+            0% { background-position: 0% 50%; opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { background-position: 100% 50%; opacity: 1; }
+        }
+
+        @keyframes move-packet {
+            0% { left: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+        }
+
+        @keyframes discovery-wave {
+            0% {
+                width: 40px;
+                height: 40px;
+                opacity: 1;
+                transform: translate(-20px, -20px);
+            }
+            100% {
+                width: 200px;
+                height: 200px;
+                opacity: 0;
+                transform: translate(-100px, -100px);
+            }
+        }
+
+        @keyframes registry-discovery {
+            0% {
+                transform: scale(0) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2) rotate(180deg);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes lan-broadcast {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            30% {
+                transform: scale(1.5);
+                opacity: 0.9;
+            }
+            70% {
+                transform: scale(0.8);
+                opacity: 0.7;
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        @keyframes discovery-pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.3);
+                opacity: 0.4;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes progress-shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        @keyframes task-processing-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes task-completed-bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-4px); }
+            60% { transform: translateY(-2px); }
+        }
+
+        @keyframes task-failed-shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+
+        @keyframes task-queue-flow {
+            0% {
+                transform: translateX(-10px) translateY(-10px);
+                opacity: 0;
+            }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% {
+                transform: translateX(10px) translateY(10px);
+                opacity: 0;
+            }
+        }
+
+        @keyframes task-progress-pulse {
+            0%, 100% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes active-glow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes busy-indicator {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        @keyframes error-overlay {
+            0%, 100% { opacity: 0.1; }
+            50% { opacity: 0.3; }
+        }
+
+        @keyframes starting-ring {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.6; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes stopping-overlay {
+            0%, 100% { opacity: 0.1; }
+            50% { opacity: 0.05; }
+        }
+
+        @keyframes warning-stripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 10px 10px; }
+        }
+
+        @keyframes broadcast-tower-pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 25px rgba(255, 152, 0, 0.9), 0 0 50px rgba(255, 152, 0, 0.6);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 35px rgba(255, 152, 0, 1.2), 0 0 70px rgba(255, 152, 0, 0.8);
+            }
+        }
+
+        @keyframes lan-signal-ring-expand {
+            0% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+
+        @keyframes broadcast-packet-flight {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            20% {
+                transform: translate(var(--target-x, 100px), var(--target-y, 0)) scale(1.2);
+                opacity: 1;
+            }
+            80% {
+                transform: translate(var(--target-x, 100px), var(--target-y, 0)) scale(0.8);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translate(var(--target-x, 100px), var(--target-y, 0)) scale(0.5);
+                opacity: 0;
+            }
+        }
+
+        @keyframes broadcast-info-appear {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(-10px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes broadcast-info-pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 152, 0, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(255, 152, 0, 0.8); }
+        }
+
+        @keyframes network-scan {
+            0% {
+                height: 0;
+                opacity: 1;
+            }
+            50% {
+                height: 120px;
+                opacity: 0.8;
+            }
+            100% {
+                height: 0;
+                opacity: 0;
+            }
+        }
+
+        @keyframes registry-handshake-pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 25px rgba(33, 150, 243, 0.8), 0 0 50px rgba(33, 150, 243, 0.5);
+            }
+            50% {
+                transform: scale(1.15);
+                box-shadow: 0 0 35px rgba(33, 150, 243, 1.1), 0 0 70px rgba(33, 150, 243, 0.7);
+            }
+        }
+
+        @keyframes registry-connection-flow {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes registry-data-packet {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            30% {
+                transform: translate(var(--dest-x, 200px), var(--dest-y, -50px)) scale(1.3);
+                opacity: 1;
+            }
+            70% {
+                transform: translate(var(--dest-x, 200px), var(--dest-y, -50px)) scale(0.9);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translate(var(--dest-x, 200px), var(--dest-y, -50px)) scale(0.7);
+                opacity: 0;
+            }
+        }
+
+        @keyframes registry-server-pulse {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(33, 150, 243, 0.6);
+                border-color: #2196F3;
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(33, 150, 243, 0.9);
+                border-color: #64B5F6;
+            }
+        }
+
+        @keyframes registry-auth-appear {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(-10px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes registry-auth-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(33, 150, 243, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(33, 150, 243, 0.8); }
+        }
+
+        @keyframes security-shield {
+            0% {
+                transform: scale(0) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2) rotate(180deg);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .platform-container {
+                grid-template-columns: 300px 1fr 250px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .platform-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr auto;
+            }
+
+            .control-panel, .metrics-panel {
+                max-height: 200px;
+                grid-column: 1 / -1;
+            }
+
+            .header {
+                grid-row: 1;
+            }
+
+            .control-panel {
+                grid-row: 2;
+            }
+
+            .main-area {
+                grid-row: 3;
+            }
+
+            .metrics-panel {
+                grid-row: 4;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="platform-container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🧠 Brain Swarm Federation Operations</h1>
+                <div>Live Monitoring & Control Platform</div>
+            </div>
+            <div class="status-bar">
+                <div class="connection-status">
+                    <div class="status-indicator" id="connection-status"></div>
+                    <span id="connection-text">Connecting...</span>
+                </div>
+                <div id="global-metrics">
+                    <span id="active-swarms">0 Active Swarms</span> |
+                    <span id="active-federations">0 Federations</span> |
+                    <span id="system-health">Health: Unknown</span> |
+                    <span id="operation-mode" style="font-weight: bold; color: #64b5f6;">Mode: Simulation</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <!-- Authentication Section -->
+            <div class="control-section">
+                <h3>🔐 Authentication</h3>
+                <div id="auth-status">Not authenticated</div>
+                <button class="control-btn" id="auth-btn">Authenticate</button>
+                <button class="control-btn danger" id="logout-btn" style="display: none;">Logout</button>
+            </div>
+
+            <!-- Swarm Management -->
+            <div class="control-section">
+                <h3>🎯 Swarm Control</h3>
+                <select id="swarm-selector" style="width: 100%; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: 1px solid #555;">
+                    <option value="">Select Swarm</option>
+                </select>
+                <button class="control-btn success" id="start-swarm-btn" disabled>▶️ Start Swarm</button>
+                <button class="control-btn danger" id="stop-swarm-btn" disabled>⏹️ Stop Swarm</button>
+                <button class="control-btn" id="restart-swarm-btn" disabled>🔄 Restart Swarm</button>
+            </div>
+
+            <!-- Federation Control -->
+            <div class="control-section">
+                <h3>🔗 Federation Control</h3>
+                <button class="control-btn" id="create-federation-btn">➕ Create Federation</button>
+                <button class="control-btn danger" id="dissolve-federation-btn">➖ Dissolve Federation</button>
+                <button class="control-btn" id="load-balance-btn">⚖️ Load Balance</button>
+            </div>
+
+            <!-- System Control -->
+            <div class="control-section">
+                <h3>⚙️ System Control</h3>
+                <button class="control-btn" id="emergency-stop-btn">🚨 Emergency Stop</button>
+                <button class="control-btn" id="system-reset-btn">🔄 System Reset</button>
+                <button class="control-btn" id="backup-btn">💾 Create Backup</button>
+            </div>
+
+            <!-- Operation Mode -->
+            <div class="control-section">
+                <h3>🔄 Operation Mode</h3>
+                <div style="margin-bottom: 10px;">
+                    <span id="current-mode-display" style="font-size: 0.9em; color: #64b5f6;">Current: Simulation</span>
+                </div>
+                <button class="control-btn" id="switch-to-live-btn">🔴 Switch to Live Mode</button>
+                <button class="control-btn" id="switch-to-simulation-btn" disabled>🎭 Switch to Simulation</button>
+                <div style="margin-top: 10px; font-size: 0.8em; color: #b0b0b0;">
+                    Live mode connects to real swarm nodes.<br>
+                    Simulation mode uses generated test data.
+                </div>
+            </div>
+
+            <!-- Monitoring Settings -->
+            <div class="control-section">
+                <h3>📊 Monitoring</h3>
+                <label style="display: block; margin: 5px 0; font-size: 0.9em;">
+                    <input type="checkbox" id="auto-refresh" checked> Auto-refresh topology
+                </label>
+                <label style="display: block; margin: 5px 0; font-size: 0.9em;">
+                    <input type="checkbox" id="alerts-enabled" checked> Enable alerts
+                </label>
+                <label style="display: block; margin: 5px 0; font-size: 0.9em;">
+                    <input type="checkbox" id="debug-mode"> Debug mode
+                </label>
+            </div>
+        </div>
+
+        <!-- Main Visualization Area -->
+        <div class="main-area">
+            <div class="topology-canvas" id="topology-canvas">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+
+            <!-- Alerts Panel -->
+            <div class="alerts-panel" id="alerts-panel" style="display: none;">
+                <h4 style="color: #64b5f6; margin-bottom: 10px;">🚨 Active Alerts</h4>
+                <div id="alerts-list">
+                    <!-- Dynamic alerts will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Panel -->
+        <div class="metrics-panel">
+            <!-- Live Swarm Status -->
+            <div class="metrics-section">
+                <h4>🔴 Live Swarm Status</h4>
+                <div id="swarm-status-list" style="max-height: 200px; overflow-y: auto;">
+                    <!-- Dynamic swarm status will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Task Queues -->
+            <div class="metrics-section">
+                <h4>📋 Task Queues</h4>
+                <div id="task-queue-list" style="max-height: 200px; overflow-y: auto;">
+                    <!-- Dynamic task queue will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Discovery Events -->
+            <div class="metrics-section">
+                <h4>🔍 Discovery Events</h4>
+                <div id="discovery-events" style="max-height: 150px; overflow-y: auto; font-size: 0.8em;">
+                    <!-- Dynamic discovery events will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Security Checks -->
+            <div class="metrics-section">
+                <h4>🔒 Security Status</h4>
+                <div id="security-checks" style="max-height: 150px; overflow-y: auto;">
+                    <!-- Dynamic security checks will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Real-time Metrics -->
+            <div class="metrics-section">
+                <h4>📈 Real-time Metrics</h4>
+                <div class="metric-item">
+                    <span class="metric-label">Active Swarms</span>
+                    <span class="metric-value" id="metric-swarms">0</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Federation Links</span>
+                    <span class="metric-value" id="metric-links">0</span>
+                    <span class="metric-trend" id="links-trend"></span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Avg Latency</span>
+                    <span class="metric-value" id="metric-latency">0ms</span>
+                    <span class="metric-trend" id="latency-trend"></span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Task Throughput</span>
+                    <span class="metric-value" id="metric-throughput">0/s</span>
+                    <span class="metric-trend" id="throughput-trend"></span>
+                </div>
+            </div>
+
+            <!-- Performance Charts -->
+            <div class="metrics-section">
+                <h4>📊 Performance</h4>
+                <canvas id="performance-chart" style="width: 100%; height: 120px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authentication Modal -->
+    <div class="auth-modal" id="auth-modal">
+        <div class="auth-content">
+            <h2 style="text-align: center; margin-bottom: 20px; color: #64b5f6;">🔐 Authentication Required</h2>
+            <form class="auth-form" id="auth-form">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <input type="text" id="api-key" placeholder="API Key (optional)">
+                <button type="submit">Authenticate</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Federation Operations Platform
+        class FederationOperationsPlatform {
+            constructor() {
+                this.socket = null;
+                this.authenticated = false;
+                this.authToken = null;
+                this.swarms = new Map();
+                this.federations = new Map();
+                this.alerts = [];
+                this.metrics = {
+                    activeSwarms: 0,
+                    activeFederations: 0,
+                    avgLatency: 0,
+                    throughput: 0,
+                    health: 'Unknown',
+                    security: 0,
+                    errors: 0,
+                    uptime: 0
+                };
+                this.performanceChart = null;
+                this.activityLog = [];
+
+                this.init();
+                this.setupEventListeners();
+                this.createCharts();
+                this.addTwinkleAnimation();
+                this.connectToServer();
+            }
+
+            init() {
+                this.updateConnectionStatus('connecting');
+                this.showAuthModal();
+            }
+
+            setupEventListeners() {
+                // Authentication
+                document.getElementById('auth-btn').addEventListener('click', () => this.showAuthModal());
+                document.getElementById('logout-btn').addEventListener('click', () => this.logout());
+                document.getElementById('auth-form').addEventListener('submit', (e) => this.handleAuth(e));
+
+                // Swarm control
+                document.getElementById('start-swarm-btn').addEventListener('click', () => this.startSwarm());
+                document.getElementById('stop-swarm-btn').addEventListener('click', () => this.stopSwarm());
+                document.getElementById('restart-swarm-btn').addEventListener('click', () => this.restartSwarm());
+
+                // Federation control
+                document.getElementById('create-federation-btn').addEventListener('click', () => this.createFederation());
+                document.getElementById('dissolve-federation-btn').addEventListener('click', () => this.dissolveFederation());
+                document.getElementById('load-balance-btn').addEventListener('click', () => this.loadBalance());
+
+                // System control
+                document.getElementById('emergency-stop-btn').addEventListener('click', () => this.emergencyStop());
+                document.getElementById('system-reset-btn').addEventListener('click', () => this.systemReset());
+                document.getElementById('backup-btn').addEventListener('click', () => this.createBackup());
+
+                // Mode switching
+                document.getElementById('switch-to-live-btn').addEventListener('click', () => this.switchToLiveMode());
+                document.getElementById('switch-to-simulation-btn').addEventListener('click', () => this.switchToSimulationMode());
+
+                // Monitoring settings
+                document.getElementById('auto-refresh').addEventListener('change', (e) => this.toggleAutoRefresh(e.target.checked));
+                document.getElementById('alerts-enabled').addEventListener('change', (e) => this.toggleAlerts(e.target.checked));
+                document.getElementById('debug-mode').addEventListener('change', (e) => this.toggleDebugMode(e.target.checked));
+            }
+
+            createCharts() {
+                const ctx = document.getElementById('performance-chart').getContext('2d');
+                this.performanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({length: 20}, (_, i) => i),
+                        datasets: [{
+                            label: 'Throughput (tasks/s)',
+                            data: Array.from({length: 20}, () => 0),
+                            borderColor: '#64b5f6',
+                            backgroundColor: 'rgba(100, 181, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }, {
+                            label: 'Latency (ms)',
+                            data: Array.from({length: 20}, () => 0),
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255,255,255,0.1)' },
+                                title: { display: true, text: 'Throughput' }
+                            },
+                            y1: {
+                                beginAtZero: true,
+                                position: 'right',
+                                grid: { color: 'rgba(255,255,255,0.1)' },
+                                title: { display: true, text: 'Latency' }
+                            },
+                            x: { display: false }
+                        },
+                        elements: {
+                            point: { radius: 0 }
+                        }
+                    }
+                });
+            }
+
+            connectToServer() {
+                // Connect to Swarm Monitor Server WebSocket
+                this.socket = io('http://localhost:8001', {
+                    transports: ['websocket', 'polling'],
+                    autoConnect: false  // Don't connect until authenticated
+                });
+
+                this.socket.on('connect', () => {
+                    this.updateConnectionStatus('connected');
+                    this.logActivity('Connected to Swarm Monitor Server');
+                });
+
+                this.socket.on('disconnect', () => {
+                    this.updateConnectionStatus('disconnected');
+                    this.logActivity('Disconnected from Swarm Monitor Server');
+                });
+
+                // Handle authentication responses
+                this.socket.on('auth_success', (data) => this.handleAuthSuccess(data));
+                this.socket.on('auth_failure', (data) => this.handleAuthFailure(data));
+
+                // Handle real-time updates from server
+                this.socket.on('initial_state', (data) => this.handleInitialState(data));
+                this.socket.on('node_status_update', (data) => this.handleNodeStatusUpdate(data));
+                this.socket.on('task_queue_update', (data) => this.handleTaskQueueUpdate(data));
+                this.socket.on('discovery_event', (data) => this.handleDiscoveryEvent(data));
+                this.socket.on('security_event', (data) => this.handleSecurityEvent(data));
+                this.socket.on('performance_metrics', (data) => this.handlePerformanceMetrics(data));
+                this.socket.on('command_ack', (data) => this.handleCommandAck(data));
+                this.socket.on('error', (data) => this.handleError(data));
+                this.socket.on('emergency_alert', (data) => this.handleEmergencyAlert(data));
+            }
+
+            updateConnectionStatus(status) {
+                const indicator = document.getElementById('connection-status');
+                const text = document.getElementById('connection-text');
+
+                indicator.className = 'status-indicator';
+
+                switch(status) {
+                    case 'connected':
+                        indicator.classList.add('status-active');
+                        text.textContent = 'Connected';
+                        break;
+                    case 'connecting':
+                        indicator.classList.add('connecting');
+                        text.textContent = 'Connecting...';
+                        break;
+                    case 'disconnected':
+                        indicator.classList.add('disconnected');
+                        text.textContent = 'Disconnected';
+                        break;
+                }
+            }
+
+            showAuthModal() {
+                document.getElementById('auth-modal').style.display = 'block';
+            }
+
+            hideAuthModal() {
+                document.getElementById('auth-modal').style.display = 'none';
+            }
+
+            handleAuth(e) {
+                e.preventDefault();
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const apiKey = document.getElementById('api-key').value;
+
+                this.authenticate(username, password, apiKey);
+            }
+
+            authenticate(username, password, apiKey) {
+                // Send authentication request
+                if (this.socket) {
+                    this.socket.emit('authenticate', {
+                        username,
+                        password,
+                        apiKey
+                    });
+                }
+            }
+
+            handleAuthSuccess(data) {
+                this.authenticated = true;
+                this.authToken = data.token;
+                this.hideAuthModal();
+                document.getElementById('auth-status').textContent = `Authenticated as ${data.username}`;
+                document.getElementById('auth-btn').style.display = 'none';
+                document.getElementById('logout-btn').style.display = 'inline-block';
+
+                // Enable control buttons
+                this.enableControls();
+
+                this.logActivity(`Authenticated as ${data.username}`);
+            }
+
+            handleAuthFailure() {
+                alert('Authentication failed. Please check your credentials.');
+                this.logActivity('Authentication failed');
+            }
+
+            logout() {
+                this.authenticated = false;
+                this.authToken = null;
+                document.getElementById('auth-status').textContent = 'Not authenticated';
+                document.getElementById('auth-btn').style.display = 'inline-block';
+                document.getElementById('logout-btn').style.display = 'none';
+
+                // Disable control buttons
+                this.disableControls();
+
+                if (this.socket) {
+                    this.socket.disconnect();
+                    this.connectToServer();
+                }
+
+                this.logActivity('Logged out');
+            }
+
+            enableControls() {
+                const buttons = ['start-swarm-btn', 'stop-swarm-btn', 'restart-swarm-btn',
+                               'create-federation-btn', 'dissolve-federation-btn', 'load-balance-btn',
+                               'emergency-stop-btn', 'system-reset-btn', 'backup-btn'];
+                buttons.forEach(id => {
+                    document.getElementById(id).disabled = false;
+                });
+            }
+
+            disableControls() {
+                const buttons = ['start-swarm-btn', 'stop-swarm-btn', 'restart-swarm-btn',
+                               'create-federation-btn', 'dissolve-federation-btn', 'load-balance-btn',
+                               'emergency-stop-btn', 'system-reset-btn', 'backup-btn'];
+                buttons.forEach(id => {
+                    document.getElementById(id).disabled = true;
+                });
+            }
+
+            handleInitialState(data) {
+                // Load initial system state
+                this.swarms.clear();
+                this.federations.clear();
+                this.alerts = [];
+
+                // Load swarms
+                Object.entries(data.swarms || {}).forEach(([id, swarm]) => {
+                    this.swarms.set(id, swarm);
+                });
+
+                // Load federations
+                Object.entries(data.federations || {}).forEach(([id, fed]) => {
+                    this.federations.set(id, fed);
+                });
+
+                // Load alerts
+                this.alerts = (data.alerts || []).map(alert => ({
+                    id: alert.id,
+                    level: alert.level,
+                    title: alert.title,
+                    message: alert.message,
+                    timestamp: alert.timestamp,
+                    acknowledged: alert.acknowledged
+                }));
+
+                // Load metrics
+                Object.assign(this.metrics, data.metrics || {});
+
+                // Update mode display if mode info is available
+                if (data.mode) {
+                    this.updateModeDisplay(data.mode);
+                } else {
+                    // Default to simulation mode display
+                    this.updateModeDisplay('simulation');
+                }
+
+                this.updateSwarmSelector();
+                this.renderTopology();
+                this.renderAlerts();
+                this.updateMetricsDisplay();
+                this.updateCharts();
+
+                this.logActivity('Initial system state loaded');
+            }
+
+            handleNodeStatusUpdate(data) {
+                // Update individual swarm status
+                if (data.swarm_id && data.status) {
+                    const swarm = this.swarms.get(data.swarm_id);
+                    if (swarm) {
+                        Object.assign(swarm, data);
+                        // Trigger topology animation update
+                        this.animateTopologyUpdate();
+                        this.updateSwarmStatusDisplay({ swarms: Object.fromEntries(this.swarms) });
+                        this.logActivity(`Swarm ${data.swarm_id} status updated to ${data.status}`);
+                    }
+                }
+            }
+
+            handleTaskQueueUpdate(data) {
+                // Update task queue and visualizations
+                this.updateTaskQueueDisplay(data);
+                this.updateSwarmTaskVisualizations(data);
+                this.logActivity(`Task queue updated: ${data.tasks ? data.tasks.length : 0} tasks`);
+            }
+
+            handleSecurityEvent(data) {
+                // Update security status
+                this.updateSecurityStatus(data);
+                this.logActivity(`Security event: ${data.message || 'Unknown'}`);
+            }
+
+            handlePerformanceMetrics(data) {
+                // Update metrics and charts with real-time data
+                Object.assign(this.metrics, data);
+                this.updateMetricsDisplay();
+                this.updateCharts();
+                this.logActivity(`Performance metrics updated`);
+            }
+
+            handleSystemUpdate(data) {
+                // Update system state
+                Object.entries(data.swarms || {}).forEach(([id, swarm]) => {
+                    this.swarms.set(id, swarm);
+                });
+
+                Object.entries(data.federations || {}).forEach(([id, fed]) => {
+                    this.federations.set(id, fed);
+                });
+
+                this.alerts = (data.alerts || []).map(alert => ({
+                    id: alert.id,
+                    level: alert.level,
+                    title: alert.title,
+                    message: alert.message,
+                    timestamp: alert.timestamp,
+                    acknowledged: alert.acknowledged
+                }));
+
+                Object.assign(this.metrics, data.metrics || {});
+
+                // Update new real-time displays
+                this.updateSwarmStatusDisplay(data);
+                this.updateTaskQueueDisplay(data.task_queues || { tasks: [] });
+                this.updateSecurityStatus(data.security_status || {});
+
+                this.updateSwarmSelector();
+                this.renderTopology();
+                this.renderAlerts();
+                this.updateMetricsDisplay();
+                this.updateCharts();
+            }
+
+            handleCommandAck(data) {
+                this.logActivity(`Command acknowledged: ${data.command}`);
+                if (data.swarm_id) {
+                    this.logActivity(`Affected swarm: ${data.swarm_id}`);
+                }
+            }
+
+            handleSwarmStatus(data) {
+                // Update detailed swarm status display
+                this.updateSwarmStatusDisplay(data);
+            }
+
+            handleTaskQueue(data) {
+                // Update task queue visualization
+                this.updateTaskQueueDisplay(data);
+            }
+
+            handleDiscoveryEvent(data) {
+                // Add discovery event to log
+                this.addDiscoveryEvent(data);
+                // Create visual discovery effect
+                this.createDiscoveryVisualization(data);
+            }
+
+            handleSecurityCheck(data) {
+                // Update security status
+                this.updateSecurityStatus(data);
+            }
+
+            handleError(data) {
+                alert(`Error: ${data.message}`);
+                this.logActivity(`Error: ${data.message}`);
+            }
+
+            handleEmergencyAlert(data) {
+                alert(`EMERGENCY: ${data.message}`);
+                this.logActivity(`EMERGENCY: ${data.message}`);
+            }
+
+            updateSwarmSelector() {
+                const selector = document.getElementById('swarm-selector');
+                selector.innerHTML = '<option value="">Select Swarm</option>';
+
+                this.swarms.forEach((swarm, id) => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = `${swarm.name} (${swarm.status})`;
+                    selector.appendChild(option);
+                });
+            }
+
+            renderTopology() {
+                const canvas = document.getElementById('topology-canvas');
+
+                // Animate existing nodes to new positions instead of recreating
+                this.animateTopologyUpdate();
+
+                // Clear and re-render connections (these change more frequently)
+                this.clearConnections();
+                this.renderConnections();
+
+                // Add data flow animations
+                this.renderDataFlows();
+            }
+
+            animateTopologyUpdate() {
+                const canvas = document.getElementById('topology-canvas');
+                const centerX = canvas.clientWidth / 2;
+                const centerY = canvas.clientHeight / 2;
+                const radius = Math.min(centerX, centerY) * 0.6;
+
+                let angle = 0;
+                const angleStep = (2 * Math.PI) / Math.max(this.swarms.size, 1);
+
+                this.swarms.forEach((swarm, id) => {
+                    const targetX = centerX + Math.cos(angle) * radius;
+                    const targetY = centerY + Math.sin(angle) * radius;
+
+                    // Try to find existing node
+                    let node = canvas.querySelector(`[data-swarm-id="${id}"]`);
+
+                    if (!node) {
+                        // Create new node
+                        node = document.createElement('div');
+                        node.className = `swarm-node ${this.getSwarmTypeClass(swarm.type || 'enterprise')}`;
+                        node.setAttribute('data-swarm-id', id);
+                        node.style.left = `${targetX - 40}px`;
+                        node.style.top = `${targetY - 40}px`;
+                        node.style.opacity = '0';
+                        node.style.transform = 'scale(0.5)';
+
+                        // Add entrance animation
+                        node.animate([
+                            { opacity: 0, transform: 'scale(0.5)' },
+                            { opacity: 1, transform: 'scale(1)' }
+                        ], {
+                            duration: 500,
+                            easing: 'ease-out',
+                            fill: 'forwards'
+                        });
+
+                        node.addEventListener('click', () => this.showSwarmDetails(swarm));
+                        canvas.appendChild(node);
+                    } else {
+                        // Animate existing node to new position
+                        const currentLeft = parseFloat(node.style.left);
+                        const currentTop = parseFloat(node.style.top);
+                        const deltaX = targetX - 40 - currentLeft;
+                        const deltaY = targetY - 40 - currentTop;
+
+                        if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                            node.animate([
+                                { transform: 'translate(0, 0)' },
+                                { transform: `translate(${deltaX}px, ${deltaY}px)` }
+                            ], {
+                                duration: 1000,
+                                easing: 'ease-in-out',
+                                fill: 'forwards'
+                            }).addEventListener('finish', () => {
+                                node.style.left = `${targetX - 40}px`;
+                                node.style.top = `${targetY - 40}px`;
+                                node.style.transform = '';
+                            });
+                        }
+                    }
+
+                    // Update node content and status
+                    this.updateNodeAppearance(node, swarm);
+
+                    angle += angleStep;
+                });
+
+                // Remove nodes for swarms that no longer exist
+                const existingNodes = canvas.querySelectorAll('.swarm-node');
+                existingNodes.forEach(node => {
+                    const swarmId = node.getAttribute('data-swarm-id');
+                    if (!this.swarms.has(swarmId)) {
+                        // Exit animation
+                        node.animate([
+                            { opacity: 1, transform: 'scale(1)' },
+                            { opacity: 0, transform: 'scale(0.5)' }
+                        ], {
+                            duration: 300,
+                            easing: 'ease-in',
+                            fill: 'forwards'
+                        }).addEventListener('finish', () => {
+                            if (node.parentNode) {
+                                node.parentNode.removeChild(node);
+                            }
+                        });
+                    }
+                });
+            }
+
+            updateNodeAppearance(node, swarm) {
+                // Clear existing status classes
+                node.className = `swarm-node ${this.getSwarmTypeClass(swarm.type || 'enterprise')}`;
+
+                // Add status-specific class
+                let statusClass = '';
+                switch(swarm.status) {
+                    case 'active': statusClass = 'swarm-active'; break;
+                    case 'inactive': statusClass = 'swarm-inactive'; break;
+                    case 'busy': statusClass = 'swarm-busy'; break;
+                    case 'failed':
+                    case 'error': statusClass = 'swarm-failed'; break;
+                    case 'starting': statusClass = 'swarm-starting'; break;
+                    case 'stopping': statusClass = 'swarm-stopping'; break;
+                    case 'overloaded': statusClass = 'swarm-overloaded'; break;
+                    default: statusClass = 'swarm-inactive'; break;
+                }
+                if (statusClass) node.classList.add(statusClass);
+
+                // Update content with live data
+                const loadPercent = swarm.load ? swarm.load.toFixed(1) : '0.0';
+                const cpuPercent = swarm.cpu_usage ? swarm.cpu_usage.toFixed(1) : '0.0';
+                const taskCount = swarm.tasks_active || 0;
+                const statusText = this.getStatusDisplayText(swarm.status);
+
+                node.innerHTML = `
+                    <div class="node-label">${swarm.name || swarm.swarm_id}</div>
+                    <div class="node-metrics">${loadPercent}% CPU | ${taskCount} tasks</div>
+                    <div class="node-status">${this.getStatusIcon(swarm.status)} ${statusText}</div>
+                `;
+
+                // Add status-specific visual effects
+                this.addStatusVisualEffects(node, swarm);
+            }
+
+            getStatusDisplayText(status) {
+                switch(status) {
+                    case 'active': return 'Active';
+                    case 'inactive': return 'Inactive';
+                    case 'busy': return 'Busy';
+                    case 'failed':
+                    case 'error': return 'Failed';
+                    case 'starting': return 'Starting';
+                    case 'stopping': return 'Stopping';
+                    case 'overloaded': return 'Overloaded';
+                    default: return 'Unknown';
+                }
+            }
+
+            addStatusVisualEffects(node, swarm) {
+                const status = swarm.status;
+                const taskCount = swarm.tasks_active || 0;
+
+                // Remove existing status effects
+                const existingEffects = node.querySelectorAll('.status-effect');
+                existingEffects.forEach(effect => effect.remove());
+
+                // Add status-specific visual effects
+                switch(status) {
+                    case 'active':
+                        if (taskCount > 0) {
+                            // Add active processing glow
+                            const glow = document.createElement('div');
+                            glow.className = 'status-effect';
+                            glow.style.cssText = `
+                                position: absolute;
+                                top: -2px;
+                                left: -2px;
+                                right: -2px;
+                                bottom: -2px;
+                                border-radius: 50%;
+                                background: linear-gradient(45deg, transparent, rgba(76, 175, 80, 0.3), transparent);
+                                animation: active-glow 3s ease-in-out infinite;
+                                pointer-events: none;
+                                z-index: -1;
+                            `;
+                            node.appendChild(glow);
+                        }
+                        break;
+
+                    case 'busy':
+                        // Add busy indicator
+                        const busyIndicator = document.createElement('div');
+                        busyIndicator.className = 'status-effect';
+                        busyIndicator.style.cssText = `
+                            position: absolute;
+                            top: 2px;
+                            right: 2px;
+                            width: 8px;
+                            height: 8px;
+                            background: #ff5722;
+                            border-radius: 50%;
+                            animation: busy-indicator 1s ease-in-out infinite;
+                        `;
+                        node.appendChild(busyIndicator);
+                        break;
+
+                    case 'failed':
+                    case 'error':
+                        // Add error overlay
+                        const errorOverlay = document.createElement('div');
+                        errorOverlay.className = 'status-effect';
+                        errorOverlay.style.cssText = `
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: linear-gradient(45deg, rgba(244, 67, 54, 0.2), rgba(211, 47, 47, 0.1));
+                            border-radius: 50%;
+                            animation: error-overlay 2s ease-in-out infinite;
+                            pointer-events: none;
+                        `;
+                        node.appendChild(errorOverlay);
+                        break;
+
+                    case 'starting':
+                        // Add starting animation
+                        const startingRing = document.createElement('div');
+                        startingRing.className = 'status-effect';
+                        startingRing.style.cssText = `
+                            position: absolute;
+                            top: -3px;
+                            left: -3px;
+                            right: -3px;
+                            bottom: -3px;
+                            border: 2px solid #2196F3;
+                            border-radius: 50%;
+                            animation: starting-ring 1.5s ease-in-out infinite;
+                            pointer-events: none;
+                        `;
+                        node.appendChild(startingRing);
+                        break;
+
+                    case 'stopping':
+                        // Add stopping fade effect
+                        const stoppingOverlay = document.createElement('div');
+                        stoppingOverlay.className = 'status-effect';
+                        stoppingOverlay.style.cssText = `
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: rgba(255, 255, 255, 0.1);
+                            border-radius: 50%;
+                            animation: stopping-overlay 1s ease-in-out infinite;
+                            pointer-events: none;
+                        `;
+                        node.appendChild(stoppingOverlay);
+                        break;
+
+                    case 'overloaded':
+                        // Add warning stripes
+                        const warningStripes = document.createElement('div');
+                        warningStripes.className = 'status-effect';
+                        warningStripes.style.cssText = `
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: repeating-linear-gradient(
+                                45deg,
+                                transparent,
+                                transparent 5px,
+                                rgba(255, 152, 0, 0.3) 5px,
+                                rgba(255, 152, 0, 0.3) 10px
+                            );
+                            border-radius: 50%;
+                            animation: warning-stripes 1s ease-in-out infinite;
+                            pointer-events: none;
+                        `;
+                        node.appendChild(warningStripes);
+                        break;
+                }
+            }
+
+            updateSwarmTaskVisualizations(data) {
+                const canvas = document.getElementById('topology-canvas');
+
+                // Clear existing task visualizations
+                const existingTaskElements = canvas.querySelectorAll('.task-progress-bar, .task-processing, .task-completed, .task-failed, .task-queue-flow, .task-progress-overlay');
+                existingTaskElements.forEach(el => el.remove());
+
+                Object.entries(data.swarms || {}).forEach(([swarmId, swarm]) => {
+                    const node = canvas.querySelector(`[data-swarm-id="${swarmId}"]`);
+                    if (!node) return;
+
+                    const tasks = swarm.tasks || [];
+                    const runningTasks = tasks.filter(t => t.status === 'running');
+                    const completedTasks = tasks.filter(t => t.status === 'completed');
+                    const failedTasks = tasks.filter(t => t.status === 'failed');
+
+                    // Add progress bar for running tasks
+                    if (runningTasks.length > 0) {
+                        const progressBar = document.createElement('div');
+                        progressBar.className = 'task-progress-bar';
+
+                        const avgProgress = runningTasks.reduce((sum, task) => sum + (task.progress || 0), 0) / runningTasks.length;
+
+                        progressBar.innerHTML = `
+                            <div class="task-progress-fill" style="width: ${avgProgress}%"></div>
+                        `;
+
+                        node.appendChild(progressBar);
+
+                        // Add processing indicator
+                        const processingIndicator = document.createElement('div');
+                        processingIndicator.className = 'task-processing';
+                        processingIndicator.textContent = '⚙️';
+                        node.appendChild(processingIndicator);
+
+                        // Add progress overlay for visual emphasis
+                        const overlay = document.createElement('div');
+                        overlay.className = 'task-progress-overlay';
+                        node.appendChild(overlay);
+                    }
+
+                    // Add completion indicator
+                    if (completedTasks.length > 0 && runningTasks.length === 0) {
+                        const completionIndicator = document.createElement('div');
+                        completionIndicator.className = 'task-completed';
+                        completionIndicator.textContent = '✅';
+                        node.appendChild(completionIndicator);
+
+                        // Add celebration animation
+                        setTimeout(() => {
+                            if (completionIndicator.parentNode) {
+                                completionIndicator.parentNode.removeChild(completionIndicator);
+                            }
+                        }, 3000);
+                    }
+
+                    // Add failure indicator
+                    if (failedTasks.length > 0) {
+                        const failureIndicator = document.createElement('div');
+                        failureIndicator.className = 'task-failed';
+                        failureIndicator.textContent = '❌';
+                        node.appendChild(failureIndicator);
+
+                        setTimeout(() => {
+                            if (failureIndicator.parentNode) {
+                                failureIndicator.parentNode.removeChild(failureIndicator);
+                            }
+                        }, 2000);
+                    }
+
+                    // Add task queue flow visualization
+                    if (tasks.length > 0) {
+                        // Create flowing particles for active task processing
+                        for (let i = 0; i < Math.min(tasks.length, 3); i++) {
+                            setTimeout(() => {
+                                const flowParticle = document.createElement('div');
+                                flowParticle.className = 'task-queue-flow';
+                                flowParticle.style.left = `${parseFloat(node.style.left) + 20 + Math.random() * 40}px`;
+                                flowParticle.style.top = `${parseFloat(node.style.top) + 20 + Math.random() * 40}px`;
+
+                                canvas.appendChild(flowParticle);
+
+                                setTimeout(() => {
+                                    if (flowParticle.parentNode) {
+                                        flowParticle.parentNode.removeChild(flowParticle);
+                                    }
+                                }, 3000);
+                            }, i * 500);
+                        }
+                    }
+                });
+            }
+
+            clearConnections() {
+                const canvas = document.getElementById('topology-canvas');
+                const connections = canvas.querySelectorAll('.connection, .data-packet');
+                connections.forEach(conn => conn.remove());
+            }
+
+            getSwarmTypeClass(type) {
+                switch(type) {
+                    case 'enterprise': return 'swarm-enterprise';
+                    case 'cloud': return 'swarm-cloud';
+                    case 'home': return 'swarm-home';
+                    default: return 'swarm-enterprise';
+                }
+            }
+
+            renderConnections() {
+                const canvas = document.getElementById('topology-canvas');
+
+                this.federations.forEach((federation, id) => {
+                    const swarm1 = this.swarms.get(federation.swarm1);
+                    const swarm2 = this.swarms.get(federation.swarm2);
+
+                    if (swarm1 && swarm2) {
+                        this.createAnimatedConnection(canvas, swarm1, swarm2, federation);
+                    }
+                });
+            }
+
+            createAnimatedConnection(canvas, swarm1, swarm2, federation) {
+                // Get node positions (they might be animating, so get current positions)
+                const node1 = canvas.querySelector(`[data-swarm-id="${federation.swarm1}"]`);
+                const node2 = canvas.querySelector(`[data-swarm-id="${federation.swarm2}"]`);
+
+                if (!node1 || !node2) return;
+
+                const rect1 = node1.getBoundingClientRect();
+                const rect2 = node2.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+
+                const x1 = rect1.left + rect1.width / 2 - canvasRect.left;
+                const y1 = rect1.top + rect1.height / 2 - canvasRect.top;
+                const x2 = rect2.left + rect2.width / 2 - canvasRect.left;
+                const y2 = rect2.top + rect2.height / 2 - canvasRect.top;
+
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                const connection = document.createElement('div');
+                connection.className = `connection ${federation.type || 'federation'}`;
+                connection.setAttribute('data-connection-id', `${federation.swarm1}-${federation.swarm2}`);
+                connection.style.left = `${x1}px`;
+                connection.style.top = `${y1}px`;
+                connection.style.width = `${distance}px`;
+                connection.style.transform = `rotate(${angle}deg)`;
+                connection.style.transformOrigin = 'left center';
+
+                // Add connection strength based on activity
+                if (federation.active) {
+                    connection.classList.add('active');
+
+                    // Add pulsing effect for active connections
+                    connection.style.animation = 'connection-pulse 2s ease-in-out infinite';
+                }
+
+                // Add data flow direction indicator
+                if (federation.throughput && federation.throughput > 0) {
+                    connection.style.background = `linear-gradient(90deg,
+                        transparent 0%,
+                        ${this.getConnectionColor(federation.type)} 20%,
+                        ${this.getConnectionColor(federation.type)} 80%,
+                        transparent 100%)`;
+
+                    // Add flow animation
+                    connection.style.animation += ', data-flow 3s ease-in-out infinite';
+                }
+
+                canvas.appendChild(connection);
+            }
+
+            renderDataFlows() {
+                const canvas = document.getElementById('topology-canvas');
+
+                // Create data packets for active federations
+                this.federations.forEach((federation, id) => {
+                    if (federation.active && federation.throughput > 0) {
+                        // Random chance to create a data packet
+                        if (Math.random() < 0.3) { // 30% chance per update
+                            this.createDataPacket(canvas, federation);
+                        }
+                    }
+                });
+            }
+
+            createDataPacket(canvas, federation) {
+                const node1 = canvas.querySelector(`[data-swarm-id="${federation.swarm1}"]`);
+                const node2 = canvas.querySelector(`[data-swarm-id="${federation.swarm2}"]`);
+
+                if (!node1 || !node2) return;
+
+                const rect1 = node1.getBoundingClientRect();
+                const rect2 = node2.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+
+                const startX = rect1.left + rect1.width / 2 - canvasRect.left;
+                const startY = rect1.top + rect1.height / 2 - canvasRect.top;
+                const endX = rect2.left + rect2.width / 2 - canvasRect.left;
+                const endY = rect2.top + rect2.height / 2 - canvasRect.top;
+
+                const packet = document.createElement('div');
+                packet.className = 'data-packet';
+
+                // Set initial position
+                packet.style.left = `${startX - 5}px`;
+                packet.style.top = `${startY - 5}px`;
+
+                // Calculate animation path
+                const dx = endX - startX;
+                const dy = endY - startY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx);
+
+                // Create custom animation
+                const animation = packet.animate([
+                    { transform: 'translate(0, 0) scale(1)', opacity: 0 },
+                    { transform: `translate(${dx}px, ${dy}px) scale(1.2)`, opacity: 1, offset: 0.1 },
+                    { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1, offset: 0.9 },
+                    { transform: `translate(${dx}px, ${dy}px) scale(0.5)`, opacity: 0 }
+                ], {
+                    duration: 3000,
+                    easing: 'ease-in-out'
+                });
+
+                animation.addEventListener('finish', () => {
+                    if (packet.parentNode) {
+                        packet.parentNode.removeChild(packet);
+                    }
+                });
+
+                canvas.appendChild(packet);
+            }
+
+            getConnectionColor(type) {
+                switch(type) {
+                    case 'discovery': return '#2196F3';
+                    case 'security': return '#f44336';
+                    case 'federation': return '#4CAF50';
+                    default: return '#64b5f6';
+                }
+            }
+
+            getSwarmTypeColor(type) {
+                switch(type) {
+                    case 'enterprise': return '#667eea';
+                    case 'cloud': return '#f093fb';
+                    case 'home': return '#4facfe';
+                    default: return '#667eea';
+                }
+            }
+
+            renderAlerts() {
+                const alertsList = document.getElementById('alerts-list');
+                const alertsPanel = document.getElementById('alerts-panel');
+
+                if (this.alerts.length === 0) {
+                    alertsPanel.style.display = 'none';
+                    return;
+                }
+
+                alertsPanel.style.display = 'block';
+                alertsList.innerHTML = '';
+
+                this.alerts.forEach(alert => {
+                    const alertItem = document.createElement('div');
+                    alertItem.className = `alert-item alert-${alert.level}`;
+                    alertItem.innerHTML = `
+                        <span>${alert.icon}</span>
+                        <div>
+                            <div style="font-weight: 600;">${alert.title}</div>
+                            <div style="font-size: 0.8em; opacity: 0.8;">${alert.message}</div>
+                            <div style="font-size: 0.7em; opacity: 0.6;">${new Date(alert.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                    `;
+                    alertsList.appendChild(alertItem);
+                });
+            }
+
+            updateMetricsDisplay() {
+                document.getElementById('metric-swarms').textContent = this.metrics.activeSwarms;
+                document.getElementById('metric-links').textContent = this.metrics.activeFederations;
+                document.getElementById('metric-latency').textContent = this.metrics.avgLatency + 'ms';
+                document.getElementById('metric-throughput').textContent = this.metrics.throughput + '/s';
+                document.getElementById('metric-health').textContent = this.metrics.health;
+                document.getElementById('metric-security').textContent = this.metrics.security + '%';
+                document.getElementById('metric-errors').textContent = this.metrics.errors + '%';
+                document.getElementById('metric-uptime').textContent = this.metrics.uptime + '%';
+
+                // Update global status
+                document.getElementById('active-swarms').textContent = `${this.metrics.activeSwarms} Active Swarms`;
+                document.getElementById('active-federations').textContent = `${this.metrics.activeFederations} Federations`;
+                document.getElementById('system-health').textContent = `Health: ${this.metrics.health}`;
+            }
+
+            updateCharts() {
+                const throughputData = this.performanceChart.data.datasets[0].data;
+                const latencyData = this.performanceChart.data.datasets[1].data;
+
+                throughputData.shift();
+                throughputData.push(this.metrics.throughput);
+
+                latencyData.shift();
+                latencyData.push(this.metrics.avgLatency);
+
+                this.performanceChart.update('none');
+            }
+
+            logActivity(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                this.activityLog.unshift(`[${timestamp}] ${message}`);
+
+                if (this.activityLog.length > 50) {
+                    this.activityLog.pop();
+                }
+
+                this.updateActivityLog();
+            }
+
+            updateActivityLog() {
+                const logElement = document.getElementById('activity-log');
+                logElement.innerHTML = this.activityLog.map(entry =>
+                    `<div style="margin-bottom: 4px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">${entry}</div>`
+                ).join('');
+            }
+
+            // Control methods
+            startSwarm() {
+                const swarmId = document.getElementById('swarm-selector').value;
+                if (swarmId && this.socket) {
+                    this.socket.emit('start_swarm', { swarmId });
+                    this.logActivity(`Starting swarm ${swarmId}`);
+                }
+            }
+
+            stopSwarm() {
+                const swarmId = document.getElementById('swarm-selector').value;
+                if (swarmId && this.socket) {
+                    this.socket.emit('stop_swarm', { swarmId });
+                    this.logActivity(`Stopping swarm ${swarmId}`);
+                }
+            }
+
+            restartSwarm() {
+                const swarmId = document.getElementById('swarm-selector').value;
+                if (swarmId && this.socket) {
+                    this.socket.emit('restart_swarm', { swarmId });
+                    this.logActivity(`Restarting swarm ${swarmId}`);
+                }
+            }
+
+            createFederation() {
+                if (this.socket) {
+                    this.socket.emit('create_federation');
+                    this.logActivity('Creating new federation');
+                }
+            }
+
+            dissolveFederation() {
+                if (this.socket) {
+                    this.socket.emit('dissolve_federation');
+                    this.logActivity('Dissolving federation');
+                }
+            }
+
+            loadBalance() {
+                if (this.socket) {
+                    this.socket.emit('load_balance');
+                    this.logActivity('Initiating load balancing');
+                }
+            }
+
+            emergencyStop() {
+                if (confirm('Are you sure you want to perform an emergency stop? This will halt all operations.')) {
+                    if (this.socket) {
+                        this.socket.emit('emergency_stop');
+                        this.logActivity('EMERGENCY STOP initiated');
+                    }
+                }
+            }
+
+            systemReset() {
+                if (confirm('Are you sure you want to reset the system? This will restart all components.')) {
+                    if (this.socket) {
+                        this.socket.emit('system_reset');
+                        this.logActivity('System reset initiated');
+                    }
+                }
+            }
+
+            createBackup() {
+                if (this.socket) {
+                    this.socket.emit('create_backup');
+                    this.logActivity('Creating system backup');
+                }
+            }
+
+            toggleAutoRefresh(enabled) {
+                // Implementation for auto-refresh toggle
+                this.logActivity(`Auto-refresh ${enabled ? 'enabled' : 'disabled'}`);
+            }
+
+            toggleAlerts(enabled) {
+                const alertsPanel = document.getElementById('alerts-panel');
+                alertsPanel.style.display = enabled && this.alerts.length > 0 ? 'block' : 'none';
+                this.logActivity(`Alerts ${enabled ? 'enabled' : 'disabled'}`);
+            }
+
+            toggleDebugMode(enabled) {
+                // Implementation for debug mode toggle
+                this.logActivity(`Debug mode ${enabled ? 'enabled' : 'disabled'}`);
+            }
+
+            async switchToLiveMode() {
+                if (!this.authenticated) {
+                    alert('Authentication required to switch modes');
+                    return;
+                }
+
+                if (confirm('Switch to LIVE mode? This will connect to real swarm nodes. Make sure swarm services are running.')) {
+                    try {
+                        const response = await fetch('/mode', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-API-Key': this.apiKey || ''
+                            },
+                            body: JSON.stringify('live')
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            this.updateModeDisplay('live');
+                            this.logActivity('Switched to LIVE mode');
+                            alert('Successfully switched to LIVE mode. Connecting to real swarm nodes...');
+                        } else {
+                            const error = await response.json();
+                            alert(`Failed to switch mode: ${error.detail}`);
+                        }
+                    } catch (error) {
+                        console.error('Mode switch error:', error);
+                        alert('Error switching to LIVE mode');
+                    }
+                }
+            }
+
+            async switchToSimulationMode() {
+                if (!this.authenticated) {
+                    alert('Authentication required to switch modes');
+                    return;
+                }
+
+                if (confirm('Switch to SIMULATION mode? This will use generated test data for safe experimentation.')) {
+                    try {
+                        const response = await fetch('/mode', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-API-Key': this.apiKey || ''
+                            },
+                            body: JSON.stringify('simulation')
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            this.updateModeDisplay('simulation');
+                            this.logActivity('Switched to SIMULATION mode');
+                            alert('Successfully switched to SIMULATION mode. Using generated test data...');
+                        } else {
+                            const error = await response.json();
+                            alert(`Failed to switch mode: ${error.detail}`);
+                        }
+                    } catch (error) {
+                        console.error('Mode switch error:', error);
+                        alert('Error switching to SIMULATION mode');
+                    }
+                }
+            }
+
+            updateModeDisplay(mode) {
+                const modeElement = document.getElementById('operation-mode');
+                const currentModeDisplay = document.getElementById('current-mode-display');
+                const liveBtn = document.getElementById('switch-to-live-btn');
+                const simBtn = document.getElementById('switch-to-simulation-btn');
+
+                if (mode === 'live') {
+                    modeElement.textContent = 'Mode: Live';
+                    modeElement.style.color = '#f44336'; // Red for live
+                    currentModeDisplay.textContent = 'Current: Live';
+                    liveBtn.disabled = true;
+                    simBtn.disabled = false;
+                } else {
+                    modeElement.textContent = 'Mode: Simulation';
+                    modeElement.style.color = '#4CAF50'; // Green for simulation
+                    currentModeDisplay.textContent = 'Current: Simulation';
+                    liveBtn.disabled = false;
+                    simBtn.disabled = true;
+                }
+            }
+
+            updateSwarmStatusDisplay(data) {
+                const statusList = document.getElementById('swarm-status-list');
+                statusList.innerHTML = '';
+
+                Object.entries(data.swarms || {}).forEach(([swarmId, swarm]) => {
+                    const statusItem = document.createElement('div');
+                    statusItem.style.cssText = `
+                        padding: 8px;
+                        margin: 4px 0;
+                        border-radius: 4px;
+                        background: rgba(255,255,255,0.05);
+                        border-left: 3px solid ${this.getStatusColor(swarm.status)};
+                        font-size: 0.85em;
+                    `;
+
+                    const statusIcon = this.getStatusIcon(swarm.status);
+                    const lastSeen = swarm.last_updated ? new Date(swarm.last_updated * 1000).toLocaleTimeString() : 'Unknown';
+
+                    statusItem.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 600;">${swarm.name || swarmId}</span>
+                            <span style="font-size: 0.8em; opacity: 0.7;">${lastSeen}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                            <span>${statusIcon} ${swarm.status || 'unknown'}</span>
+                            <span>CPU: ${swarm.cpu_usage ? swarm.cpu_usage.toFixed(1) : '0'}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+                            <span>Load: ${swarm.load ? swarm.load.toFixed(1) : '0'}%</span>
+                            <span>Tasks: ${swarm.tasks_active || 0}</span>
+                        </div>
+                    `;
+
+                    statusList.appendChild(statusItem);
+                });
+            }
+
+            updateTaskQueueDisplay(data) {
+                const queueList = document.getElementById('task-queue-list');
+                queueList.innerHTML = '';
+
+                // Aggregate tasks from all swarms
+                const allTasks = [];
+                Object.values(data.swarms || {}).forEach(swarm => {
+                    if (swarm.tasks && Array.isArray(swarm.tasks)) {
+                        allTasks.push(...swarm.tasks.map(task => ({ ...task, swarm: swarm.name || swarm.swarm_id })));
+                    }
+                });
+
+                // Sort by priority and timestamp
+                allTasks.sort((a, b) => {
+                    if (a.priority !== b.priority) return (b.priority || 0) - (a.priority || 0);
+                    return (a.created_at || 0) - (b.created_at || 0);
+                });
+
+                allTasks.slice(0, 10).forEach(task => {
+                    const taskItem = document.createElement('div');
+                    taskItem.style.cssText = `
+                        padding: 8px;
+                        margin: 4px 0;
+                        border-radius: 4px;
+                        background: rgba(255,255,255,0.05);
+                        border-left: 3px solid ${this.getPriorityColor(task.priority)};
+                        font-size: 0.8em;
+                        position: relative;
+                        overflow: hidden;
+                    `;
+
+                    const priorityIcon = this.getPriorityIcon(task.priority);
+                    const statusIcon = this.getTaskStatusIcon(task.status);
+                    const progressPercent = task.progress || (task.status === 'completed' ? 100 : task.status === 'running' ? Math.random() * 80 + 10 : 0);
+
+                    // Add progress bar for running tasks
+                    let progressBarHtml = '';
+                    if (task.status === 'running' || task.status === 'completed') {
+                        progressBarHtml = `
+                            <div style="margin-top: 6px; background: rgba(0,0,0,0.2); height: 3px; border-radius: 2px; overflow: hidden;">
+                                <div style="height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); width: ${progressPercent}%; transition: width 0.5s ease; position: relative;">
+                                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: progress-shine 2s ease-in-out infinite;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // Add processing indicator
+                    let processingIndicator = '';
+                    if (task.status === 'running') {
+                        processingIndicator = '<span style="color: #FFC107; animation: task-processing-spin 1s linear infinite;">⚙️</span>';
+                    } else if (task.status === 'completed') {
+                        processingIndicator = '<span style="color: #4CAF50; animation: task-completed-bounce 0.6s ease-out;">✅</span>';
+                    } else if (task.status === 'failed') {
+                        processingIndicator = '<span style="color: #f44336;">❌</span>';
+                    }
+
+                    taskItem.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 600; flex: 1;">${task.description || task.id}</span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                ${processingIndicator}
+                                <span>${priorityIcon}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.75em; opacity: 0.8;">
+                            <span>${statusIcon} ${task.status || 'pending'}</span>
+                            <span>${task.swarm}</span>
+                        </div>
+                        ${task.status === 'running' ? `<div style="font-size: 0.7em; opacity: 0.7; margin-top: 2px;">${progressPercent.toFixed(1)}% complete</div>` : ''}
+                        ${progressBarHtml}
+                    `;
+
+                    queueList.appendChild(taskItem);
+                });
+
+                if (allTasks.length === 0) {
+                    queueList.innerHTML = '<div style="text-align: center; opacity: 0.6; padding: 20px;">No active tasks</div>';
+                }
+
+                // Update task visualizations on swarm nodes
+                this.updateSwarmTaskVisualizations(data);
+            }
+
+            addDiscoveryEvent(data) {
+                const eventsList = document.getElementById('discovery-events');
+                const eventItem = document.createElement('div');
+                eventItem.style.cssText = `
+                    padding: 4px 8px;
+                    margin: 2px 0;
+                    border-radius: 3px;
+                    background: rgba(255,255,255,0.05);
+                    font-size: 0.75em;
+                    border-left: 3px solid #64b5f6;
+                `;
+
+                const timestamp = new Date().toLocaleTimeString();
+                const eventType = data.event_type || 'discovery';
+                const icon = this.getEventIcon(eventType);
+
+                eventItem.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span>${icon}</span>
+                        <span style="flex: 1;">${data.message || data.swarm_id || 'Unknown event'}</span>
+                        <span style="opacity: 0.6; font-size: 0.7em;">${timestamp}</span>
+                    </div>
+                `;
+
+                eventsList.insertBefore(eventItem, eventsList.firstChild);
+
+                // Keep only last 20 events
+                while (eventsList.children.length > 20) {
+                    eventsList.removeChild(eventsList.lastChild);
+                }
+            }
+
+            updateSecurityStatus(data) {
+                const securityList = document.getElementById('security-checks');
+                securityList.innerHTML = '';
+
+                const checks = data.checks || [
+                    { name: 'API Authentication', status: 'passed', last_check: Date.now() },
+                    { name: 'Federation Encryption', status: 'passed', last_check: Date.now() },
+                    { name: 'Access Control', status: 'passed', last_check: Date.now() },
+                    { name: 'Network Security', status: 'warning', last_check: Date.now() },
+                    { name: 'Data Integrity', status: 'passed', last_check: Date.now() }
+                ];
+
+                checks.forEach(check => {
+                    const checkItem = document.createElement('div');
+                    checkItem.style.cssText = `
+                        padding: 6px 8px;
+                        margin: 3px 0;
+                        border-radius: 3px;
+                        background: rgba(255,255,255,0.05);
+                        border-left: 3px solid ${this.getSecurityStatusColor(check.status)};
+                        font-size: 0.8em;
+                    `;
+
+                    const statusIcon = this.getSecurityStatusIcon(check.status);
+                    const lastCheck = check.last_check ? new Date(check.last_check).toLocaleTimeString() : 'Never';
+
+                    checkItem.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>${check.name}</span>
+                            <span>${statusIcon}</span>
+                        </div>
+                        <div style="margin-top: 2px; font-size: 0.7em; opacity: 0.7;">
+                            Last check: ${lastCheck}
+                        </div>
+                    `;
+
+                    securityList.appendChild(checkItem);
+                });
+            }
+
+            getStatusColor(status) {
+                switch(status) {
+                    case 'active': return '#4CAF50';
+                    case 'inactive': return '#666';
+                    case 'busy': return '#ff5722';
+                    case 'failed': return '#f44336';
+                    case 'overloaded': return '#ff9800';
+                    case 'starting': return '#2196F3';
+                    case 'stopping': return '#ff5722';
+                    default: return '#666';
+                }
+            }
+
+            getStatusIcon(status) {
+                switch(status) {
+                    case 'active': return '🟢';
+                    case 'inactive': return '⚪';
+                    case 'busy': return '🔴';
+                    case 'failed':
+                    case 'error': return '❌';
+                    case 'overloaded': return '🟡';
+                    case 'starting': return '🔄';
+                    case 'stopping': return '⏹️';
+                    case 'unreachable': return '📡';
+                    default: return '❓';
+                }
+            }
+
+            getPriorityColor(priority) {
+                if (priority >= 4) return '#f44336'; // High
+                if (priority >= 3) return '#ff9800'; // Medium-High
+                if (priority >= 2) return '#2196F3'; // Medium
+                return '#666'; // Low
+            }
+
+            getPriorityIcon(priority) {
+                if (priority >= 4) return '🔴';
+                if (priority >= 3) return '🟡';
+                if (priority >= 2) return '🔵';
+                return '⚪';
+            }
+
+            getTaskStatusIcon(status) {
+                switch(status) {
+                    case 'running': return '▶️';
+                    case 'completed': return '✅';
+                    case 'failed': return '❌';
+                    case 'pending': return '⏳';
+                    case 'queued': return '📋';
+                    default: return '❓';
+                }
+            }
+
+            getEventIcon(eventType) {
+                switch(eventType) {
+                    case 'discovery': return '🔍';
+                    case 'connection': return '🔗';
+                    case 'disconnection': return '🔌';
+                    case 'error': return '⚠️';
+                    case 'security': return '🔒';
+                    default: return '📢';
+                }
+            }
+
+            getSecurityStatusColor(status) {
+                switch(status) {
+                    case 'passed': return '#4CAF50';
+                    case 'failed': return '#f44336';
+                    case 'warning': return '#ff9800';
+                    default: return '#666';
+                }
+            }
+
+            getSecurityStatusIcon(status) {
+                switch(status) {
+                    case 'passed': return '✅';
+                    case 'failed': return '❌';
+                    case 'warning': return '⚠️';
+                    default: return '❓';
+                }
+            }
+
+            createDiscoveryVisualization(data) {
+                const canvas = document.getElementById('topology-canvas');
+                const swarmId = data.swarm_id;
+                const eventType = data.event_type || 'discovery';
+
+                // Find the swarm node element
+                const swarmNode = canvas.querySelector(`[data-swarm-id="${swarmId}"]`);
+                if (!swarmNode) return;
+
+                const rect = swarmNode.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2 - canvasRect.left;
+                const centerY = rect.top + rect.height / 2 - canvasRect.top;
+
+                // Create different visualizations based on discovery type
+                if (eventType === 'lan_discovery' || data.message?.includes('UDP') || data.message?.includes('LAN')) {
+                    this.createLANBroadcastVisualization(canvas, centerX, centerY, swarmId);
+                } else if (eventType === 'registry_discovery' || data.message?.includes('HTTPS') || data.message?.includes('registry')) {
+                    this.createRegistryDiscoveryVisualization(canvas, centerX, centerY, swarmId);
+                } else {
+                    this.createGenericDiscoveryVisualization(canvas, centerX, centerY, swarmId);
+                }
+            }
+
+            createLANBroadcastVisualization(canvas, x, y, swarmId) {
+                // Create central broadcast tower with pulsing effect
+                const broadcastTower = document.createElement('div');
+                broadcastTower.style.cssText = `
+                    position: absolute;
+                    left: ${x - 20}px;
+                    top: ${y - 20}px;
+                    width: 40px;
+                    height: 40px;
+                    background: radial-gradient(circle, #FF9800 0%, #FFC107 50%, #FF5722 100%);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 20px;
+                    z-index: 30;
+                    animation: broadcast-tower-pulse 1s ease-in-out infinite;
+                    box-shadow: 0 0 25px rgba(255, 152, 0, 0.9), 0 0 50px rgba(255, 152, 0, 0.6);
+                    border: 3px solid rgba(255, 255, 255, 0.8);
+                `;
+                broadcastTower.textContent = '📡';
+                canvas.appendChild(broadcastTower);
+
+                // Create multiple expanding signal rings
+                for (let ring = 0; ring < 5; ring++) {
+                    setTimeout(() => {
+                        const signalRing = document.createElement('div');
+                        signalRing.style.cssText = `
+                            position: absolute;
+                            left: ${x - 25}px;
+                            top: ${y - 25}px;
+                            width: 50px;
+                            height: 50px;
+                            border: 3px solid rgba(255, 152, 0, ${0.8 - ring * 0.15});
+                            border-radius: 50%;
+                            z-index: 25;
+                            animation: lan-signal-ring-expand 2s ease-out forwards;
+                            pointer-events: none;
+                            box-shadow: 0 0 10px rgba(255, 152, 0, ${0.5 - ring * 0.1});
+                        `;
+                        canvas.appendChild(signalRing);
+
+                        setTimeout(() => {
+                            if (signalRing.parentNode) {
+                                signalRing.parentNode.removeChild(signalRing);
+                            }
+                        }, 2000);
+                    }, ring * 300);
+                }
+
+                // Create flying broadcast packets in all directions
+                const directions = 8; // 8 cardinal directions
+                for (let dir = 0; dir < directions; dir++) {
+                    setTimeout(() => {
+                        const angle = (dir / directions) * 2 * Math.PI;
+                        const distance = 120 + Math.random() * 80;
+                        const targetX = x + Math.cos(angle) * distance;
+                        const targetY = y + Math.sin(angle) * distance;
+
+                        const broadcastPacket = document.createElement('div');
+                        broadcastPacket.style.cssText = `
+                            position: absolute;
+                            left: ${x - 8}px;
+                            top: ${y - 8}px;
+                            width: 16px;
+                            height: 16px;
+                            background: linear-gradient(45deg, #FF9800, #FFC107);
+                            border-radius: 50%;
+                            z-index: 28;
+                            animation: broadcast-packet-flight 3s ease-out forwards;
+                            box-shadow: 0 0 12px rgba(255, 152, 0, 0.8);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 10px;
+                            color: white;
+                            font-weight: bold;
+                        `;
+                        broadcastPacket.textContent = '📻';
+
+                        // Set custom animation path
+                        broadcastPacket.style.setProperty('--target-x', `${targetX - x}px`);
+                        broadcastPacket.style.setProperty('--target-y', `${targetY - y}px`);
+
+                        canvas.appendChild(broadcastPacket);
+
+                        setTimeout(() => {
+                            if (broadcastPacket.parentNode) {
+                                broadcastPacket.parentNode.removeChild(broadcastPacket);
+                            }
+                        }, 3000);
+                    }, dir * 150); // Stagger packet launches
+                }
+
+                // Create broadcast information overlay
+                const infoOverlay = document.createElement('div');
+                infoOverlay.style.cssText = `
+                    position: absolute;
+                    left: ${x - 80}px;
+                    top: ${y - 60}px;
+                    background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(33, 33, 33, 0.95));
+                    color: #FFC107;
+                    padding: 12px 16px;
+                    border-radius: 10px;
+                    font-size: 12px;
+                    z-index: 35;
+                    animation: broadcast-info-appear 0.5s ease-out, broadcast-info-pulse 2s ease-in-out infinite;
+                    border: 2px solid #FF9800;
+                    backdrop-filter: blur(8px);
+                    box-shadow: 0 0 20px rgba(255, 152, 0, 0.5);
+                    max-width: 200px;
+                `;
+                infoOverlay.innerHTML = `
+                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 6px; text-align: center; color: #FF9800;">
+                        📡 LAN BROADCAST
+                    </div>
+                    <div style="margin-bottom: 4px;"><strong>Protocol:</strong> UDP</div>
+                    <div style="margin-bottom: 4px;"><strong>Port:</strong> 9999</div>
+                    <div style="margin-bottom: 4px;"><strong>Method:</strong> Local Network</div>
+                    <div style="font-size: 10px; opacity: 0.8; text-align: center; margin-top: 6px;">
+                        Broadcasting to all network devices...
+                    </div>
+                `;
+                canvas.appendChild(infoOverlay);
+
+                // Add network scanning lines
+                for (let scan = 0; scan < 3; scan++) {
+                    setTimeout(() => {
+                        const scanLine = document.createElement('div');
+                        const scanAngle = (scan / 3) * Math.PI + Math.PI / 6; // Offset angles
+                        scanLine.style.cssText = `
+                            position: absolute;
+                            left: ${x}px;
+                            top: ${y}px;
+                            width: 2px;
+                            height: 100px;
+                            background: linear-gradient(to bottom, rgba(255, 152, 0, 0.8), transparent);
+                            z-index: 26;
+                            transform-origin: top center;
+                            transform: rotate(${scanAngle}rad);
+                            animation: network-scan 1.5s ease-in-out infinite;
+                            pointer-events: none;
+                        `;
+                        canvas.appendChild(scanLine);
+
+                        setTimeout(() => {
+                            if (scanLine.parentNode) {
+                                scanLine.parentNode.removeChild(scanLine);
+                            }
+                        }, 1500);
+                    }, scan * 400);
+                }
+
+                // Cleanup all elements after broadcast sequence
+                setTimeout(() => {
+                    [broadcastTower, infoOverlay].forEach(el => {
+                        if (el.parentNode) {
+                            el.parentNode.removeChild(el);
+                        }
+                    });
+                }, 5000);
+            }
+
+            createRegistryDiscoveryVisualization(canvas, x, y, swarmId) {
+                // Create central registry handshake icon
+                const registryIcon = document.createElement('div');
+                registryIcon.style.cssText = `
+                    position: absolute;
+                    left: ${x - 20}px;
+                    top: ${y - 20}px;
+                    width: 40px;
+                    height: 40px;
+                    background: linear-gradient(135deg, #2196F3 0%, #64B5F6 50%, #1976D2 100%);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                    z-index: 32;
+                    animation: registry-handshake-pulse 1.5s ease-in-out infinite;
+                    box-shadow: 0 0 25px rgba(33, 150, 243, 0.8), 0 0 50px rgba(33, 150, 243, 0.5);
+                    border: 3px solid rgba(255, 255, 255, 0.9);
+                `;
+                registryIcon.textContent = '🔐';
+                canvas.appendChild(registryIcon);
+
+                // Create registry server representation (top-right corner simulation)
+                const registryX = canvas.clientWidth * 0.85;
+                const registryY = canvas.clientHeight * 0.08;
+
+                // Create animated connection path with data flow
+                const connectionPath = [];
+                const steps = 20;
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const cx = x + (registryX - x) * t;
+                    const cy = y + (registryY - y) * t + Math.sin(t * Math.PI) * 30; // Curved path
+                    connectionPath.push({ x: cx, y: cy });
+                }
+
+                // Draw connection segments with data flow
+                connectionPath.forEach((point, index) => {
+                    if (index < connectionPath.length - 1) {
+                        setTimeout(() => {
+                            const segment = document.createElement('div');
+                            const nextPoint = connectionPath[index + 1];
+                            const distance = Math.sqrt((nextPoint.x - point.x) ** 2 + (nextPoint.y - point.y) ** 2);
+                            const angle = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x) * 180 / Math.PI;
+
+                            segment.style.cssText = `
+                                position: absolute;
+                                left: ${point.x}px;
+                                top: ${point.y}px;
+                                width: ${distance}px;
+                                height: 3px;
+                                background: linear-gradient(90deg, rgba(33, 150, 243, 0.8), rgba(100, 181, 246, 0.9));
+                                transform: rotate(${angle}deg);
+                                transform-origin: left center;
+                                z-index: 28;
+                                animation: registry-connection-flow 1s ease-in-out infinite;
+                                box-shadow: 0 0 5px rgba(33, 150, 243, 0.6);
+                            `;
+                            canvas.appendChild(segment);
+
+                            setTimeout(() => {
+                                if (segment.parentNode) {
+                                    segment.parentNode.removeChild(segment);
+                                }
+                            }, 2000);
+                        }, index * 50); // Staggered appearance
+                    }
+                });
+
+                // Create data packets traveling along the connection
+                for (let packet = 0; packet < 3; packet++) {
+                    setTimeout(() => {
+                        const dataPacket = document.createElement('div');
+                        dataPacket.style.cssText = `
+                            position: absolute;
+                            left: ${x - 6}px;
+                            top: ${y - 6}px;
+                            width: 12px;
+                            height: 12px;
+                            background: linear-gradient(45deg, #2196F3, #64B5F6);
+                            border-radius: 50%;
+                            z-index: 30;
+                            animation: registry-data-packet 3s ease-in-out forwards;
+                            box-shadow: 0 0 10px rgba(33, 150, 243, 0.8);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 8px;
+                            color: white;
+                        `;
+                        dataPacket.textContent = '📄';
+
+                        // Set destination
+                        dataPacket.style.setProperty('--dest-x', `${registryX - x}px`);
+                        dataPacket.style.setProperty('--dest-y', `${registryY - y}px`);
+
+                        canvas.appendChild(dataPacket);
+
+                        setTimeout(() => {
+                            if (dataPacket.parentNode) {
+                                dataPacket.parentNode.removeChild(dataPacket);
+                            }
+                        }, 3000);
+                    }, packet * 800);
+                }
+
+                // Create registry server visualization
+                const registryServer = document.createElement('div');
+                registryServer.style.cssText = `
+                    position: absolute;
+                    left: ${registryX - 25}px;
+                    top: ${registryY - 25}px;
+                    width: 50px;
+                    height: 50px;
+                    background: linear-gradient(135deg, #424242 0%, #616161 50%, #757575 100%);
+                    border-radius: 8px;
+                    border: 2px solid #2196F3;
+                    z-index: 31;
+                    animation: registry-server-pulse 2s ease-in-out infinite;
+                    box-shadow: 0 0 20px rgba(33, 150, 243, 0.6);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 16px;
+                `;
+                registryServer.textContent = '🖥️';
+                canvas.appendChild(registryServer);
+
+                // Create authentication/registration info overlay
+                const authOverlay = document.createElement('div');
+                authOverlay.style.cssText = `
+                    position: absolute;
+                    left: ${registryX - 120}px;
+                    top: ${registryY + 30}px;
+                    background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(33, 33, 33, 0.95));
+                    color: #64B5F6;
+                    padding: 12px 16px;
+                    border-radius: 10px;
+                    font-size: 11px;
+                    z-index: 35;
+                    animation: registry-auth-appear 0.5s ease-out, registry-auth-glow 2s ease-in-out infinite;
+                    border: 2px solid #2196F3;
+                    backdrop-filter: blur(8px);
+                    box-shadow: 0 0 20px rgba(33, 150, 243, 0.5);
+                    max-width: 180px;
+                `;
+                authOverlay.innerHTML = `
+                    <div style="font-weight: bold; font-size: 13px; margin-bottom: 6px; text-align: center; color: #2196F3;">
+                        🔐 REGISTRY REGISTRATION
+                    </div>
+                    <div style="margin-bottom: 4px;"><strong>Protocol:</strong> HTTPS</div>
+                    <div style="margin-bottom: 4px;"><strong>Auth:</strong> API Key</div>
+                    <div style="margin-bottom: 4px;"><strong>Status:</strong> <span style="color: #4CAF50;">✓ Connected</span></div>
+                    <div style="font-size: 9px; opacity: 0.8; text-align: center; margin-top: 6px;">
+                        Registering swarm with federation...
+                    </div>
+                `;
+                canvas.appendChild(authOverlay);
+
+                // Add security shield effects
+                for (let shield = 0; shield < 3; shield++) {
+                    setTimeout(() => {
+                        const securityShield = document.createElement('div');
+                        securityShield.style.cssText = `
+                            position: absolute;
+                            left: ${registryX - 15 + (Math.random() - 0.5) * 30}px;
+                            top: ${registryY - 15 + (Math.random() - 0.5) * 30}px;
+                            width: 20px;
+                            height: 20px;
+                            background: rgba(76, 175, 80, 0.8);
+                            border-radius: 50%;
+                            z-index: 29;
+                            animation: security-shield 1s ease-out forwards;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 10px;
+                        `;
+                        securityShield.textContent = '🛡️';
+                        canvas.appendChild(securityShield);
+
+                        setTimeout(() => {
+                            if (securityShield.parentNode) {
+                                securityShield.parentNode.removeChild(securityShield);
+                            }
+                        }, 1000);
+                    }, shield * 300);
+                }
+
+                // Cleanup all elements
+                setTimeout(() => {
+                    [registryIcon, registryServer, authOverlay].forEach(el => {
+                        if (el.parentNode) {
+                            el.parentNode.removeChild(el);
+                        }
+                    });
+                }, 6000);
+            }
+
+            createGenericDiscoveryVisualization(canvas, x, y, swarmId) {
+                // Create general discovery pulse effect
+                const pulse = document.createElement('div');
+                pulse.className = 'discovery-pulse';
+                pulse.style.left = `${x - canvas.clientWidth / 2}px`;
+                pulse.style.top = `${y - canvas.clientHeight / 2}px`;
+
+                canvas.appendChild(pulse);
+
+                // Add discovery sparkle effect
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        const sparkle = document.createElement('div');
+                        sparkle.style.position = 'absolute';
+                        sparkle.style.left = `${x + (Math.random() - 0.5) * 100}px`;
+                        sparkle.style.top = `${y + (Math.random() - 0.5) * 100}px`;
+                        sparkle.style.width = '4px';
+                        sparkle.style.height = '4px';
+                        sparkle.style.background = '#64b5f6';
+                        sparkle.style.borderRadius = '50%';
+                        sparkle.style.zIndex = '16';
+                        sparkle.style.animation = 'twinkle 1s ease-in-out forwards';
+
+                        canvas.appendChild(sparkle);
+
+                        setTimeout(() => {
+                            if (sparkle.parentNode) {
+                                sparkle.parentNode.removeChild(sparkle);
+                            }
+                        }, 1000);
+                    }, i * 200);
+                }
+
+                // Remove pulse after animation
+                setTimeout(() => {
+                    if (pulse.parentNode) {
+                        pulse.parentNode.removeChild(pulse);
+                    }
+                }, 1500);
+            }
+
+            // Add twinkle animation for sparkles
+            addTwinkleAnimation() {
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes twinkle {
+                        0% { transform: scale(0); opacity: 1; }
+                        50% { transform: scale(1); opacity: 0.8; }
+                        100% { transform: scale(0); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            showSwarmDetails(swarm) {
+                // Implementation for showing swarm details modal
+                alert(`Swarm Details:\nName: ${swarm.name}\nStatus: ${swarm.status}\nLoad: ${swarm.load}%\nTasks: ${swarm.tasks}\nLocation: ${swarm.location}`);
+            }
+        }
+
+        // Initialize the platform when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.federationPlatform = new FederationOperationsPlatform();
+
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.key) {
+                        case 'r':
+                            e.preventDefault();
+                            if (window.federationPlatform.socket) {
+                                window.federationPlatform.socket.emit('refresh');
+                            }
+                            break;
+                    }
+                }
+            });
+
+            console.log('🧠 Brain Swarm Federation Operations Platform initialized');
+            console.log('🎮 Controls: Ctrl+R to refresh, authentication required for operations');
+        });
+    </script>
+</body>
+</html>

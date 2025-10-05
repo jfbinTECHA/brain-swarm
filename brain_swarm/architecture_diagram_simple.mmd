@@ -1,0 +1,65 @@
+graph TB
+    %% Title
+    TITLE[Brain Swarm Federation Architecture<br/>LAN + Global Discovery]
+
+    %% Main Architecture
+    subgraph "🌐 INTERNET-WIDE DISCOVERY"
+        subgraph "Network A"
+            SWARM_A[Swarm A<br/>Network A]
+        end
+
+        subgraph "Network B"
+            SWARM_B[Swarm B<br/>Network B]
+        end
+
+        REGISTRY[(Central Registry<br/>Secure API<br/>TLS/HTTPS)]
+    end
+
+    subgraph "🏠 LAN-ONLY DISCOVERY"
+        subgraph "Local Network"
+            SWARM_LAN_A[Swarm A<br/>LAN]
+            SWARM_LAN_B[Swarm B<br/>LAN]
+        end
+        UDP_BROADCAST[UDP Broadcast<br/>Port 9999]
+    end
+
+    subgraph "🔄 HYBRID DISCOVERY"
+        SWARM_HYB[Swarm<br/>Enterprise]
+        HYBRID_DISC[Discovery Layer<br/>Hybrid Mode]
+    end
+
+    %% Security Components
+    subgraph "🔐 SECURITY LAYERS"
+        API_AUTH[API Key<br/>Authentication]
+        TLS_ENCRYPT[TLS/HTTPS<br/>Encryption]
+        RATE_LIMIT[Rate<br/>Limiting]
+        AUDIT_LOG[Audit<br/>Logging]
+    end
+
+    %% Connections
+    SWARM_A --> REGISTRY
+    SWARM_B --> REGISTRY
+    REGISTRY --> API_AUTH
+    API_AUTH --> TLS_ENCRYPT
+    TLS_ENCRYPT --> RATE_LIMIT
+    RATE_LIMIT --> AUDIT_LOG
+
+    SWARM_LAN_A --> UDP_BROADCAST
+    UDP_BROADCAST --> SWARM_LAN_B
+
+    SWARM_HYB --> HYBRID_DISC
+    HYBRID_DISC --> UDP_BROADCAST
+    HYBRID_DISC --> REGISTRY
+
+    %% Styling
+    classDef titleClass fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,font-size:18px
+    classDef internetClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef lanClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef hybridClass fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef securityClass fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+
+    class TITLE titleClass
+    class SWARM_A,SWARM_B,REGISTRY internetClass
+    class SWARM_LAN_A,SWARM_LAN_B,UDP_BROADCAST lanClass
+    class SWARM_HYB,HYBRID_DISC hybridClass
+    class API_AUTH,TLS_ENCRYPT,RATE_LIMIT,AUDIT_LOG securityClass

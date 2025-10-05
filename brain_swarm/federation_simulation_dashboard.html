@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Swarm Federation Simulation Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .header .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .simulation-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .sim-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .sim-button.play { background: #28a745; color: white; }
+        .sim-button.pause { background: #ffc107; color: #212529; }
+        .sim-button.reset { background: #dc3545; color: white; }
+        .sim-button:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+
+        /* Control Panel */
+        .control-panel {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #333;
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .control-section h3 {
+            color: #64b5f6;
+            margin-bottom: 12px;
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-section h3::before {
+            content: "⚙️";
+            font-size: 1.2em;
+        }
+
+        .slider-group {
+            margin-bottom: 15px;
+        }
+
+        .slider-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #b0b0b0;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #333;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #64b5f6;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(100, 181, 246, 0.3);
+        }
+
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 600;
+            color: #64b5f6;
+        }
+
+        .toggle-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .toggle-btn {
+            padding: 8px 12px;
+            border: 1px solid #555;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85em;
+        }
+
+        .toggle-btn.active {
+            background: #64b5f6;
+            border-color: #64b5f6;
+            color: white;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(100, 181, 246, 0.2);
+        }
+
+        /* Main Visualization Area */
+        .main-area {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .visualization-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 20px;
+        }
+
+        .network-canvas {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f23 100%);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Swarm Nodes */
+        .swarm-node {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .swarm-node:hover {
+            transform: scale(1.1);
+            z-index: 20;
+        }
+
+        .swarm-enterprise { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .swarm-cloud { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .swarm-home { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+        .swarm-active {
+            animation: pulse 2s ease-in-out infinite;
+            box-shadow: 0 0 20px rgba(100, 181, 246, 0.6);
+        }
+
+        .swarm-inactive {
+            opacity: 0.6;
+        }
+
+        .swarm-overloaded {
+            animation: warning-pulse 1s ease-in-out infinite;
+            box-shadow: 0 0 20px rgba(255, 193, 7, 0.8);
+        }
+
+        /* Connections */
+        .connection {
+            position: absolute;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, #64b5f6 20%, #64b5f6 80%, transparent 100%);
+            transform-origin: left center;
+            z-index: 5;
+        }
+
+        .connection.discovery {
+            background: linear-gradient(90deg, transparent 0%, #2196F3 20%, #2196F3 80%, transparent 100%);
+        }
+
+        .connection.security {
+            background: linear-gradient(90deg, transparent 0%, #f44336 20%, #f44336 80%, transparent 100%);
+        }
+
+        .connection.federation {
+            background: linear-gradient(90deg, transparent 0%, #4CAF50 20%, #4CAF50 80%, transparent 100%);
+            height: 3px;
+            animation: data-flow 3s ease-in-out infinite;
+        }
+
+        .connection.active {
+            animation: connection-pulse 2s ease-in-out infinite;
+        }
+
+        /* Data packets */
+        .data-packet {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            z-index: 15;
+            animation: move-packet 3s linear infinite;
+        }
+
+        /* Metrics Overlay */
+        .metrics-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 8px;
+            min-width: 250px;
+            z-index: 30;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .metric-label {
+            color: #b0b0b0;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #64b5f6;
+        }
+
+        .metric-trend {
+            font-size: 0.8em;
+            margin-left: 8px;
+        }
+
+        .metric-trend.up { color: #4CAF50; }
+        .metric-trend.down { color: #f44336; }
+
+        /* Scenario Panel */
+        .scenario-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 300px;
+            z-index: 30;
+        }
+
+        .scenario-title {
+            color: #64b5f6;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .scenario-description {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #e0e0e0;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes warning-pulse {
+            0%, 100% { transform: scale(1); background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+            50% { transform: scale(1.1); background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); }
+        }
+
+        @keyframes connection-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @keyframes data-flow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        @keyframes move-packet {
+            0% { left: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+        }
+
+        /* Charts Panel */
+        .charts-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 8px;
+            width: 300px;
+            z-index: 30;
+        }
+
+        .chart-container {
+            height: 120px;
+            margin-bottom: 15px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+            }
+
+            .control-panel {
+                max-height: 200px;
+                grid-column: 1 / -1;
+            }
+
+            .header {
+                grid-row: 1;
+            }
+
+            .control-panel {
+                grid-row: 2;
+            }
+
+            .main-area {
+                grid-row: 3;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧠 Brain Swarm Federation Simulation</h1>
+            <div class="status-bar">
+                <div class="simulation-controls">
+                    <button class="sim-button play" id="play-btn">▶️ Play</button>
+                    <button class="sim-button pause" id="pause-btn">⏸️ Pause</button>
+                    <button class="sim-button reset" id="reset-btn">🔄 Reset</button>
+                    <span id="sim-speed">Speed: 1x</span>
+                </div>
+                <div id="global-status">
+                    <span id="active-swarms">6 Active Swarms</span> |
+                    <span id="active-connections">8 Connections</span> |
+                    <span id="sim-time">00:00:00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <!-- Simulation Parameters -->
+            <div class="control-section">
+                <h3>Simulation Parameters</h3>
+
+                <div class="slider-group">
+                    <label>Swarm Count: <span id="swarm-count-value">6</span></label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="swarm-count" min="3" max="12" value="6">
+                    </div>
+                </div>
+
+                <div class="slider-group">
+                    <label>Task Load: <span id="task-load-value">50%</span></label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="task-load" min="0" max="100" value="50">
+                    </div>
+                </div>
+
+                <div class="slider-group">
+                    <label>Network Latency: <span id="latency-value">45ms</span></label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="latency" min="5" max="200" value="45">
+                    </div>
+                </div>
+
+                <div class="slider-group">
+                    <label>Failure Rate: <span id="failure-rate-value">2%</span></label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="failure-rate" min="0" max="20" value="2">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Types -->
+            <div class="control-section">
+                <h3>Network Environments</h3>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" data-network="enterprise">🏢 Enterprise</button>
+                    <button class="toggle-btn active" data-network="cloud">☁️ Cloud</button>
+                    <button class="toggle-btn active" data-network="home">🏠 Home</button>
+                </div>
+            </div>
+
+            <!-- Connection Types -->
+            <div class="control-section">
+                <h3>Connection Types</h3>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" data-connection="discovery">🔵 Discovery</button>
+                    <button class="toggle-btn active" data-connection="security">🔴 Security</button>
+                    <button class="toggle-btn active" data-connection="federation">🟢 Federation</button>
+                </div>
+            </div>
+
+            <!-- Scenarios -->
+            <div class="control-section">
+                <h3>Simulation Scenarios</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button class="toggle-btn" data-scenario="normal">Normal Operation</button>
+                    <button class="toggle-btn active" data-scenario="peak">Peak Load</button>
+                    <button class="toggle-btn" data-scenario="failure">Network Failure</button>
+                    <button class="toggle-btn" data-scenario="recovery">Recovery Test</button>
+                    <button class="toggle-btn" data-scenario="expansion">Scale Expansion</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Visualization Area -->
+        <div class="main-area">
+            <div class="visualization-container">
+                <div class="network-canvas" id="network-canvas">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+
+                <!-- Metrics Overlay -->
+                <div class="metrics-overlay">
+                    <h4 style="color: #64b5f6; margin-bottom: 10px;">📊 Live Metrics</h4>
+
+                    <div class="metric-item">
+                        <span class="metric-label">Active Swarms</span>
+                        <span class="metric-value" id="metric-swarms">6</span>
+                    </div>
+
+                    <div class="metric-item">
+                        <span class="metric-label">Federation Links</span>
+                        <span class="metric-value" id="metric-links">8</span>
+                        <span class="metric-trend up">↗️ +2</span>
+                    </div>
+
+                    <div class="metric-item">
+                        <span class="metric-label">Avg Latency</span>
+                        <span class="metric-value" id="metric-latency">45ms</span>
+                        <span class="metric-trend down">↘️ -5ms</span>
+                    </div>
+
+                    <div class="metric-item">
+                        <span class="metric-label">Task Throughput</span>
+                        <span class="metric-value" id="metric-throughput">1.2K/s</span>
+                        <span class="metric-trend up">↗️ +15%</span>
+                    </div>
+
+                    <div class="metric-item">
+                        <span class="metric-label">Security Score</span>
+                        <span class="metric-value" id="metric-security">98%</span>
+                    </div>
+
+                    <div class="metric-item">
+                        <span class="metric-label">Network Health</span>
+                        <span class="metric-value" id="metric-health">99.9%</span>
+                    </div>
+                </div>
+
+                <!-- Scenario Description -->
+                <div class="scenario-panel">
+                    <div class="scenario-title" id="scenario-title">🏭 Peak Load Scenario</div>
+                    <div class="scenario-description" id="scenario-description">
+                        Simulating high-demand conditions with increased task loads and network traffic.
+                        Watch how the federation automatically distributes work across available swarms.
+                    </div>
+                </div>
+
+                <!-- Charts Panel -->
+                <div class="charts-panel">
+                    <h4 style="color: #64b5f6; margin-bottom: 10px;">📈 Performance Charts</h4>
+
+                    <div class="chart-container">
+                        <canvas id="latency-chart"></canvas>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="throughput-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation Engine
+        class FederationSimulator {
+            constructor() {
+                this.canvas = document.getElementById('network-canvas');
+                this.isRunning = false;
+                this.speed = 1;
+                this.simulationTime = 0;
+
+                // Simulation parameters
+                this.parameters = {
+                    swarmCount: 6,
+                    taskLoad: 50,
+                    latency: 45,
+                    failureRate: 2
+                };
+
+                // Network state
+                this.swarms = [];
+                this.connections = [];
+                this.dataPackets = [];
+
+                // Metrics
+                this.metrics = {
+                    activeSwarms: 6,
+                    activeConnections: 8,
+                    avgLatency: 45,
+                    throughput: 1200,
+                    securityScore: 98,
+                    networkHealth: 99.9
+                };
+
+                // Charts
+                this.latencyChart = null;
+                this.throughputChart = null;
+
+                this.init();
+                this.createCharts();
+                this.initializeSwarms();
+            }
+
+            init() {
+                // Control bindings
+                this.bindControls();
+
+                // Start render loop
+                this.render();
+            }
+
+            bindControls() {
+                // Simulation controls
+                document.getElementById('play-btn').addEventListener('click', () => this.start());
+                document.getElementById('pause-btn').addEventListener('click', () => this.pause());
+                document.getElementById('reset-btn').addEventListener('click', () => this.reset());
+
+                // Parameter sliders
+                document.getElementById('swarm-count').addEventListener('input', (e) => {
+                    this.parameters.swarmCount = parseInt(e.target.value);
+                    document.getElementById('swarm-count-value').textContent = this.parameters.swarmCount;
+                    this.updateSwarmCount();
+                });
+
+                document.getElementById('task-load').addEventListener('input', (e) => {
+                    this.parameters.taskLoad = parseInt(e.target.value);
+                    document.getElementById('task-load-value').textContent = this.parameters.taskLoad + '%';
+                    this.updateTaskLoad();
+                });
+
+                document.getElementById('latency').addEventListener('input', (e) => {
+                    this.parameters.latency = parseInt(e.target.value);
+                    document.getElementById('latency-value').textContent = this.parameters.latency + 'ms';
+                    this.updateLatency();
+                });
+
+                document.getElementById('failure-rate').addEventListener('input', (e) => {
+                    this.parameters.failureRate = parseInt(e.target.value);
+                    document.getElementById('failure-rate-value').textContent = this.parameters.failureRate + '%';
+                    this.updateFailureRate();
+                });
+
+                // Network toggles
+                document.querySelectorAll('[data-network]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.target.classList.toggle('active');
+                        this.updateNetworkTypes();
+                    });
+                });
+
+                // Connection toggles
+                document.querySelectorAll('[data-connection]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.target.classList.toggle('active');
+                        this.updateConnectionTypes();
+                    });
+                });
+
+                // Scenario buttons
+                document.querySelectorAll('[data-scenario]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('[data-scenario]').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.setScenario(btn.dataset.scenario);
+                    });
+                });
+            }
+
+            createCharts() {
+                // Latency chart
+                const latencyCtx = document.getElementById('latency-chart').getContext('2d');
+                this.latencyChart = new Chart(latencyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({length: 20}, (_, i) => i),
+                        datasets: [{
+                            label: 'Latency (ms)',
+                            data: Array.from({length: 20}, () => Math.random() * 50 + 20),
+                            borderColor: '#64b5f6',
+                            backgroundColor: 'rgba(100, 181, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' } },
+                            x: { display: false }
+                        },
+                        elements: {
+                            point: { radius: 0 }
+                        }
+                    }
+                });
+
+                // Throughput chart
+                const throughputCtx = document.getElementById('throughput-chart').getContext('2d');
+                this.throughputChart = new Chart(throughputCtx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({length: 20}, (_, i) => i),
+                        datasets: [{
+                            label: 'Throughput (tasks/s)',
+                            data: Array.from({length: 20}, () => Math.random() * 200 + 800),
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' } },
+                            x: { display: false }
+                        },
+                        elements: {
+                            point: { radius: 0 }
+                        }
+                    }
+                });
+            }
+
+            initializeSwarms() {
+                const canvas = this.canvas;
+                const centerX = canvas.clientWidth / 2;
+                const centerY = canvas.clientHeight / 2;
+                const radius = Math.min(centerX, centerY) * 0.7;
+
+                // Create swarms in different network environments
+                const networks = [
+                    { type: 'enterprise', count: 3, angle: 0, color: 'swarm-enterprise' },
+                    { type: 'cloud', count: 2, angle: 120, color: 'swarm-cloud' },
+                    { type: 'home', count: 1, angle: 240, color: 'swarm-home' }
+                ];
+
+                this.swarms = [];
+
+                networks.forEach(network => {
+                    for (let i = 0; i < network.count; i++) {
+                        const angle = (network.angle + (i * 360 / network.count)) * Math.PI / 180;
+                        const x = centerX + Math.cos(angle) * radius;
+                        const y = centerY + Math.sin(angle) * radius;
+
+                        this.swarms.push({
+                            id: `${network.type}-${i + 1}`,
+                            type: network.type,
+                            x: x,
+                            y: y,
+                            status: 'active',
+                            load: Math.random() * 100,
+                            connections: [],
+                            color: network.color
+                        });
+                    }
+                });
+
+                this.createConnections();
+                this.renderSwarms();
+            }
+
+            createConnections() {
+                this.connections = [];
+
+                // Create connections between swarms
+                for (let i = 0; i < this.swarms.length; i++) {
+                    for (let j = i + 1; j < this.swarms.length; j++) {
+                        const swarm1 = this.swarms[i];
+                        const swarm2 = this.swarms[j];
+
+                        // Determine connection type based on swarm types
+                        let connectionType = 'federation';
+                        if (swarm1.type === swarm2.type) {
+                            connectionType = 'discovery'; // Same network = LAN discovery
+                        } else if (Math.random() < 0.3) {
+                            connectionType = 'security'; // Some cross-network connections are security-focused
+                        }
+
+                        this.connections.push({
+                            from: swarm1,
+                            to: swarm2,
+                            type: connectionType,
+                            active: Math.random() > 0.2,
+                            latency: Math.random() * 100 + 20
+                        });
+                    }
+                }
+            }
+
+            renderSwarms() {
+                // Clear existing swarms
+                const existingSwarms = this.canvas.querySelectorAll('.swarm-node');
+                existingSwarms.forEach(node => node.remove());
+
+                // Render swarms
+                this.swarms.forEach((swarm, index) => {
+                    const node = document.createElement('div');
+                    node.className = `swarm-node ${swarm.color}`;
+                    node.style.left = `${swarm.x - 30}px`;
+                    node.style.top = `${swarm.y - 30}px`;
+                    node.textContent = swarm.id.split('-')[1];
+
+                    // Add status classes
+                    if (swarm.status === 'active') {
+                        node.classList.add('swarm-active');
+                    } else if (swarm.load > 80) {
+                        node.classList.add('swarm-overloaded');
+                    } else {
+                        node.classList.add('swarm-inactive');
+                    }
+
+                    // Add tooltip
+                    node.title = `${swarm.id.toUpperCase()}\nStatus: ${swarm.status}\nLoad: ${swarm.load.toFixed(1)}%\nConnections: ${swarm.connections.length}`;
+
+                    this.canvas.appendChild(node);
+                });
+            }
+
+            renderConnections() {
+                // Clear existing connections
+                const existingConnections = this.canvas.querySelectorAll('.connection');
+                existingConnections.forEach(conn => conn.remove());
+
+                // Render connections
+                this.connections.forEach(connection => {
+                    if (!connection.active) return;
+
+                    const from = connection.from;
+                    const to = connection.to;
+
+                    const dx = to.x - from.x;
+                    const dy = to.y - from.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                    const connectionEl = document.createElement('div');
+                    connectionEl.className = `connection ${connection.type}`;
+                    connectionEl.style.left = `${from.x}px`;
+                    connectionEl.style.top = `${from.y}px`;
+                    connectionEl.style.width = `${distance}px`;
+                    connectionEl.style.transform = `rotate(${angle}deg)`;
+                    connectionEl.style.transformOrigin = 'left center';
+
+                    if (connection.type === 'federation' && Math.random() < 0.3) {
+                        connectionEl.classList.add('active');
+                    }
+
+                    this.canvas.appendChild(connectionEl);
+                });
+            }
+
+            renderDataPackets() {
+                // Clear existing packets
+                const existingPackets = this.canvas.querySelectorAll('.data-packet');
+                existingPackets.forEach(packet => packet.remove());
+
+                // Add new packets occasionally
+                if (Math.random() < 0.1) {
+                    const activeConnections = this.connections.filter(c => c.active && c.type === 'federation');
+                    if (activeConnections.length > 0) {
+                        const connection = activeConnections[Math.floor(Math.random() * activeConnections.length)];
+
+                        const packet = document.createElement('div');
+                        packet.className = 'data-packet';
+                        packet.style.left = `${connection.from.x}px`;
+                        packet.style.top = `${connection.from.y}px`;
+
+                        // Calculate angle and distance
+                        const dx = connection.to.x - connection.from.x;
+                        const dy = connection.to.y - connection.from.y;
+                        const angle = Math.atan2(dy, dx);
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        packet.style.setProperty('--angle', `${angle}rad`);
+                        packet.style.setProperty('--distance', `${distance}px`);
+
+                        this.canvas.appendChild(packet);
+
+                        // Remove packet after animation
+                        setTimeout(() => {
+                            if (packet.parentNode) {
+                                packet.parentNode.removeChild(packet);
+                            }
+                        }, 3000);
+                    }
+                }
+            }
+
+            updateMetrics() {
+                // Simulate metric changes
+                this.metrics.avgLatency = this.parameters.latency + (Math.random() - 0.5) * 10;
+                this.metrics.throughput = 1000 + (this.parameters.taskLoad / 100) * 500 + (Math.random() - 0.5) * 200;
+                this.metrics.activeConnections = this.connections.filter(c => c.active).length;
+
+                // Update display
+                document.getElementById('metric-swarms').textContent = this.metrics.activeSwarms;
+                document.getElementById('metric-links').textContent = this.metrics.activeConnections;
+                document.getElementById('metric-latency').textContent = Math.round(this.metrics.avgLatency) + 'ms';
+                document.getElementById('metric-throughput').textContent = Math.round(this.metrics.throughput) + '/s';
+                document.getElementById('metric-security').textContent = this.metrics.securityScore + '%';
+                document.getElementById('metric-health').textContent = this.metrics.networkHealth + '%';
+
+                // Update global status
+                document.getElementById('active-swarms').textContent = `${this.metrics.activeSwarms} Active Swarms`;
+                document.getElementById('active-connections').textContent = `${this.metrics.activeConnections} Connections`;
+
+                // Update charts
+                this.updateCharts();
+            }
+
+            updateCharts() {
+                // Update latency chart
+                const latencyData = this.latencyChart.data.datasets[0].data;
+                latencyData.shift();
+                latencyData.push(this.metrics.avgLatency);
+                this.latencyChart.update('none');
+
+                // Update throughput chart
+                const throughputData = this.throughputChart.data.datasets[0].data;
+                throughputData.shift();
+                throughputData.push(this.metrics.throughput);
+                this.throughputChart.update('none');
+            }
+
+            start() {
+                if (!this.isRunning) {
+                    this.isRunning = true;
+                    document.getElementById('play-btn').style.display = 'none';
+                    document.getElementById('pause-btn').style.display = 'inline-block';
+                    this.animate();
+                }
+            }
+
+            pause() {
+                this.isRunning = false;
+                document.getElementById('play-btn').style.display = 'inline-block';
+                document.getElementById('pause-btn').style.display = 'none';
+            }
+
+            reset() {
+                this.pause();
+                this.simulationTime = 0;
+                document.getElementById('sim-time').textContent = '00:00:00';
+                this.initializeSwarms();
+                this.updateMetrics();
+            }
+
+            animate() {
+                if (!this.isRunning) return;
+
+                this.simulationTime += 1000 / 60; // 60 FPS
+
+                // Update simulation time display
+                const minutes = Math.floor(this.simulationTime / 60000);
+                const seconds = Math.floor((this.simulationTime % 60000) / 1000);
+                document.getElementById('sim-time').textContent =
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:00`;
+
+                // Simulate dynamic behavior
+                this.simulateBehavior();
+
+                // Update metrics periodically
+                if (Math.floor(this.simulationTime / 1000) % 2 === 0) {
+                    this.updateMetrics();
+                }
+
+                requestAnimationFrame(() => this.animate());
+            }
+
+            simulateBehavior() {
+                // Simulate swarm behavior changes
+                this.swarms.forEach((swarm, index) => {
+                    // Random load changes
+                    swarm.load += (Math.random() - 0.5) * 2;
+                    swarm.load = Math.max(0, Math.min(100, swarm.load));
+
+                    // Status changes based on load
+                    if (swarm.load > 90) {
+                        swarm.status = 'overloaded';
+                    } else if (swarm.load > 70) {
+                        swarm.status = 'busy';
+                    } else {
+                        swarm.status = 'active';
+                    }
+
+                    // Connection status changes
+                    swarm.connections = this.connections.filter(c =>
+                        (c.from === swarm || c.to === swarm) && c.active
+                    );
+                });
+
+                // Update connections based on swarm status
+                this.connections.forEach(connection => {
+                    // Connections may fail based on failure rate
+                    if (Math.random() < this.parameters.failureRate / 10000) {
+                        connection.active = false;
+                    }
+
+                    // Re-establish connections occasionally
+                    if (!connection.active && Math.random() < 0.001) {
+                        connection.active = true;
+                    }
+                });
+
+                this.renderSwarms();
+                this.renderConnections();
+                this.renderDataPackets();
+            }
+
+            updateSwarmCount() {
+                // Adjust swarm count (simplified)
+                const targetCount = this.parameters.swarmCount;
+                const currentCount = this.swarms.length;
+
+                if (targetCount > currentCount) {
+                    // Add swarms
+                    for (let i = currentCount; i < targetCount; i++) {
+                        const angle = (i * 360 / targetCount) * Math.PI / 180;
+                        const radius = Math.min(this.canvas.clientWidth, this.canvas.clientHeight) * 0.3;
+                        const x = this.canvas.clientWidth / 2 + Math.cos(angle) * radius;
+                        const y = this.canvas.clientHeight / 2 + Math.sin(angle) * radius;
+
+                        this.swarms.push({
+                            id: `dynamic-${i + 1}`,
+                            type: 'dynamic',
+                            x: x,
+                            y: y,
+                            status: 'active',
+                            load: Math.random() * 50,
+                            connections: [],
+                            color: 'swarm-enterprise'
+                        });
+                    }
+                } else if (targetCount < currentCount) {
+                    // Remove swarms
+                    this.swarms = this.swarms.slice(0, targetCount);
+                }
+
+                this.createConnections();
+                this.renderSwarms();
+            }
+
+            updateTaskLoad() {
+                // Adjust task loads across swarms
+                const loadFactor = this.parameters.taskLoad / 100;
+                this.swarms.forEach((swarm, index) => {
+                    swarm.load = loadFactor * 100 + (Math.random() - 0.5) * 20;
+                    swarm.load = Math.max(0, Math.min(100, swarm.load));
+                });
+                this.renderSwarms();
+            }
+
+            updateLatency() {
+                // Adjust connection latencies
+                this.connections.forEach(connection => {
+                    connection.latency = this.parameters.latency + (Math.random() - 0.5) * 20;
+                });
+            }
+
+            updateFailureRate() {
+                // Failure rate affects connection stability
+                // (handled in simulateBehavior)
+            }
+
+            updateNetworkTypes() {
+                // Filter visible swarms by network type
+                const activeNetworks = Array.from(document.querySelectorAll('[data-network].active'))
+                    .map(btn => btn.dataset.network);
+
+                this.swarms.forEach(swarm => {
+                    const node = this.canvas.querySelector(`[title*="${swarm.id.toUpperCase()}"]`);
+                    if (node) {
+                        if (activeNetworks.includes(swarm.type)) {
+                            node.style.display = 'flex';
+                        } else {
+                            node.style.display = 'none';
+                        }
+                    }
+                });
+            }
+
+            updateConnectionTypes() {
+                // Filter visible connections by type
+                const activeConnections = Array.from(document.querySelectorAll('[data-connection].active'))
+                    .map(btn => btn.dataset.connection);
+
+                const connectionElements = this.canvas.querySelectorAll('.connection');
+                connectionElements.forEach((el, index) => {
+                    const connection = this.connections[index];
+                    if (activeConnections.includes(connection.type)) {
+                        el.style.display = 'block';
+                    } else {
+                        el.style.display = 'none';
+                    }
+                });
+            }
+
+            setScenario(scenario) {
+                const title = document.getElementById('scenario-title');
+                const description = document.getElementById('scenario-description');
+
+                switch(scenario) {
+                    case 'normal':
+                        title.textContent = '🔄 Normal Operation';
+                        description.textContent = 'Standard federation operation with balanced loads and normal network conditions.';
+                        this.parameters.taskLoad = 50;
+                        this.parameters.failureRate = 2;
+                        break;
+
+                    case 'peak':
+                        title.textContent = '🏭 Peak Load Scenario';
+                        description.textContent = 'High-demand conditions with increased task loads and network traffic. Watch automatic load distribution.';
+                        this.parameters.taskLoad = 85;
+                        this.parameters.failureRate = 5;
+                        break;
+
+                    case 'failure':
+                        title.textContent = '💥 Network Failure Scenario';
+                        description.textContent = 'Simulating network outages and connection failures. Observe federation resilience and recovery.';
+                        this.parameters.failureRate = 15;
+                        break;
+
+                    case 'recovery':
+                        title.textContent = '🔧 Recovery Test Scenario';
+                        description.textContent = 'Testing automatic recovery mechanisms after failures. Watch self-healing behavior.';
+                        this.parameters.failureRate = 8;
+                        break;
+
+                    case 'expansion':
+                        title.textContent = '📈 Scale Expansion Scenario';
+                        description.textContent = 'Simulating rapid growth with new swarms joining the federation dynamically.';
+                        this.parameters.swarmCount = 10;
+                        this.updateSwarmCount();
+                        break;
+                }
+
+                // Update UI controls to match scenario
+                document.getElementById('task-load').value = this.parameters.taskLoad;
+                document.getElementById('task-load-value').textContent = this.parameters.taskLoad + '%';
+                document.getElementById('failure-rate').value = this.parameters.failureRate;
+                document.getElementById('failure-rate-value').textContent = this.parameters.failureRate + '%';
+
+                this.updateTaskLoad();
+                this.updateFailureRate();
+            }
+
+            render() {
+                this.renderConnections();
+                this.renderDataPackets();
+
+                requestAnimationFrame(() => this.render());
+            }
+        }
+
+        // Initialize simulator when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.simulator = new FederationSimulator();
+
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                switch(e.key) {
+                    case ' ':
+                        e.preventDefault();
+                        if (window.simulator.isRunning) {
+                            window.simulator.pause();
+                        } else {
+                            window.simulator.start();
+                        }
+                        break;
+                    case 'r':
+                        window.simulator.reset();
+                        break;
+                }
+            });
+
+            console.log('🧠 Brain Swarm Federation Simulator initialized');
+            console.log('🎮 Controls: SPACE to play/pause, R to reset');
+        });
+    </script>
+</body>
+</html>
