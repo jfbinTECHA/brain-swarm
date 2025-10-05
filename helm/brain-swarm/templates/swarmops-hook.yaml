@@ -104,6 +104,16 @@ spec:
                   key: github_owner
             - name: GITHUB_REPO
               value: "{{ .Values.monitoring.alertmanager.webhook.github.repo | default "brain-swarm" }}"
+            - name: BRAIN_SWARM_API_URL
+              value: "{{ .Values.monitoring.alertmanager.webhook.brainSwarmApiUrl | default "http://brain-swarm-api.brainswarm.svc.cluster.local:8000" }}"
+            - name: BRAIN_SWARM_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: brain_swarm_api_token
+            {{- with .Values.monitoring.alertmanager.webhook.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health

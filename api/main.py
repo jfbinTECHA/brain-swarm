@@ -13,6 +13,7 @@ import time
 import os
 import json
 import asyncio
+import redis
 
 from ..config import settings
 from ..coordination.coordinator import SwarmCoordinator
@@ -30,6 +31,9 @@ from ..security.auth import (
 from ..plugin_registry import agent_registry
 from ..message_queue import message_queue
 from ..cortex.api.routes import router as cortex_router
+from ..cortex.incident_broadcast import broadcast_to_kilo
+from ..dashboard.mission_control import mission_control, get_mission_control_dashboard, create_mission_control_html
+from ..schemas.incident import AlertGroup
 from ..config import settings
 
 # Conditional imports for scalability
@@ -55,6 +59,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Redis client for pub/sub
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 # Add CORS middleware
 app.add_middleware(
@@ -388,6 +396,58 @@ async def create_task(
     except Exception as e:
         logger.log("ERROR", "API", f"Failed to create task: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
+
+@app.post("/alerts", response_model=TaskResponse)
+async def process_alert(
+    alert: AlertGroup,
+    background_tasks: BackgroundTasks,
+    current_user: Dict = Depends(get_current_user_with_permissions([Permission.TASK_CREATE]))
+):
+    """Process alert with AI orchestration for triage and response"""
+    try:
+        coord = get_coordinator()
+
+        # Create AI task for alert processing
+        alert_summary = f"Alert: {alert.commonLabels.get('alertname', 'Unknown')} - {alert.commonLabels.get('service', 'unknown')} ({alert.status})"
+        task_description = f"""
+        Process Cortex alert and provide AI-driven response:
+        - Alert: {alert.commonLabels.get('alertname', 'Unknown')}
+        - Service: {alert.commonLabels.get('service', 'unknown')}
+        - Severity: {alert.commonLabels.get('severity', 'unknown')}
+        - Status: {alert.status}
+        - Description: {alert.commonAnnotations.get('description', 'N/A')}
+        - External URL: {alert.externalURL}
+
+        Please analyze this alert, determine appropriate triage actions, suggest fixes, and provide structured response.
+        """
+
+        task_data = {
+            "description": task_description,
+            "type": "alert_processing",
+            "priority": 2 if alert.commonLabels.get('severity') == 'critical' else 3,
+            "resource_requirements": "ai_orchestration",
+            "alert_data": alert.dict()  # Include full alert data
+        }
+
+        # Execute task in background
+        background_tasks.add_task(coord.execute_task, task_data)
+
+        # Broadcast incident to Kilo Code AI
+        incident_data = alert.dict()
+        background_tasks.add_task(broadcast_to_kilo, incident_data)
+
+        # Add to Mission Control dashboard
+        await mission_control.add_incident(incident_data)
+
+        return TaskResponse(
+            task_id=f"alert_{int(time.time())}_{hash(alert.groupKey) % 1000}",
+            status="accepted",
+            strategy={"type": "ai_orchestration", "alert_id": alert.groupKey}
+        )
+
+    except Exception as e:
+        logger.log("ERROR", "API", f"Failed to process alert: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alert processing failed: {str(e)}")
 
 @app.get("/tasks/{task_id}")
 async def get_task_status(task_id: str):
@@ -823,6 +883,13 @@ async def root():
         "docs": "/docs",
         "health": "/health",
         "websocket": "/ws/swarm-view",
+        "brain_swarm_ops": {
+            "incidents": "/api/incidents",
+            "incidents_ws": "/ws/incidents",
+            "mission_control": "/mission-control",
+            "mission_control_api": "/api/mission-control",
+            "mission_control_ws": "/ws/mission-control"
+        },
         "observability": {
             "health": "/health",
             "metrics": "/metrics",
@@ -1013,6 +1080,65 @@ async def resolve_alert(alert_id: str, resolved_by: str = "api_user"):
 
 # Include cortex router
 app.include_router(cortex_router)
+
+# BrainSwarmOps API endpoints
+@app.get("/api/incidents")
+async def get_incidents():
+    """Fetch Cortex incidents"""
+    # For now, return empty list - integrate with cortex storage later
+    return {"incidents": [], "total": 0}
+
+@app.post("/api/incidents")
+async def create_incident(incident: dict):
+    """Create or update Cortex incident"""
+    # For now, just acknowledge - integrate with cortex storage later
+    return {"status": "created", "incident_id": incident.get("id", "unknown")}
+
+@app.patch("/api/incidents/{incident_id}")
+async def update_incident(incident_id: str, update: dict):
+    """Update an incident"""
+    # For now, just acknowledge - integrate with cortex storage later
+    return {"status": "updated", "incident_id": incident_id}
+
+@app.post("/api/incidents/{incident_id}/comments")
+async def post_incident_comment(incident_id: str, comment: dict):
+    """Post a comment on an incident"""
+    # For now, just acknowledge - integrate with cortex storage later
+    return {"status": "commented", "incident_id": incident_id, "comment_id": f"comment_{int(time.time())}"}
+
+@app.websocket("/ws/incidents")
+async def incidents_websocket(websocket: WebSocket):
+    """Real-time incident feed for AI agents"""
+    await websocket.accept()
+
+    # Subscribe to Redis pub/sub for incident events
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe("cortex:incidents")
+
+    try:
+        for message in pubsub.listen():
+            if message["type"] == "message":
+                await websocket.send_text(message["data"])
+    except Exception as e:
+        logger.log("ERROR", "WebSocket", f"Incident feed error: {e}")
+    finally:
+        pubsub.unsubscribe()
+        pubsub.close()
+
+@app.get("/api/mission-control")
+async def get_mission_control():
+    """Get mission control dashboard data"""
+    return await get_mission_control_dashboard()
+
+@app.get("/mission-control", response_class=HTMLResponse)
+async def mission_control_dashboard():
+    """Serve Mission Control dashboard HTML"""
+    return create_mission_control_html()
+
+@app.websocket("/ws/mission-control")
+async def mission_control_websocket(websocket: WebSocket):
+    """WebSocket endpoint for Mission Control real-time updates"""
+    await mission_control.websocket_endpoint(websocket)
 
 # Error handlers
 @app.exception_handler(Exception)
