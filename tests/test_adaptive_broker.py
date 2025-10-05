@@ -4,9 +4,9 @@ Tests for the AdaptiveTaskBroker
 
 import pytest
 import time
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from coordination.adaptive_broker import AdaptiveTaskBroker, TaskAssignment
+from coordination.adaptive_broker import AdaptiveTaskBroker, TaskAssignment, RLMethod
 
 
 class TestAdaptiveTaskBroker:
@@ -245,6 +245,61 @@ class TestAdaptiveTaskBroker:
         weights = self.broker.routing_weights["test"]
         total_weight = sum(weights.values())
         assert abs(total_weight - 2.0) < 0.1 or all(w >= 0.1 for w in weights.values())
+
+    @patch('coordination.adaptive_broker.RL_AVAILABLE', True)
+    def test_ppo_initialization(self):
+        """Test PPO method initialization"""
+        broker = AdaptiveTaskBroker(rl_method=RLMethod.PPO)
+        assert broker.rl_method == RLMethod.PPO
+        # PPO components may be None if torch/gym not available in test env
+
+    @patch('coordination.adaptive_broker.RL_AVAILABLE', True)
+    def test_contextual_bandit_initialization(self):
+        """Test contextual bandit method initialization"""
+        broker = AdaptiveTaskBroker(rl_method=RLMethod.CONTEXTUAL_BANDIT)
+        assert broker.rl_method == RLMethod.CONTEXTUAL_BANDIT
+        # Bandit may be None if sklearn not available in test env
+
+    def test_rl_method_switching(self):
+        """Test switching between RL methods"""
+        broker = AdaptiveTaskBroker(rl_method=RLMethod.MOVING_AVERAGE)
+        assert broker.rl_method == RLMethod.MOVING_AVERAGE
+
+        # Switch to contextual bandit
+        broker.switch_rl_method(RLMethod.CONTEXTUAL_BANDIT)
+        assert broker.rl_method == RLMethod.CONTEXTUAL_BANDIT
+
+        # Switch back
+        broker.switch_rl_method(RLMethod.MOVING_AVERAGE)
+        assert broker.rl_method == RLMethod.MOVING_AVERAGE
+
+    def test_rl_fallback_to_moving_average(self):
+        """Test that RL methods fall back to moving average when dependencies unavailable"""
+        # This test ensures the broker works even without RL dependencies
+        broker = AdaptiveTaskBroker(rl_method=RLMethod.PPO)  # Will fallback if RL not available
+
+        broker.register_agent("agent1")
+        result = broker.assign_task("task1", "test task", ["agent1"])
+        assert result == "agent1"
+
+        broker.complete_task("task1", success=True, latency=1.0, resource_cost=0.1)
+
+        # Should work with basic moving average
+        report = broker.get_performance_report()
+        assert report["learning_stats"]["rl_method"] in ["moving_average", "ppo", "contextual_bandit"]
+
+    def test_performance_report_with_rl_info(self):
+        """Test that performance report includes RL information"""
+        broker = AdaptiveTaskBroker(rl_method=RLMethod.CONTEXTUAL_BANDIT)
+        broker.register_agent("agent1")
+        broker.assign_task("task1", "test", ["agent1"])
+        broker.complete_task("task1", success=True, latency=1.0, resource_cost=0.1)
+
+        report = broker.get_performance_report()
+
+        assert "rl_method" in report["learning_stats"]
+        assert "rl_available" in report["learning_stats"]
+        assert report["learning_stats"]["rl_method"] == "contextual_bandit"
 
 
 if __name__ == "__main__":

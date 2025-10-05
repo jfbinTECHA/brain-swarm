@@ -97,6 +97,20 @@ services:
       - brain-swarm-network
     restart: unless-stopped
 
+  # ChromaDB for vector storage (Knowledge Cortex)
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    volumes:
+      - chroma_data:/chroma/.chroma
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
   # Dashboard service (uncomment when dashboard is containerized)
   # brain-swarm-dashboard:
   #   build:
@@ -114,6 +128,7 @@ services:
 
 volumes:
   redis_data:
+  chroma_data:
 
 networks:
   brain-swarm-network:
