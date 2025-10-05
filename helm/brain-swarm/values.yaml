@@ -106,12 +106,22 @@ redisUrl: "redis://brain-swarm-redis:6379"
 enablePolling: true
 pollIntervalSeconds: 600
 resources:
-limits:
- cpu: 250m
- memory: 256Mi
-requests:
- cpu: 100m
- memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+ingress:
+  enabled: false
+  traefikEnabled: false
+  className: "nginx"
+  host: "bridge.brainswarm.local"
+  certManagerIssuer: "letsencrypt-prod"
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: ""
 
 # Redis settings
 redis:
