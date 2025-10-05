@@ -46,6 +46,16 @@ spec:
                     secretKeyRef:
                       name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
                       key: jira_api_token
+                - name: SERVICENOW_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                      key: servicenow_instance_url
+                - name: SERVICENOW_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                      key: servicenow_access_token
               resources:
                 {{- toYaml .Values.monitoring.alertmanager.webhook.resources | nindent 14 }}
 {{- end }}

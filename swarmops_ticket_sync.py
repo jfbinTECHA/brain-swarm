@@ -19,6 +19,8 @@ GITHUB_REPO  = os.getenv("GITHUB_REPO", "jfbinTECHA/brain-swarm-incidents")
 JIRA_URL     = os.getenv("JIRA_URL")
 JIRA_USER    = os.getenv("JIRA_USER")
 JIRA_TOKEN   = os.getenv("JIRA_TOKEN")
+SERVICENOW_URL = os.getenv("SERVICENOW_URL")
+SERVICENOW_TOKEN = os.getenv("SERVICENOW_TOKEN")
 
 # Prometheus metrics
 TICKETS_CHECKED = Counter("cortex_ticket_sync_checked_total", "Tickets polled")
@@ -68,6 +70,26 @@ async def poll_jira():
         except Exception as e:
             print(f"❌ Jira polling error: {e}")
 
+async def poll_servicenow():
+    """Poll ServiceNow for recently closed incidents"""
+    if not SERVICENOW_URL or not SERVICENOW_TOKEN:
+        return
+
+    async with httpx.AsyncClient(headers={"Authorization": f"Bearer {SERVICENOW_TOKEN}"}) as client:
+        try:
+            # Query incidents closed in last 10 minutes
+            url = f"{SERVICENOW_URL}/api/now/table/incident?sysparm_query=state=7^sys_updated_onONLast%2010%20minutes@javascript:gs.beginningOfLast10Minutes()"
+            res = await client.get(url)
+            res.raise_for_status()
+
+            for inc in res.json().get("result", []):
+                sys_id = inc["sys_id"]
+                number = inc["number"]
+                link = f"{SERVICENOW_URL}/nav_to.do?uri=incident.do?sys_id={sys_id}"
+                await mark_resolved(number, link, "servicenow")
+        except Exception as e:
+            print(f"❌ ServiceNow polling error: {e}")
+
 async def mark_resolved(incident_id: str, issue_url: str, system: str):
     """Mark incident as resolved and emit events"""
     TICKETS_CHECKED.inc()
@@ -95,7 +117,8 @@ async def sync_once():
     try:
         await asyncio.gather(
             poll_github(),
-            poll_jira()
+            poll_jira(),
+            poll_servicenow()
         )
         print("✅ Ticket synchronization completed")
     except Exception as e:
