@@ -49,6 +49,15 @@ class BaseAgent(ABC):
     @abstractmethod
     def execute_task(self, task: Dict[str, Any]) -> Any:
         """Execute assigned task"""
+        # Audit logging
+        self._audit_log("task_start", {
+            "task_id": task.get("task_id", f"task_{id(task)}"),
+            "task_type": task.get("type", "unknown"),
+            "agent_id": self.agent_id,
+            "agent_role": self.role.value,
+            "swarm_id": self.swarm_id,
+            "task_content": task.get("content", "")[:200]  # Truncate for logging
+        })
         pass
 
     def send_message(self, receiver: str, message_type: MessageType, content: Any,
@@ -75,6 +84,12 @@ class BaseAgent(ABC):
 
     def share_knowledge(self, recipient: str, knowledge: Dict[str, Any]):
         """Share learned knowledge with another agent"""
+        self._audit_log("knowledge_share", {
+            "recipient": recipient,
+            "knowledge_keys": list(knowledge.keys()) if isinstance(knowledge, dict) else ["unknown"],
+            "agent_id": self.agent_id,
+            "swarm_id": self.swarm_id
+        })
         self.send_message(recipient, MessageType.SHARE_KNOWLEDGE, knowledge)
 
     def handle_task_failure(self, task: Dict[str, Any], error: Exception, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -344,6 +359,30 @@ class BaseAgent(ABC):
     def _reduce_task_complexity(self, task: Dict[str, Any], level: int) -> Dict[str, Any]:
         """Reduce task complexity"""
         return self._simplify_task(task, level)  # Use same logic as simplification
+
+    def _audit_log(self, action: str, details: Dict[str, Any]):
+        """Log agent actions for audit and monitoring"""
+        audit_entry = {
+            "timestamp": time.time(),
+            "agent_id": self.agent_id,
+            "agent_role": self.role.value,
+            "swarm_id": self.swarm_id,
+            "action": action,
+            "details": details
+        }
+
+        # Output as JSON line for log aggregation systems
+        import json
+        print(json.dumps(audit_entry), file=open("/dev/stdout", "w"))
+
+        # Also log to swarm logger with Prometheus labels
+        logger.log("INFO", f"{self.role.value}_audit", f"Agent action: {action}",
+                  {**details, "prometheus_labels": {
+                      "agent_id": self.agent_id,
+                      "agent_role": self.role.value,
+                      "swarm_id": self.swarm_id or "default",
+                      "action": action
+                  }})
 
     def self_ask_guidance(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Self-ask prompts to clarify task execution and avoid dead-ends"""

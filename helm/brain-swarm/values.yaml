@@ -1,0 +1,170 @@
+# Default values for brain-swarm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Brain Swarm API settings
+api:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: brain-swarm
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  config:
+    environment: production
+    node:
+      swarmId: "default-swarm"
+      host: "0.0.0.0"
+      port: 8000
+      maxAgents: 10
+      maxAgentLoad: 3
+    database:
+      url: "sqlite:///data/brain_swarm.db"
+    logging:
+      level: INFO
+    federation:
+      enabled: false
+    scalability:
+      enabled: false
+      messageQueueMode: "single_node"
+      redisUrls: ["redis://redis:6379"]
+      partitions: 8
+      asyncAgentsEnabled: false
+      agentPoolMin: 1
+      agentPoolMax: 10
+      loadBalancingStrategy: "least_loaded"
+      multiClusterEnabled: false
+      clusterId: "default-cluster"
+      clusterRole: "primary"
+      autoScalingEnabled: false
+    security:
+      jwtSecret: "change-this-in-production"
+      jwtAlgorithm: "HS256"
+      jwtExpirationHours: 24
+
+# Operations Server settings
+operations:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: brain-swarm
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8001
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Redis settings
+redis:
+  enabled: true
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 6379
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  persistence:
+    enabled: true
+    size: 8Gi
+
+# Redis Exporter settings
+redisExporter:
+  enabled: true
+
+  image:
+    repository: oliver006/redis_exporter
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 9121
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Ingress settings
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: brain-swarm.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Service account settings
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext: {}
+
+# Security context
+securityContext: {}
+
+# Additional volumes
+extraVolumes: []
+extraVolumeMounts: []
+
+# Environment variables
+extraEnvVars: []
