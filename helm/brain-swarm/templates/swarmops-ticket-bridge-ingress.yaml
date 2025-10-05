@@ -19,6 +19,16 @@ metadata:
     {{- if .Values.ticketBridge.ingress.certManagerIssuer }}
     cert-manager.io/cluster-issuer: {{ .Values.ticketBridge.ingress.certManagerIssuer }}
     {{- end }}
+    # 🔒 Security Enhancements
+    nginx.ingress.kubernetes.io/limit-rpm: "30"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+    {{- if .Values.ticketBridge.ingress.whitelist }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ .Values.ticketBridge.ingress.whitelist | quote }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Block requests without proper User-Agent or missing signature
+      if ($http_user_agent = "") { return 403; }
+      if ($http_x_hub_signature_256 = "") { return 403; }
     {{- end }}
 spec:
   {{- if .Values.ticketBridge.ingress.tls.enabled }}
