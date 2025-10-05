@@ -1,0 +1,88 @@
+{{- if .Values.ticketBridge.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-ticket-bridge
+spec:
+  replicas: {{ .Values.ticketBridge.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "brain-swarm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: swarmops-ticket-bridge
+  template:
+    metadata:
+      labels:
+        {{- include "brain-swarm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: swarmops-ticket-bridge
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: bridge
+          image: "{{ .Values.ticketBridge.image.repository }}:{{ .Values.ticketBridge.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.ticketBridge.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 8000
+          env:
+            - name: REDIS_URL
+              value: "{{ .Values.ticketBridge.redisUrl | default "redis://redis:6379/0" }}"
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_token
+            - name: GITHUB_REPO
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_repo
+            - name: JIRA_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_base_url
+            - name: JIRA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_username
+            - name: JIRA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_api_token
+            - name: SERVICENOW_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: servicenow_instance_url
+            - name: SERVICENOW_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: servicenow_access_token
+            - name: ENABLE_POLLING
+              value: "{{ .Values.ticketBridge.enablePolling | default true }}"
+            - name: POLL_INTERVAL_SECONDS
+              value: "{{ .Values.ticketBridge.pollIntervalSeconds | default 600 }}"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.ticketBridge.resources | nindent 12 }}
+      restartPolicy: Always
+{{- end }}
