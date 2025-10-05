@@ -4,6 +4,9 @@
 It’s the foundation for Joseph Buzzell’s *Zeta AI / Kilo Code / Nomi Bridge* ecosystem — built for research, DevOps automation, and real-time adaptive reasoning.
 
 ---
+<p align="center">
+  <img src="https://github.com/jfbinTECHA/brain-swarm/assets/brain.png" width="100%" alt="Brain Swarm Banner"/>
+</p>
 
 ## 🚀 Features
 
@@ -48,35 +51,4 @@ Save with **Ctrl + O**, then **Enter**, and exit with **Ctrl + X**.
 ```bash
 nano .gitignore
 # Brain Swarm Core Prototype
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.env
-*.venv
-.env/
-venv/
-ENV/
-build/
-dist/
-*.egg-info/
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# VS Code
-.vscode/
-
-# Logs / temp
-*.log
-logs/
-tmp/
-.cache/
-
-# Bytebot / Nomi / Brain Swarm
-*.db
-*.sqlite
-*.sock
-*.pid
