@@ -1,0 +1,57 @@
+{{- if .Values.monitoring.alertmanager.webhook.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmops-ticket-sync
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-ticket-sync
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "brain-swarm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: swarmops-ticket-sync
+  template:
+    metadata:
+      labels:
+        {{- include "brain-swarm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: swarmops-ticket-sync
+    spec:
+      containers:
+        - name: swarmops-ticket-sync
+          image: "{{ .Values.monitoring.alertmanager.webhook.image.repository }}:{{ .Values.monitoring.alertmanager.webhook.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.monitoring.alertmanager.webhook.image.pullPolicy | default "IfNotPresent" }}
+          command: ["python", "swarmops_ticket_sync.py"]
+          env:
+            - name: REDIS_URL
+              value: "redis://{{ include "brain-swarm.fullname" . }}-redis:6379"
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_token
+            - name: GITHUB_REPO
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_repo
+            - name: JIRA_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_base_url
+            - name: JIRA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_username
+            - name: JIRA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_api_token
+          resources:
+            {{- toYaml .Values.monitoring.alertmanager.webhook.resources | nindent 12 }}
+      restartPolicy: Always
+{{- end }}
