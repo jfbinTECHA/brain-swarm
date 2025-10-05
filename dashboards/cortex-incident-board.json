@@ -1,0 +1,159 @@
+{
+  "title": "Cortex Incident Board",
+  "tags": ["brain-swarm", "cortex", "kilo"],
+  "style": "dark",
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "version": 1,
+  "annotations": {
+    "list": [
+      {
+        "name": "Cortex Events",
+        "datasource": "Prometheus",
+        "enable": true,
+        "expr": "increase(cortex_incident_event_total[5m])",
+        "iconColor": "rgba(255, 215, 0, 0.9)",
+        "textFormat": "[{{ event }}]({{ labels.issue_url }}) by {{ actor }} ({{ severity }})",
+        "titleFormat": "Incident {{ event }}"
+      },
+      {
+        "name": "Kilo AI Events",
+        "datasource": "Prometheus",
+        "enable": true,
+        "expr": "increase(cortex_ai_triage_actions_total[5m])",
+        "iconColor": "rgba(0, 180, 255, 0.8)",
+        "titleFormat": "Kilo AI Action",
+        "textFormat": "Automated triage performed by Kilo"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "table",
+      "title": "Active Incidents",
+      "id": 1,
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 10 },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "cortex_incidents_created_total - cortex_incidents_resolved_total",
+          "legendFormat": "Active"
+        }
+      ],
+      "columns": [
+        { "text": "Incident ID" },
+        { "text": "Severity" },
+        { "text": "Status" },
+        { "text": "Age (s)" }
+      ],
+      "options": { "showHeader": true }
+    },
+    {
+      "type": "timeseries",
+      "title": "Incident Creation & Resolution Rate",
+      "id": 2,
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(cortex_incidents_created_total[5m])",
+          "legendFormat": "Created"
+        },
+        {
+          "expr": "rate(cortex_incidents_resolved_total[5m])",
+          "legendFormat": "Resolved"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "1/s" },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "type": "stat",
+      "title": "Mean Time to Resolution (MTTR)",
+      "id": 3,
+      "gridPos": { "x": 0, "y": 18, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(cortex_incident_resolution_duration_bucket[5m]))",
+          "legendFormat": "95th percentile"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "unit": "s" },
+        "overrides": []
+      },
+      "options": { "orientation": "auto", "textMode": "auto", "wideLayout": true }
+    },
+    {
+      "type": "barchart",
+      "title": "Incidents by Severity",
+      "id": 4,
+      "gridPos": { "x": 6, "y": 18, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum by (severity) (cortex_incidents_created_total)",
+          "legendFormat": "{{severity}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "options": { "orientation": "auto", "textMode": "auto", "wideLayout": true }
+    },
+    {
+      "type": "stat",
+      "title": "AI Triage Actions",
+      "id": 5,
+      "gridPos": { "x": 0, "y": 24, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "cortex_ai_triage_actions_total",
+          "legendFormat": "Total"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" } },
+        "overrides": []
+      },
+      "options": { "orientation": "auto", "textMode": "auto", "wideLayout": true }
+    },
+    {
+      "type": "stat",
+      "title": "Active Incident Rate",
+      "id": 6,
+      "gridPos": { "x": 4, "y": 24, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(cortex_incidents_created_total[5m])",
+          "legendFormat": "Rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "unit": "1/s" },
+        "overrides": []
+      },
+      "options": { "orientation": "auto", "textMode": "auto", "wideLayout": true }
+    },
+    {
+      "type": "stat",
+      "title": "Resolution Success Rate",
+      "id": 7,
+      "gridPos": { "x": 8, "y": 24, "w": 4, "h": 6 },
+      "targets": [
+        {
+          "expr": "(cortex_incidents_resolved_total / cortex_incidents_created_total) * 100",
+          "legendFormat": "Success Rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "unit": "percent" },
+        "overrides": []
+      },
+      "options": { "orientation": "auto", "textMode": "auto", "wideLayout": true }
+    }
+  ]
+}
