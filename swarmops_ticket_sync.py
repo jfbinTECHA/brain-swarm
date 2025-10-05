@@ -88,8 +88,21 @@ async def mark_resolved(incident_id: str, issue_url: str, system: str):
 
     print(f"✅ Ticket resolved: {incident_id} ({system}) - {issue_url}")
 
+async def sync_once():
+    """Run one synchronization cycle"""
+    print("🔄 Running ticket synchronization...")
+
+    try:
+        await asyncio.gather(
+            poll_github(),
+            poll_jira()
+        )
+        print("✅ Ticket synchronization completed")
+    except Exception as e:
+        print(f"❌ Sync error: {e}")
+
 async def sync_loop():
-    """Main synchronization loop"""
+    """Main synchronization loop for continuous operation"""
     print("🔄 Starting ticket synchronization service...")
 
     while True:
@@ -104,4 +117,9 @@ async def sync_loop():
         await asyncio.sleep(60)  # Poll every minute
 
 if __name__ == "__main__":
-    asyncio.run(sync_loop())
+    # Run once for CronJob, or continuously if called directly
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--once":
+        asyncio.run(sync_once())
+    else:
+        asyncio.run(sync_loop())
