@@ -118,8 +118,13 @@ ingress:
   className: "nginx"
   host: "bridge.brainswarm.local"
   certManagerIssuer: "letsencrypt-prod"
-  whitelist: ""  # NGINX: Comma-separated list of CIDR ranges (e.g., "192.168.1.0/24,10.0.0.0/8")
-  allowedCIDRs: []  # Traefik: List of CIDR ranges
+  whitelist: "192.30.252.0/22,185.199.108.0/22,140.82.112.0/20,104.192.136.0/21,18.205.93.0/25"  # GitHub + Atlassian public webhook ranges
+  allowedCIDRs:  # Traefik: List of CIDR ranges
+    - 192.30.252.0/22  # GitHub
+    - 185.199.108.0/22  # GitHub
+    - 140.82.112.0/20  # GitHub
+    - 104.192.136.0/21  # GitHub
+    - 18.205.93.0/25   # Atlassian (Jira)
   annotations: {}
   tls:
     enabled: true
