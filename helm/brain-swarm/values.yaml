@@ -256,6 +256,7 @@ monitoring:
         projectKey: "ALERT"
       github:
         enabled: false
+        repo: "brain-swarm"  # Repository for GitHub Actions integration
       servicenow:
         enabled: false
         assignmentGroup: ""
