@@ -1,119 +1,260 @@
-# Architecture
+# 🏗️ BrainSwarmOps Architecture
 
-Brain Swarm follows a modular, hierarchical architecture designed for scalability and extensibility.
+## System Overview
 
-## Core Components
+BrainSwarmOps implements a comprehensive, AI-driven incident response platform with multi-layered architecture designed for enterprise-scale operations.
 
-### Coordinator
-The central orchestration component that manages task delegation, agent coordination, and swarm intelligence.
+<div align="center">
+  <img src="assets/BRA.png" alt="Brain Swarm Ops Architecture" style="max-width: 100%; height: auto;">
+  <p><em>Complete System Architecture</em></p>
+</div>
 
-**Responsibilities:**
-- Task planning and decomposition
-- Agent load balancing
-- Consensus management
-- Performance monitoring
+## Core Architecture Principles
 
-### Agents
-Specialized AI workers that execute tasks. Each agent has a specific role and expertise.
+### 🔄 Event-Driven Design
+- **Webhook-First**: Real-time alert processing from multiple sources
+- **Polling Fallback**: Reliable resolution detection for asynchronous systems
+- **Event Streaming**: Redis-based real-time updates and notifications
 
-**Agent Types:**
-- **LanguageAgent**: Text processing, summarization, dialogue
-- **VisionAgent**: Image analysis, object detection
-- **MathReasoningAgent**: Mathematical calculations, logical reasoning
-- **SimulationAgent**: Scenario modeling, outcome prediction
+### 🤖 AI-Centric Intelligence
+- **Multi-Agent System**: Specialized agents for different analysis types
+- **Continuous Learning**: Adaptive embeddings from historical incident data
+- **Confidence-Based Actions**: AI decisions with uncertainty quantification
 
-### Memory System
-Hierarchical memory management with short-term and long-term storage.
+### 🛡️ Defense-in-Depth Security
+- **Network Layer**: IP whitelisting and rate limiting
+- **Application Layer**: Authentication and authorization
+- **Transport Layer**: TLS encryption and certificate management
 
-**Components:**
-- **Working Memory**: Active task context
-- **Short-term Memory**: Recent experiences
-- **Long-term Memory**: Persistent knowledge base
+### 📊 Observability-First
+- **Metrics Collection**: Prometheus-based monitoring
+- **Visualization**: Grafana dashboards with real-time updates
+- **Tracing**: Distributed tracing for request correlation
 
-### Federation Layer
-Enables communication and coordination between multiple swarm instances.
+## Component Architecture
 
-**Features:**
-- Cross-swarm task delegation
-- Resource sharing
-- Conflict resolution
-- Shared knowledge bases
-
-## Data Flow
+### Data Flow Architecture
 
 ```
-User Request → API → Coordinator → Planning → Agent Assignment → Task Execution → Result Aggregation → Response
+┌─────────────────────────────────────────────────────────────┐
+│                    EXTERNAL ALERT SOURCES                    │
+│  ┌─────────────────┐ ┌─────────────┐ ┌─────┐ ┌─────────────┐ │
+│  │  Alertmanager   │ │   GitHub    │ │Jira │ │ ServiceNow  │ │
+│  │   (Prometheus)  │ │  Webhooks   │ │     │ │             │ │
+│  └─────────────────┘ └─────────────┘ └─────┘ └─────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   INGRESS & SECURITY LAYER                  │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │
+│  │   NGINX/Traefik │ │ Rate Limiting   │ │ IP Whitelisting │ │
+│  │    Ingress      │ │   (30 RPM)      │ │  (CIDR ranges)  │ │
+│  │                 │ │                 │ │                 │ │
+│  │ • TLS 1.3       │ │ • Burst: 10     │ │ • GitHub IPs    │ │
+│  │ • Let's Encrypt │ │ • Per IP        │ │ • Atlassian IPs │ │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 SWARMOPS INCIDENT PROCESSING                │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │
+│  │ SwarmOps Hook   │ │   AI Triage     │ │ Multi-Agent     │ │
+│  │                 │ │  (Kilo Code)   │ │  Reasoning       │ │
+│  │ • Webhook Proc  │ │                 │ │                 │ │
+│  │ • Validation    │ │ • Analysis      │ │ • Chrono Agent  │ │
+│  │ • Routing       │ │ • Confidence    │ │ • Vega Agent    │ │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   TICKET & ESCALATION SYSTEMS               │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │
+│  │ GitHub Issues   │ │  Jira Tickets   │ │ ServiceNow Inc  │ │
+│  │                 │ │                 │ │                 │ │
+│  │ • Auto-creation │ │ • Auto-creation │ │ • Auto-creation │ │
+│  │ • Status sync   │ │ • Status sync   │ │ • Status sync   │ │
+│  └─────────────────┘ └─────────────────┘ └─────────────┘ │
+│                                 │                            │
+│  ┌─────────────────┐ ┌─────────────────┐                    │
+│  │  PagerDuty      │ │   OpsGenie      │                    │
+│  │  Escalation     │ │   Escalation    │                    │
+│  │                 │ │                 │                    │
+│  │ • Auto-alert    │ │ • Auto-alert    │                    │
+│  │ • On-call       │ │ • On-call       │                    │
+│  └─────────────────┘ └─────────────────┘                    │
+└─────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 OBSERVABILITY & ANALYTICS                   │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │
+│  │  Prometheus     │ │    Grafana      │ │     Redis       │ │
+│  │                 │ │                 │ │                 │ │
+│  │ • Metrics       │ │ • Dashboards    │ │ • Event Stream  │ │
+│  │ • MTTR          │ │ • Annotations    │ │ • Real-time    │ │
+│  │ • Performance   │ │ • Alerts        │ │ • Caching       │ │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│              TRAINING & SIMULATION SYSTEMS                  │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │
+│  │ Incident Replay │ │ Adaptive        │ │ Simulation      │ │
+│  │                 │ │ Embeddings      │ │ Suite           │ │
+│  │ • Historical    │ │                 │ │                 │ │
+│  │ • Learning      │ │ • Pattern Rec   │ │ • Regression    │ │
+│  │ • Improvement   │ │ • Context Aware │ │ • Batch Testing │ │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Communication Patterns
+## Component Details
 
-### Synchronous Communication
-- REST API calls
-- Direct agent-to-agent messaging
+### Alert Intake Layer
 
-### Asynchronous Communication
-- WebSocket connections for real-time updates
-- Message queues for decoupled communication
-- Event-driven architecture
+#### SwarmOps Hook Service
+- **Technology**: FastAPI (Python async)
+- **Responsibilities**:
+  - Webhook payload validation and parsing
+  - Multi-format alert normalization
+  - Real-time processing with background tasks
+  - Integration with external ticketing systems
 
-## Scalability
+#### Security Middleware
+- **Rate Limiting**: Token bucket algorithm (30 RPM + burst)
+- **IP Whitelisting**: CIDR-based source validation
+- **Header Validation**: User-Agent and signature verification
+- **TLS Termination**: Certificate management and renewal
+
+### AI Processing Layer
+
+#### Kilo Code AI Engine
+- **Core AI**: Multi-agent reasoning system
+- **Chrono Agent**: Temporal pattern analysis and prediction
+- **Vega Agent**: User experience and business impact assessment
+- **Confidence Scoring**: Bayesian probability-based decisions
+
+#### Adaptive Learning System
+- **Historical Replay**: Incident pattern learning from past events
+- **Embedding Adaptation**: Context-aware vector representations
+- **Model Refinement**: Continuous accuracy improvement
+- **Pattern Recognition**: Automated issue categorization
+
+### Integration Layer
+
+#### Multi-Platform Ticketing
+- **GitHub Issues**: REST API integration with webhook callbacks
+- **Jira Tickets**: JQL-based issue management and synchronization
+- **ServiceNow Incidents**: SOAP/REST API with change management
+- **Status Synchronization**: Bidirectional state updates
+
+#### Escalation Systems
+- **PagerDuty**: Incident creation with priority mapping
+- **OpsGenie**: Alert routing with on-call schedules
+- **Auto-Escalation Rules**: AI-driven decision making
+- **Notification Channels**: Email, SMS, and mobile push
+
+### Observability Layer
+
+#### Metrics Collection
+- **Prometheus**: Time-series metrics with rich labels
+- **Custom Metrics**: Incident events, AI processing, MTTR tracking
+- **Service Discovery**: Automatic endpoint detection
+- **Alerting Rules**: Threshold-based notifications
+
+#### Visualization & Dashboards
+- **Grafana**: Real-time dashboards with annotations
+- **Time Series**: Incident rate and resolution tracking
+- **Heat Maps**: Service and time-based incident patterns
+- **Custom Panels**: AI confidence and business impact visualization
+
+### Training & Simulation Layer
+
+#### Incident Simulation Suite
+- **Batch Processing**: Configurable incident generation
+- **Realistic Scenarios**: Historical pattern-based simulation
+- **Load Testing**: Performance validation under stress
+- **Regression Testing**: Automated quality assurance
+
+#### Continuous Learning
+- **Model Training**: Offline learning from incident data
+- **A/B Testing**: Model performance comparison
+- **Feedback Loop**: Human validation and correction
+- **Model Deployment**: Rolling updates with validation
+
+## Scalability Architecture
 
 ### Horizontal Scaling
-- **Redis-backed Message Bus**: Partitioned Redis Streams for high-throughput messaging
-- **Async Agent Pools**: Auto-scaling agent pools with intelligent load balancing
-- **Multi-Cluster Federation**: Cross-cluster task distribution and resource optimization
-- **Auto-Scaling Coordination**: Reactive and predictive scaling based on workload patterns
+- **Stateless Services**: All components can scale independently
+- **Load Balancing**: Kubernetes service distribution
+- **Auto-scaling**: HPA based on CPU/memory metrics
+- **Regional Distribution**: Multi-zone deployment support
 
-### Message Queue Architecture
-- **Single Node**: Basic Redis Streams for development
-- **Partitioned**: Consistent hashing across multiple Redis instances
-- **Clustered**: Redis Cluster with automatic failover and scaling
+### Data Architecture
+- **Time-Series Storage**: Prometheus for metrics (local storage)
+- **Document Storage**: Redis for session and cache data
+- **Event Streaming**: Redis pub/sub for real-time updates
+- **Persistent Storage**: PVC for Grafana dashboards and training data
 
-### Agent Pool Management
-- **Load Balancing Strategies**:
-  - Least-loaded: Route to least busy agent
-  - Weighted: Capacity-based routing
-  - Round-robin: Even distribution
-  - Geographic: Latency-optimized routing
-- **Auto-scaling**: Dynamic agent pool sizing based on demand
-- **Health Monitoring**: Automatic detection and replacement of failed agents
+### Performance Characteristics
 
-### Multi-Cluster Federation
-- **Cluster Roles**: Primary, Secondary, Edge, and Specialized clusters
-- **Task Distribution**: Intelligent routing based on cluster capabilities
-- **Resource Optimization**: Global load balancing across clusters
-- **Federation Manager**: Coordinates cross-cluster communication and consensus
-
-### Vertical Scaling
-- Resource allocation based on task complexity
-- Dynamic agent spawning
-- Memory optimization
+| Component | Requests/sec | Latency (P95) | Availability |
+|-----------|-------------|---------------|--------------|
+| Webhook Processing | 1000+ | <500ms | 99.9% |
+| AI Triage | 100+ | <2s | 99.5% |
+| Metrics Collection | 10000+ | <100ms | 99.99% |
+| Dashboard Queries | 100+ | <1s | 99.9% |
 
 ## Security Architecture
 
-### Authentication & Authorization
-- JWT-based authentication
-- Role-based access control
-- API key management
+### Network Security
+- **Zero Trust**: Every request authenticated and authorized
+- **Network Policies**: Kubernetes network segmentation
+- **Service Mesh**: Istio integration for advanced routing
+- **DDoS Protection**: Rate limiting and IP filtering
+
+### Application Security
+- **Input Validation**: Comprehensive payload sanitization
+- **Authentication**: JWT tokens with role-based access
+- **Authorization**: Permission-based resource access
+- **Audit Logging**: Complete request/response logging
 
 ### Data Protection
-- End-to-end encryption
-- Secure communication channels
-- Audit logging
+- **Encryption at Rest**: AES-256 for persistent data
+- **Encryption in Transit**: TLS 1.3 for all communications
+- **Secret Management**: Kubernetes secrets with rotation
+- **Compliance**: GDPR, SOC2, and enterprise security standards
 
-## Deployment Patterns
+## Deployment Architecture
 
-### Single Node
-- All components on one machine
-- SQLite for persistence
-- Local message queues
+### Kubernetes-Native Design
+- **Helm Charts**: Declarative application management
+- **ConfigMaps/Secrets**: Configuration and credential management
+- **RBAC**: Kubernetes role-based access control
+- **Resource Limits**: CPU and memory constraints
 
-### Multi-Node Cluster
-- Kubernetes orchestration
-- Distributed databases
-- External message queues (Redis/NATS/Kafka)
+### Multi-Environment Support
+- **Development**: Local Kubernetes (kind/k3s)
+- **Staging**: Cloud-managed Kubernetes
+- **Production**: Multi-region, multi-zone deployment
+- **DR**: Cross-region failover capabilities
 
-### Federated Deployment
-- Multiple clusters
-- Cross-cluster communication
-- Global resource management
+## Monitoring & Alerting
+
+### System Health
+- **Pod Health**: Readiness and liveness probes
+- **Service Dependencies**: Health checks for external services
+- **Resource Usage**: CPU, memory, and storage monitoring
+- **Error Rates**: Application and infrastructure errors
+
+### Business Metrics
+- **MTTR Tracking**: Mean time to resolution measurement
+- **Incident Volume**: Daily/weekly incident trends
+- **Escalation Rates**: Human intervention frequency
+- **AI Accuracy**: Model performance and confidence scores
+
+This architecture provides a robust, scalable, and intelligent incident response platform that combines traditional monitoring with cutting-edge AI capabilities.

@@ -177,14 +177,38 @@ redisExporter:
 # Ingress settings
 ingress:
   enabled: false
-  className: ""
+  traefikEnabled: false  # Set to true to use Traefik IngressRoute instead of NGINX
+  className: "nginx"  # NGINX ingress class
+  certResolver: "letsencrypt"  # Traefik cert resolver
+  host: "api.brain-swarm.local"  # Main API host
+  certManagerIssuer: "letsencrypt-prod"  # Certificate issuer for NGINX
+
+  # TLS configuration
+  tls:
+    enabled: true
+    secretName: ""  # Auto-generated if empty
+
+  # Security settings
+  security:
+    # Rate limiting
+    rateLimit:
+      average: 10  # Requests per second average
+      burst: 20    # Burst capacity
+    metricsRateLimit:
+      average: 2   # Stricter limits for metrics endpoints
+      burst: 5
+
+    # IP whitelisting (CIDR ranges)
+    ipWhitelist: []  # e.g., ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    metricsIPWhitelist: []  # Separate whitelist for metrics endpoints
+    ipWhitelistRejectStatus: 403  # HTTP status for rejected requests
+
+  # Custom annotations
   annotations: {}
-  hosts:
-    - host: brain-swarm.local
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []
+    # nginx.ingress.kubernetes.io/rate-limit: "100"
+    # nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    # nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
 # Service account settings
 serviceAccount:
@@ -256,10 +280,113 @@ swarmview:
   tolerations: []
   affinity: {}
 
+# SwarmOps Bi-Directional Sync settings
+swarmops:
+bidirectionalSync:
+enabled: false
+replicas: 1
+
+image:
+ repository: brain-swarm-swarmops-bidirectional-sync
+ tag: "latest"
+ pullPolicy: IfNotPresent
+
+# Sync configuration
+maxRetries: 3
+retryDelay: 60  # seconds
+pollInterval: 300  # 5 minutes
+conflictResolution: "ticket_wins"  # or "incident_wins"
+
+# GitHub integration
+github:
+ enabled: false
+ owner: ""  # GitHub organization/user
+ repo: ""   # Repository name
+
+# Jira integration
+jira:
+ enabled: false
+ url: ""  # Jira base URL
+ projectKey: "ALERT"
+
+# ServiceNow integration
+servicenow:
+ enabled: false
+ instanceUrl: ""  # ServiceNow instance URL
+ assignmentGroup: ""
+
+# Resources
+resources:
+ limits:
+   cpu: 200m
+   memory: 256Mi
+ requests:
+   cpu: 100m
+   memory: 128Mi
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
 # Monitoring configuration
 monitoring:
   grafana:
     enabled: true
+    replicas: 1
+
+    image:
+      repository: grafana/grafana
+      tag: "10.2.0"
+      pullPolicy: IfNotPresent
+
+    # Authentication
+    adminUser: "admin"
+    adminPassword: "admin"  # Change in production!
+    secretKey: "SW2YcwTIb9zpOOhoPsMm"  # Change in production!
+
+    # User management
+    allowSignUp: false
+    defaultRole: "Viewer"
+
+    # Anonymous access
+    anonymous:
+      enabled: true
+      orgName: "Main Org."
+      orgRole: "Viewer"
+
+    # Logging
+    logLevel: "info"
+
+    # Persistence
+    persistence:
+      enabled: true
+      size: "10Gi"
+      storageClass: ""
+
+    # Service
+    service:
+      type: ClusterIP
+      port: 80
+
+    # Resources
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    # Security context
+    podSecurityContext: {}
+    securityContext: {}
+
+    # Node selection
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
   prometheus:
     enabled: false
   alertmanager:

@@ -33,6 +33,7 @@ from ..message_queue import message_queue
 from ..cortex.api.routes import router as cortex_router
 from ..cortex.incident_broadcast import broadcast_to_kilo
 from ..dashboard.mission_control import mission_control, get_mission_control_dashboard, create_mission_control_html
+from ..webhook_service.api import router as webhook_router
 from ..schemas.incident import AlertGroup
 from ..config import settings
 
@@ -75,6 +76,9 @@ app.add_middleware(
 
 # Add Prometheus monitoring
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+# Initialize system metrics
+prometheus_metrics.record_system_info("1.0.0", os.getenv("ENVIRONMENT", "development"))
 
 # Startup event to initialize services
 @app.on_event("startup")
@@ -512,15 +516,20 @@ async def get_metrics():
     """Get system metrics"""
     coord = get_coordinator()
 
+    # Update live metrics
+    prometheus_metrics.update_active_tasks(len(coord.delegation_system.active_tasks), coord.swarm_id)
+
     # Base metrics
-    agent_metrics = {
-        agent_id: {
-            "load": coord.agent_loads.get(agent_id, 0),
+    agent_metrics = {}
+    for agent_id in coord.registered_agents:
+        load = coord.agent_loads.get(agent_id, 0)
+        agent_metrics[agent_id] = {
+            "load": load,
             "performance": 0.8,  # Placeholder
             "status": "active"
         }
-        for agent_id in coord.registered_agents
-    }
+        # Record agent load in Prometheus
+        prometheus_metrics.update_agent_load(agent_id, "generic", coord.swarm_id, load)
 
     system_metrics = {
         "total_agents": len(coord.registered_agents),
@@ -561,6 +570,50 @@ async def get_metrics():
         },
         timestamp=time.time()
     )
+
+
+@app.get("/metrics/prometheus")
+async def get_prometheus_metrics():
+    """Get raw Prometheus metrics output"""
+    return Response(
+        content=prometheus_metrics.get_metrics_output(),
+        media_type="text/plain; charset=utf-8"
+    )
+
+
+@app.get("/metrics/dashboard")
+async def get_metrics_dashboard():
+    """Get metrics formatted for dashboard consumption"""
+    coord = get_coordinator()
+
+    dashboard_data = {
+        "timestamp": time.time(),
+        "system": {
+            "agents_total": len(coord.registered_agents),
+            "tasks_active": len(coord.delegation_system.active_tasks),
+            "system_load": sum(coord.agent_loads.values()) / max(len(coord.registered_agents), 1)
+        },
+        "agents": [
+            {
+                "id": agent_id,
+                "load": coord.agent_loads.get(agent_id, 0),
+                "status": "active"
+            }
+            for agent_id in coord.registered_agents
+        ],
+        "tasks": [
+            {
+                "id": task_id,
+                "status": task_info["status"],
+                "assigned_agent": task_info["task"].assigned_agent,
+                "created_at": task_info["assigned_at"]
+            }
+            for task_id, task_info in coord.delegation_system.active_tasks.items()
+        ],
+        "prometheus_metrics": prometheus_metrics.get_metrics_json()
+    }
+
+    return dashboard_data
 
 @app.get("/scalability/status")
 async def get_scalability_status():
@@ -890,9 +943,20 @@ async def root():
             "mission_control_api": "/api/mission-control",
             "mission_control_ws": "/ws/mission-control"
         },
+        "webhooks": {
+            "github": "/webhooks/github",
+            "jira": "/webhooks/jira",
+            "servicenow": "/webhooks/servicenow",
+            "prometheus": "/webhooks/prometheus",
+            "generic": "/webhooks/{source}",
+            "health": "/webhooks/health",
+            "stats": "/webhooks/stats"
+        },
         "observability": {
             "health": "/health",
             "metrics": "/metrics",
+            "prometheus_metrics": "/metrics/prometheus",
+            "metrics_dashboard": "/metrics/dashboard",
             "alerts": "/monitoring/alerts",
             "compliance": "/monitoring/compliance",
             "traces": "/monitoring/traces",
@@ -1078,8 +1142,9 @@ async def resolve_alert(alert_id: str, resolved_by: str = "api_user"):
 
         return {"status": "resolved", "alert_id": alert_id, "correlation_id": correlation_id}
 
-# Include cortex router
+# Include routers
 app.include_router(cortex_router)
+app.include_router(webhook_router)
 
 # BrainSwarmOps API endpoints
 @app.get("/api/incidents")

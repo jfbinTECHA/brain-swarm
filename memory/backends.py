@@ -568,8 +568,21 @@ class ChromaVectorBackend(MemoryBackend):
             raise ConnectionError(f"Failed to connect to ChromaDB: {e}")
 
     def _generate_embedding(self, text: str) -> List[float]:
-        """Generate embeddings for text (simplified - in production use proper embedding model)"""
-        # Simple hash-based embedding for demo - replace with actual embedding model
+        """Generate embeddings for text using the embedding adapter"""
+        try:
+            from ..cortex.adapters.embedding_adapter import embedding_adapter
+            if embedding_adapter:
+                embeddings = embedding_adapter.embed_texts([text])
+                return embeddings[0] if embeddings else []
+            else:
+                # Fallback to simple hash-based embedding
+                return self._fallback_embedding(text)
+        except Exception as e:
+            logger.log("WARNING", "ChromaVectorBackend", f"Embedding failed, using fallback: {e}")
+            return self._fallback_embedding(text)
+
+    def _fallback_embedding(self, text: str) -> List[float]:
+        """Fallback hash-based embedding"""
         import hashlib
         hash_obj = hashlib.md5(text.encode())
         # Convert to 384-dimensional vector (common embedding size)

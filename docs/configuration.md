@@ -1,218 +1,655 @@
-# Configuration
+# ⚙️ Configuration Guide
 
-Brain Swarm uses a hierarchical configuration system with support for multiple sources.
+## Helm Values Reference
 
-## Configuration Sources
+BrainSwarmOps is configured using Helm values. This guide covers all available configuration options.
 
-Configuration is loaded from the following sources (in order of precedence):
+## Global Configuration
 
-1. **Environment Variables** (highest priority)
-2. **Secrets Manager** (Vault or AWS Secrets Manager)
-3. **Configuration Files** (.env, YAML, etc.)
-4. **Default Values** (lowest priority)
-
-## Secrets Management
-
-Brain Swarm supports multiple secrets management backends:
-
-### HashiCorp Vault
-
-```python
-# Configuration for Vault
-secrets:
-  provider: "vault"
-  vault_url: "https://vault.example.com:8200"
-  vault_token: "hvs.your-vault-token"
-  vault_mount_point: "secret"
-  vault_path: "brain-swarm"
+```yaml
+global:
+  # Global image registry
+  imageRegistry: ""
+  # Global image pull secrets
+  imagePullSecrets: []
+  # Global storage class
+  storageClass: ""
 ```
 
-### AWS Secrets Manager
+## API Configuration
 
-```python
-# Configuration for AWS
-secrets:
-  provider: "aws"
-  aws_region: "us-east-1"
-  aws_secret_name: "brain-swarm"
+```yaml
+api:
+  # Enable/disable API component
+  enabled: true
+  # Number of replicas
+  replicaCount: 1
+
+  image:
+    repository: brain-swarm
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  # Application configuration
+  config:
+    environment: production
+    node:
+      swarmId: "default-swarm"
+      host: "0.0.0.0"
+      port: 8000
+      maxAgents: 10
+      maxAgentLoad: 3
+
+    database:
+      url: "sqlite:///data/brain_swarm.db"
+
+    logging:
+      level: INFO
+
+    federation:
+      enabled: false
+
+    scalability:
+      enabled: false
+      messageQueueMode: "single_node"
+      redisUrls: ["redis://redis:6379"]
+      partitions: 8
+      asyncAgentsEnabled: false
+      agentPoolMin: 1
+      agentPoolMax: 10
+      loadBalancingStrategy: "least_loaded"
+      multiClusterEnabled: false
+      clusterId: "default-cluster"
+      clusterRole: "primary"
+      autoScalingEnabled: false
+
+    security:
+      jwtSecret: "change-this-in-production"
+      jwtAlgorithm: "HS256"
+      jwtExpirationHours: 24
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+```
+
+## Ticket Bridge Configuration
+
+```yaml
+ticketBridge:
+  # Enable/disable ticket bridge
+  enabled: true
+  # Number of replicas
+  replicaCount: 1
+
+  image:
+    repository: brain-swarm-swarmops-hook
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: ""
+
+  # Ingress configuration
+  ingress:
+    enabled: false
+    traefikEnabled: false
+    className: "nginx"
+    host: "bridge.brainswarm.local"
+    certManagerIssuer: "letsencrypt-prod"
+
+    # NGINX-specific settings
+    whitelist: "192.30.252.0/22,185.199.108.0/22,140.82.112.0/20,104.192.136.0/21,18.205.93.0/25"
+
+    # Traefik-specific settings
+    allowedCIDRs:
+      - 192.30.252.0/22  # GitHub
+      - 185.199.108.0/22  # GitHub
+      - 140.82.112.0/20  # GitHub
+      - 104.192.136.0/21  # GitHub
+      - 18.205.93.0/25   # Atlassian
+
+    annotations: {}
+    tls:
+      enabled: true
+      secretName: ""
+
+  # AI API configuration
+  brainSwarmApiUrl: "http://brain-swarm-api.brainswarm.svc.cluster.local:8000"
+
+  # Environment variable overrides
+  extraEnvVars: []
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+```
+
+## Grafana Configuration
+
+```yaml
+grafana:
+  # Enable/disable Grafana
+  enabled: false
+  # Number of replicas
+  replicas: 1
+
+  image:
+    repository: grafana/grafana
+    tag: "9.5.0"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  # Root URL for Grafana
+  rootUrl: ""
+
+  # Admin password (change in production!)
+  adminPassword: "admin"
+
+  # Persistence configuration
+  persistence:
+    enabled: true
+    size: 10Gi
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+```
+
+## Prometheus Configuration
+
+```yaml
+prometheus:
+  # Enable/disable Prometheus
+  enabled: false
+  # Number of replicas
+  replicas: 1
+
+  image:
+    repository: prom/prometheus
+    tag: "v2.40.0"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 9090
+
+  # Persistence configuration
+  persistence:
+    enabled: true
+    size: 50Gi
+
+  # Retention period
+  retention: "30d"
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+```
+
+## Redis Configuration
+
+```yaml
+redis:
+  # Enable/disable Redis
+  enabled: true
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 6379
+
+  # Authentication
+  auth:
+    enabled: false
+
+  # Persistence
+  persistence:
+    enabled: true
+    size: 8Gi
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+```
+
+## Cortex Configuration
+
+```yaml
+cortex:
+  # Enable/disable Cortex
+  enabled: false
+
+  # Scheduled summarizer
+  summarizer:
+    enabled: true
+    schedule: "*/15 * * * *"
+
+  # ChromaDB configuration
+  chroma:
+    enabled: true
+    image:
+      repository: chromadb/chroma
+      tag: "0.4.18"
+      pullPolicy: IfNotPresent
+    service:
+      port: 8000
+    persistence:
+      enabled: true
+      size: 10Gi
+
+  # S3 configuration (optional)
+  s3:
+    enabled: false
+    bucket: "brain-swarm-cortex"
+    region: "us-east-1"
+    endpointUrl: ""
+
+  # Cortex persistence
+  persistence:
+    enabled: true
+    size: 20Gi
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+```
+
+## Security Configuration
+
+```yaml
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
+  capabilities:
+    drop:
+    - ALL
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+```
+
+## Network Policies
+
+```yaml
+networkPolicy:
+  enabled: false
+
+  # Default deny all ingress
+  defaultDenyIngress: true
+
+  # Allow specific ingress rules
+  ingressRules:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+
+  # Allow specific egress rules
+  egressRules:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443  # HTTPS for external APIs
+        - protocol: TCP
+          port: 80   # HTTP fallback
+```
+
+## Monitoring Configuration
+
+```yaml
+monitoring:
+  # ServiceMonitor for Prometheus
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+  # PrometheusRule for alerting
+  prometheusRule:
+    enabled: true
+    rules:
+      - alert: BrainSwarmHighIncidentRate
+        expr: rate(cortex_incident_event_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High incident rate detected"
+          description: "Incident rate is {{ $value }} per minute"
+
+  # Grafana dashboards
+  grafana:
+    dashboards:
+      enabled: true
+      configMapName: brain-swarm-grafana-dashboards
+```
+
+## Example Configurations
+
+### Minimal Development Setup
+
+```yaml
+ticketBridge:
+  enabled: true
+  ingress:
+    enabled: true
+    host: "webhooks.dev.brainswarm.ai"
+
+grafana:
+  enabled: true
+  adminPassword: "dev-password"
+
+prometheus:
+  enabled: true
+```
+
+### Production Setup
+
+```yaml
+global:
+  imageRegistry: "your-registry.com"
+
+api:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+ticketBridge:
+  enabled: true
+  replicaCount: 2
+  ingress:
+    enabled: true
+    host: "webhooks.brainswarm.ai"
+    tls:
+      enabled: true
+      secretName: "brainswarm-tls"
+
+grafana:
+  enabled: true
+  replicas: 2
+  adminPassword: "secure-production-password"
+  persistence:
+    size: 50Gi
+
+prometheus:
+  enabled: true
+  replicas: 2
+  persistence:
+    size: 100Gi
+  retention: "90d"
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+
+networkPolicy:
+  enabled: true
+```
+
+### High Availability Setup
+
+```yaml
+api:
+  replicaCount: 3
+
+ticketBridge:
+  replicaCount: 3
+
+grafana:
+  replicas: 2
+
+prometheus:
+  replicas: 2
+
+redis:
+  replica:
+    replicaCount: 3
+
+# Affinity rules for high availability
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - brain-swarm
+        topologyKey: kubernetes.io/hostname
 ```
 
 ## Environment Variables
 
-### API Keys
+### Ticket Bridge Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Service port | `8080` |
+| `DEFAULT_TICKET_SYSTEM` | Default ticket system | `jira` |
+| `CRITICAL_TICKET_SYSTEM` | Critical incident system | `jira` |
+| `JIRA_ENABLED` | Enable Jira integration | `false` |
+| `GITHUB_ENABLED` | Enable GitHub integration | `false` |
+| `SERVICENOW_ENABLED` | Enable ServiceNow integration | `false` |
+| `BRAIN_SWARM_API_URL` | AI API endpoint | `http://brain-swarm-api.brainswarm.svc.cluster.local:8000` |
+| `BRAIN_SWARM_API_TOKEN` | AI API authentication | `` |
+
+### API Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ENVIRONMENT` | Deployment environment | `production` |
+| `SWARM_ID` | Swarm identifier | `default-swarm` |
+| `DATABASE_URL` | Database connection | `sqlite:///data/brain_swarm.db` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `JWT_SECRET` | JWT signing secret | `change-this-in-production` |
+| `REDIS_URL` | Redis connection | `redis://redis:6379` |
+
+## Configuration Validation
+
+### Pre-deployment Validation
 
 ```bash
-# OpenAI API Key
-OPENAI_API_KEY=sk-your-openai-key
+# Validate Helm chart
+helm template brain-swarm ./helm/brain-swarm --dry-run
 
-# OpenRouter API Key
-OPENROUTER_API_KEY=sk-or-v1-your-openrouter-key
+# Check for configuration errors
+helm lint ./helm/brain-swarm
 
-# Anthropic API Key
-ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
-
-# Grok API Key
-GROK_API_KEY=xai-your-grok-key
+# Validate Kubernetes manifests
+kubectl apply --dry-run=client -f <generated-manifests>
 ```
 
-### Node Configuration
+### Runtime Validation
 
 ```bash
-# Node settings
-BRAIN_SWARM_NODE_NAME=my_swarm_node
-SWARM_ID=production_swarm
-HOST=0.0.0.0
-PORT=8000
-MAX_AGENTS=10
-MAX_AGENT_LOAD=3
+# Check configuration loading
+kubectl logs deployment/brain-swarm-ticket-bridge -n brainswarm | grep "configuration"
+
+# Validate service connectivity
+kubectl exec -it deployment/brain-swarm-ticket-bridge -n brainswarm -- curl http://localhost:8080/health
+
+# Check environment variables
+kubectl exec -it deployment/brain-swarm-ticket-bridge -n brainswarm -- env | grep BRAIN_SWARM
 ```
 
-### Database
+## Troubleshooting Configuration
 
+### Common Configuration Issues
+
+#### Environment Variables Not Set
 ```bash
-# Database connection
-DATABASE_URL=postgresql://user:password@localhost:5432/brain_swarm
-DATABASE_POOL_SIZE=5
-DATABASE_MAX_OVERFLOW=10
+# Check pod environment
+kubectl exec -it <pod-name> -n brainswarm -- env
+
+# Verify ConfigMap/Secret mounting
+kubectl describe pod <pod-name> -n brainswarm
 ```
 
-### Security
-
+#### Ingress Not Routing Correctly
 ```bash
-# JWT settings
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-JWT_ALGORITHM=HS256
-JWT_EXPIRATION_HOURS=24
+# Check ingress configuration
+kubectl describe ingress brain-swarm-ticket-bridge -n brainswarm
 
-# API Keys for agent registration
-API_KEY_AGENT_1=secret-key-1
-API_KEY_AGENT_2=secret-key-2
+# Test ingress controller
+kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
 ```
 
-### Logging
-
+#### Persistence Issues
 ```bash
-# Logging configuration
-LOG_LEVEL=INFO
-LOG_FORMAT="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-LOG_FILE_PATH=/var/log/brain_swarm.log
+# Check PVC status
+kubectl get pvc -n brainswarm
+
+# Verify storage class
+kubectl get storageclass
+
+# Check mount points
+kubectl exec -it <pod-name> -n brainswarm -- df -h
 ```
 
-## Configuration File
-
-You can also use a `.env` file for configuration:
-
+#### Resource Constraints
 ```bash
-# .env file
-OPENAI_API_KEY=sk-your-openai-key
-BRAIN_SWARM_NODE_NAME=production_node
-DATABASE_URL=sqlite:///brain_swarm.db
+# Check resource usage
+kubectl top pods -n brainswarm
+
+# Review resource limits
+kubectl describe pod <pod-name> -n brainswarm
+
+# Adjust limits if needed
+kubectl patch deployment <deployment-name> -n brainswarm --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu", "value": "1000m"}]'
 ```
 
-## Programmatic Configuration
+## Advanced Configuration
 
-```python
-from config import settings
+### Custom Metrics and Monitoring
 
-# Access configuration
-api_key = settings.api_keys.openai_api_key
-node_name = settings.node.node_name
-db_url = settings.database.url
-
-# Modify settings
-settings.node.max_agents = 20
+```yaml
+monitoring:
+  customMetrics:
+    enabled: true
+    interval: 15s
+    metrics:
+      - name: cortex_custom_metric
+        help: "Custom BrainSwarmOps metric"
+        type: gauge
+        value: 1.0
 ```
 
-## Federation Configuration
+### Custom Alert Rules
 
-```python
-# Federation settings
-federation:
-  enabled: true
-  discovery_url: "https://federation.example.com"
-  shared_memory_url: "redis://shared-memory:6379"
+```yaml
+monitoring:
+  prometheusRule:
+    rules:
+      - alert: CustomIncidentAlert
+        expr: cortex_incident_event_total{severity="critical"} > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple critical incidents detected"
+          description: "More than 5 critical incidents in 5 minutes"
 ```
 
-## Scalability Configuration
+### Integration Webhooks
 
-Brain Swarm supports horizontal scaling with Redis-backed message queues and multi-cluster federation.
+```yaml
+integrations:
+  slack:
+    enabled: true
+    webhookUrl: "https://hooks.slack.com/services/..."
+    channels:
+      - "#incidents"
+      - "#alerts"
 
-### Environment Variables
-
-```bash
-# Enable scalability features
-SCALABILITY__ENABLED=true
-
-# Message queue mode: single_node, cluster, or partitioned
-SCALABILITY__MESSAGE_QUEUE_MODE=cluster
-
-# Redis URLs for message queue
-SCALABILITY__REDIS_URLS=["redis://redis-1:6379", "redis://redis-2:6379", "redis://redis-3:6379"]
-
-# Number of message queue partitions
-SCALABILITY__PARTITIONS=8
-
-# Enable async agents with load balancing
-SCALABILITY__ASYNC_AGENTS_ENABLED=true
-
-# Agent pool size configuration
-SCALABILITY__AGENT_POOL_MIN=2
-SCALABILITY__AGENT_POOL_MAX=20
-
-# Load balancing strategy: least_loaded, weighted, round_robin, geographic
-SCALABILITY__LOAD_BALANCING_STRATEGY=least_loaded
-
-# Multi-cluster federation
-SCALABILITY__MULTI_CLUSTER_ENABLED=true
-SCALABILITY__CLUSTER_ID=my_cluster
-SCALABILITY__CLUSTER_ROLE=primary
-
-# Auto-scaling coordination
-SCALABILITY__AUTO_SCALING_ENABLED=true
+  teams:
+    enabled: true
+    webhookUrl: "https://outlook.office.com/webhook/..."
+    channels:
+      - "Incidents"
+      - "Alerts"
 ```
 
-### Programmatic Configuration
-
-```python
-from config import settings
-
-# Enable scalability
-settings.scalability.enabled = True
-settings.scalability.message_queue_mode = "cluster"
-settings.scalability.redis_urls = ["redis://redis-1:6379", "redis://redis-2:6379"]
-settings.scalability.async_agents_enabled = True
-settings.scalability.multi_cluster_enabled = True
-
-# Access scalability settings
-print(f"Scalability enabled: {settings.scalability.enabled}")
-print(f"Agent pool range: {settings.scalability.agent_pool_min}-{settings.scalability.agent_pool_max}")
-```
-
-## Validation
-
-Configuration values are validated using Pydantic models, ensuring type safety and providing helpful error messages for invalid configurations.
-
-## Environment-Specific Configuration
-
-Use different configuration files for different environments:
-
-```bash
-# development.env
-ENVIRONMENT=development
-LOG_LEVEL=DEBUG
-DATABASE_URL=sqlite:///dev.db
-
-# production.env
-ENVIRONMENT=production
-LOG_LEVEL=INFO
-DATABASE_URL=postgresql://prod-user:prod-pass@prod-db:5432/brain_swarm
-```
-
-## Security Best Practices
-
-1. **Never commit secrets** to version control
-2. **Use secrets managers** in production
-3. **Rotate keys regularly**
-4. **Use strong, unique keys** for each environment
-5. **Limit key permissions** to minimum required
-6. **Monitor key usage** through audit logs
+This configuration guide provides comprehensive coverage of all BrainSwarmOps settings. For additional support, refer to the [troubleshooting guide](troubleshooting.md) or community forums.
