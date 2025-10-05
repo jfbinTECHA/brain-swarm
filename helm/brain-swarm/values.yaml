@@ -219,3 +219,10 @@ swarmview:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+# Monitoring configuration
+monitoring:
+  grafana:
+    enabled: false
+  prometheus:
+    enabled: false
