@@ -240,3 +240,32 @@ monitoring:
     webhook:
       enabled: false
       url: "https://brainswarm.ai/alert-hook"
+      image:
+        repository: brain-swarm-swarmops-hook
+        tag: "latest"
+        pullPolicy: IfNotPresent
+      service:
+        type: ClusterIP
+        port: 8080
+        nodePort: ""
+      replicas: 1
+      defaultSystem: "jira"  # Default ticket system
+      criticalSystem: "jira"  # System for critical alerts
+      jira:
+        enabled: false
+        projectKey: "ALERT"
+      github:
+        enabled: false
+      servicenow:
+        enabled: false
+        assignmentGroup: ""
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
