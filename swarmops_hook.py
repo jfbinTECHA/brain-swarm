@@ -606,6 +606,73 @@ async def list_systems():
         "total": len(ticket_creators)
     }
 
+@app.post("/gh-webhook")
+async def github_webhook(request: Request):
+    """Handle GitHub webhook for issue closures"""
+    try:
+        payload = await request.json()
+        event_type = request.headers.get("X-GitHub-Event")
+
+        if event_type == "issues" and payload.get("action") == "closed":
+            issue = payload.get("issue", {})
+            issue_url = issue.get("html_url")
+            issue_title = issue.get("title", "")
+
+            # Extract incident ID from title (format: [CRITICAL] alertname)
+            incident_id = issue_title.split("]")[1].strip() if "]" in issue_title else issue_title
+
+            await mark_resolved_webhook(incident_id, issue_url, "github")
+            return {"status": "processed", "incident_id": incident_id}
+
+        return {"status": "ignored", "reason": "not issue closure"}
+
+    except Exception as e:
+        print(f"❌ GitHub webhook error: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/jira-webhook")
+async def jira_webhook(request: Request):
+    """Handle Jira webhook for issue transitions"""
+    try:
+        payload = await request.json()
+
+        # Check if this is a status change to "Done"
+        changelog = payload.get("changelog", {})
+        items = changelog.get("items", [])
+
+        for item in items:
+            if item.get("field") == "status" and item.get("toString") == "Done":
+                issue = payload.get("issue", {})
+                issue_key = issue.get("key")
+                issue_url = f"{os.getenv('JIRA_BASE_URL', 'https://jira.example.com')}/browse/{issue_key}"
+
+                await mark_resolved_webhook(issue_key, issue_url, "jira")
+                return {"status": "processed", "incident_id": issue_key}
+
+        return {"status": "ignored", "reason": "not status change to done"}
+
+    except Exception as e:
+        print(f"❌ Jira webhook error: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+async def mark_resolved_webhook(incident_id: str, issue_url: str, system: str):
+    """Mark incident as resolved from webhook"""
+    from cortex.incident_broadcast import INCIDENT_EVENT, redis_client
+
+    # Emit Redis event
+    redis_client.xadd("cortex:incidents", {
+        "event": "resolved",
+        "actor": f"webhook-{system}",
+        "issue_url": issue_url,
+        "incident_id": incident_id,
+        "timestamp": str(time.time())
+    })
+
+    # Emit Prometheus metrics
+    INCIDENT_EVENT.labels(event="resolved", actor=f"webhook-{system}", severity="info").inc()
+
+    print(f"✅ Webhook resolution: {incident_id} ({system}) - {issue_url}")
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
