@@ -6,7 +6,8 @@ Provides REST API endpoints for task management, monitoring, and swarm coordinat
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import time
@@ -15,39 +16,39 @@ import json
 import asyncio
 import redis
 
-from ..config import settings
-from ..coordination.coordinator import SwarmCoordinator
-from ..core.base import logger
-from ..observability.metrics import prometheus_metrics
-from ..observability.health import health_checker, HealthStatus
-from ..observability.tracing import tracing_manager, get_correlation_id
-from ..observability.governance import governance_monitor
-from ..observability.alerting import alert_manager
-from ..security.auth import (
+from config import settings
+from coordination.coordinator import SwarmCoordinator
+from core.base import logger
+from observability.metrics import prometheus_metrics
+from observability.health import health_checker, HealthStatus
+from observability.tracing import tracing_manager, get_correlation_id
+from observability.governance import governance_monitor
+from observability.alerting import alert_manager
+from security.auth import (
     get_current_user, require_api_key, authenticate_agent, authenticate_user,
     get_current_user_with_permissions, require_role, refresh_access_token,
     UserRole, Permission, SecurityAuditLogger
 )
-from ..plugin_registry import agent_registry
-from ..message_queue import message_queue
-from ..cortex.api.routes import router as cortex_router
-from ..cortex.incident_broadcast import broadcast_to_kilo
-from ..dashboard.mission_control import mission_control, get_mission_control_dashboard, create_mission_control_html
-from ..webhook_service.api import router as webhook_router
-from ..schemas.incident import AlertGroup
-from ..config import settings
+from plugin_registry import agent_registry
+from message_queue import message_queue
+from cortex.api.routes import router as cortex_router
+from cortex.incident_broadcast import broadcast_to_kilo
+from dashboard.mission_control import mission_control, get_mission_control_dashboard, create_mission_control_html
+from webhook_service.api import router as webhook_router
+from schemas.incident import AlertGroup
+from config import settings
 
 # Conditional imports for scalability
 if settings.scalability.enabled:
     if settings.scalability.message_queue_mode in ["cluster", "partitioned"]:
-        from ..scalability.scalable_message_queue import initialize_scalable_message_queue, QueueMode, scalable_message_queue
+        from scalability.scalable_message_queue import initialize_scalable_message_queue, QueueMode, scalable_message_queue
     if settings.scalability.async_agents_enabled:
-        from ..scalability.async_agents import initialize_async_agents
+        from scalability.async_agents import initialize_async_agents
     if settings.scalability.multi_cluster_enabled:
-        from ..scalability.multi_cluster_federation import initialize_multi_cluster_federation
+        from scalability.multi_cluster_federation import initialize_multi_cluster_federation
     if settings.scalability.auto_scaling_enabled:
-        from ..coordination.auto_scaling import initialize_auto_scaling
-        from ..coordination.scalable_cloud_ops import start_scalable_cloud_ops
+        from coordination.auto_scaling import initialize_auto_scaling
+        from coordination.scalable_cloud_ops import start_scalable_cloud_ops
 
 # Prometheus monitoring
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -60,6 +61,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Jinja2 templates
+templates = Jinja2Templates(directory="templates")
 
 # Redis client for pub/sub
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
@@ -107,7 +111,7 @@ async def startup_event():
         # Initialize async agents if enabled
         if settings.scalability.enabled and settings.scalability.async_agents_enabled:
             # Use all available agent types from registry
-            from ..plugin_registry import agent_registry
+            from plugin_registry import agent_registry
             available_agent_types = list(agent_registry._plugins.keys())
 
             await initialize_async_agents(
@@ -137,7 +141,7 @@ async def startup_event():
 
         # Initialize scheduled summarizer job
         try:
-            from ..cortex.scheduled_summarizer import scheduled_summarizer
+            from cortex.scheduled_summarizer import scheduled_summarizer
             if scheduled_summarizer:
                 await scheduled_summarizer.start()
                 logger.log("INFO", "API", "Scheduled summarizer job started")
@@ -155,17 +159,17 @@ async def shutdown_event():
         # Shutdown scalable components if they were initialized
         if settings.scalability.enabled:
             if settings.scalability.multi_cluster_enabled:
-                from ..scalability.multi_cluster_federation import shutdown_multi_cluster_federation
+                from scalability.multi_cluster_federation import shutdown_multi_cluster_federation
                 await shutdown_multi_cluster_federation()
                 logger.log("INFO", "API", "Multi-cluster federation shutdown")
 
             if settings.scalability.async_agents_enabled:
-                from ..scalability.async_agents import shutdown_async_agents
+                from scalability.async_agents import shutdown_async_agents
                 await shutdown_async_agents()
                 logger.log("INFO", "API", "Async agents shutdown")
 
             if settings.scalability.message_queue_mode in ["cluster", "partitioned"]:
-                from ..scalability.scalable_message_queue import shutdown_scalable_message_queue
+                from scalability.scalable_message_queue import shutdown_scalable_message_queue
                 await shutdown_scalable_message_queue()
                 logger.log("INFO", "API", "Scalable message queue shutdown")
             else:
@@ -174,7 +178,7 @@ async def shutdown_event():
                 logger.log("INFO", "API", "Basic message queue shutdown")
 
             if settings.scalability.auto_scaling_enabled:
-                from ..coordination.scalable_cloud_ops import stop_scalable_cloud_ops
+                from coordination.scalable_cloud_ops import stop_scalable_cloud_ops
                 stop_scalable_cloud_ops()
                 logger.log("INFO", "API", "Scalable cloud operations stopped")
         else:
@@ -531,7 +535,7 @@ async def list_agents():
 
         # Add scalable agents if enabled
         if settings.scalability.enabled and settings.scalability.async_agents_enabled:
-            from ..scalability.async_agents import agent_pool
+            from scalability.async_agents import agent_pool
             if agent_pool:
                 pool_metrics = agent_pool.get_pool_metrics()
                 for agent_id in agent_pool.agents.keys():
@@ -583,7 +587,7 @@ async def get_metrics():
     # Add scalable metrics if enabled
     if settings.scalability.enabled:
         if settings.scalability.async_agents_enabled:
-            from ..scalability.async_agents import agent_pool
+            from scalability.async_agents import agent_pool
             if agent_pool:
                 pool_metrics = agent_pool.get_pool_metrics()
                 system_metrics.update({
@@ -593,7 +597,7 @@ async def get_metrics():
                 })
 
         if settings.scalability.message_queue_mode in ["cluster", "partitioned"]:
-            from ..scalability.scalable_message_queue import scalable_message_queue
+            from scalability.scalable_message_queue import scalable_message_queue
             if scalable_message_queue:
                 queue_metrics = scalable_message_queue.get_metrics()
                 system_metrics.update({
@@ -677,7 +681,7 @@ async def get_scalability_status():
 
     # Async agents status
     if settings.scalability.async_agents_enabled:
-        from ..scalability.async_agents import agent_pool, load_balancer
+        from scalability.async_agents import agent_pool, load_balancer
         if agent_pool:
             status["components"]["async_agents"] = {
                 "pool_metrics": agent_pool.get_pool_metrics(),
@@ -686,22 +690,22 @@ async def get_scalability_status():
 
     # Message queue status
     if settings.scalability.message_queue_mode in ["cluster", "partitioned"]:
-        from ..scalability.scalable_message_queue import scalable_message_queue
+        from scalability.scalable_message_queue import scalable_message_queue
         if scalable_message_queue:
             status["components"]["message_queue"] = scalable_message_queue.get_metrics()
 
     # Multi-cluster status
     if settings.scalability.multi_cluster_enabled:
-        from ..scalability.multi_cluster_federation import multi_cluster_federation
+        from scalability.multi_cluster_federation import multi_cluster_federation
         if multi_cluster_federation:
             status["components"]["multi_cluster"] = multi_cluster_federation.get_multi_cluster_metrics()
 
     # Auto-scaling status
     if settings.scalability.auto_scaling_enabled:
-        from ..coordination.auto_scaling import auto_scaler
+        from coordination.auto_scaling import auto_scaler
         status["components"]["auto_scaling"] = auto_scaler.get_scaling_status()
 
-        from ..coordination.scalable_cloud_ops import scalable_cloud_ops
+        from coordination.scalable_cloud_ops import scalable_cloud_ops
         status["components"]["cloud_ops"] = scalable_cloud_ops.get_scaling_status()
 
     return status
@@ -1025,6 +1029,18 @@ async def root():
     return response
 
 
+@app.get("/console", response_class=HTMLResponse)
+async def console(request: Request):
+    """Serve the unified console dashboard"""
+    # Placeholder dashboards - can be populated from config or database
+    dashboards = [
+        {"name": "Mission Control", "url": "/mission-control", "status": "UP"},
+        {"name": "Grafana", "url": "http://localhost:3000", "status": "UP"},
+        {"name": "Prometheus", "url": "http://localhost:9090", "status": "UP"},
+    ]
+    return templates.TemplateResponse("console.html", {"request": request, "dashboards": dashboards})
+
+
 # Enhanced health check with observability integration
 @app.get("/health")
 async def health_check():
@@ -1079,6 +1095,17 @@ async def specific_health_check(check_name: str):
         prometheus_metrics.record_api_request(f"/health/{check_name}", "GET", status_code, 0.001)
 
         return JSONResponse(content=response_data, status_code=status_code)
+
+
+@app.get("/sysstats")
+async def sysstats():
+    """Get system statistics (CPU, memory, disk usage)"""
+    import psutil
+    return {
+        "cpu": psutil.cpu_percent(interval=0.1),
+        "mem": psutil.virtual_memory().percent,
+        "disk": psutil.disk_usage("/").percent
+    }
 
 
 @app.get("/monitoring/alerts")
