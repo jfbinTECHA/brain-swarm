@@ -8,6 +8,8 @@ WorkingDirectory=/opt/local-admin
 Environment=ADMIN_PANEL_PORT=8060
 Environment=ADMIN_PANEL_SECRET=please-change-this
 Environment=ALLOW_REGISTRATION=false
+Environment=BRAIN_SWARM_BASE_URL=http://localhost:8000
+Environment=BRAIN_SWARM_API_KEY=
 ExecStart=/opt/local-admin/.venv/bin/python /opt/local-admin/app.py
 # if a desktop session exists, try opening the browser
 ExecStartPost=/bin/bash -lc 'sleep 2; command -v xdg-open >/dev/null && xdg-open http://localhost:8060 || true'
