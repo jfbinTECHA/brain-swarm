@@ -2,12 +2,14 @@ import asyncio, os, re, subprocess, shlex, datetime as dt, json, logging
 from typing import Optional, List, Dict, Any
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from passlib.hash import bcrypt
 from jose import jwt, JWTError
+from prometheus_client import Gauge, generate_latest
+import psutil
 import psutil
 import time
 from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -83,6 +85,11 @@ engine = create_engine(DB_URL, echo=False)
 app = FastAPI(title="Local Admin Panel")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# Prometheus metrics
+cpu_g = Gauge("system_cpu_usage", "CPU usage percentage")
+mem_g = Gauge("system_mem_usage", "Memory usage percentage")
+disk_g = Gauge("system_disk_usage", "Disk usage percentage")
 
 # -------------------- Models --------------------
 class User(SQLModel, table=True):
