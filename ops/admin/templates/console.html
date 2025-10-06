@@ -29,19 +29,16 @@
   <main class="flex-1 p-6">
     <h2 class="text-xl mb-4 font-semibold text-teal-300">Linked Dashboards</h2>
 
-    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="dashboards-grid">
       {% for d in dashboards %}
-      <div class="rounded-2xl shadow-lg bg-gray-800 border border-gray-700 hover:border-teal-500 transition-all duration-300">
+      <div class="dashboard-card rounded-2xl shadow-lg bg-gray-800 border border-gray-700 hover:border-teal-500 transition-all duration-300"
+           data-url="{{ d.url }}" data-health="{{ d.health or '' }}">
         <div class="p-5 flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold text-gray-100">{{ d.name }}</h3>
             <p class="text-sm text-gray-400 truncate">{{ d.url }}</p>
           </div>
-          {% if "UP" in d.status %}
-            <span class="bg-green-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm">{{ d.status }}</span>
-          {% else %}
-            <span class="bg-red-600 text-gray-100 font-bold px-3 py-1 rounded-full text-sm">{{ d.status }}</span>
-          {% endif %}
+          <span class="status-badge bg-gray-600 text-gray-300 font-bold px-3 py-1 rounded-full text-sm animate-pulse">Checking...</span>
         </div>
         <div class="bg-gray-900 p-4 flex items-center justify-between rounded-b-2xl">
           <a href="{{ d.url }}" target="_blank"
@@ -116,6 +113,39 @@
       }
       // Handle other event types as needed
     });
+
+    // Check dashboard health status
+    function checkDashboardHealth() {
+      const cards = document.querySelectorAll('.dashboard-card');
+      cards.forEach(card => {
+        const healthUrl = card.dataset.health;
+        const statusBadge = card.querySelector('.status-badge');
+
+        if (!healthUrl) {
+          statusBadge.textContent = 'N/A';
+          statusBadge.className = 'status-badge bg-gray-600 text-gray-300 font-bold px-3 py-1 rounded-full text-sm';
+          return;
+        }
+
+        fetch(healthUrl, { timeout: 5000 })
+          .then(response => {
+            if (response.ok) {
+              statusBadge.textContent = 'UP';
+              statusBadge.className = 'status-badge bg-green-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm';
+            } else {
+              throw new Error('Not OK');
+            }
+          })
+          .catch(error => {
+            statusBadge.textContent = 'DOWN';
+            statusBadge.className = 'status-badge bg-red-600 text-gray-100 font-bold px-3 py-1 rounded-full text-sm';
+          });
+      });
+    }
+
+    // Check health on page load and every 30 seconds
+    checkDashboardHealth();
+    setInterval(checkDashboardHealth, 30000);
 
     // Fallback WebSocket for browsers without SSE support
     if (typeof(EventSource) === 'undefined') {
