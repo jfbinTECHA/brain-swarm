@@ -74,25 +74,46 @@
   </footer>
 
   <script>
+    let cpuChart, memChart, diskChart;
+
     const makeChart = (id, label, val, color) => {
-      new Chart(document.getElementById(id), {
-        type: 'doughnut',
-        data: {
-          labels: [label, 'Remaining'],
-          datasets: [{
-            data: [val, 100 - val],
-            backgroundColor: [color, '#374151'],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          cutout: '70%',
-          plugins: { legend: { display: false } },
-        }
-      });
+      const ctx = document.getElementById(id);
+      if (window[id]) {
+        window[id].data.datasets[0].data = [val, 100 - val];
+        window[id].update();
+      } else {
+        window[id] = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: [label, 'Remaining'],
+            datasets: [{
+              data: [val, 100 - val],
+              backgroundColor: [color, '#374151'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            cutout: '70%',
+            plugins: { legend: { display: false } },
+          }
+        });
+      }
     };
 
-    // Fetch real system metrics from backend
+    // WebSocket for real-time updates
+    const ws = new WebSocket(`ws://${window.location.host}/ws/console`);
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'initial' || data.type === 'metrics') {
+        // Update charts if metrics available
+        if (data.cpu !== undefined) makeChart('cpuChart','CPU',data.cpu,'#14b8a6');
+        if (data.mem !== undefined) makeChart('memChart','MEM',data.mem,'#0ea5e9');
+        if (data.disk !== undefined) makeChart('diskChart','DISK',data.disk,'#22c55e');
+      }
+      // Handle other event types as needed
+    };
+
+    // Initial fetch
     fetch('/sysstats').then(r=>r.json()).then(d=>{
       makeChart('cpuChart','CPU',d.cpu,'#14b8a6');
       makeChart('memChart','MEM',d.mem,'#0ea5e9');

@@ -87,9 +87,31 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 # Initialize system metrics
 prometheus_metrics.record_system_info("1.0.0", os.getenv("ENVIRONMENT", "development"))
 
+async def publish_metrics_loop():
+    """Publish system metrics to Redis for WebSocket clients"""
+    while True:
+        try:
+            import psutil
+            coord = get_coordinator()
+            metrics = {
+                "type": "metrics",
+                "cpu": psutil.cpu_percent(interval=0.1),
+                "mem": psutil.virtual_memory().percent,
+                "disk": psutil.disk_usage("/").percent,
+                "agents": len(coord.registered_agents),
+                "tasks": len(coord.delegation_system.active_tasks),
+                "timestamp": time.time()
+            }
+            redis_client.publish("console:events", json.dumps(metrics))
+        except Exception as e:
+            logger.log("ERROR", "API", f"Metrics publishing error: {e}")
+        await asyncio.sleep(5)  # Update every 5 seconds
+
 # Startup event to initialize services
 @app.on_event("startup")
 async def startup_event():
+    # Start metrics publishing task
+    asyncio.create_task(publish_metrics_loop())
     """Initialize services on startup"""
     try:
         # Initialize message queue (scalable or basic)
@@ -887,6 +909,40 @@ async def register_agent(
         "token_type": tokens["token_type"],
         "role": tokens["role"]
     }
+
+@app.websocket("/ws/console")
+async def console_websocket(websocket: WebSocket):
+    """WebSocket endpoint for console real-time updates"""
+    await websocket.accept()
+
+    # Subscribe to Redis pub/sub for real-time events
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe("console:events", "alerts", "agent:status")
+
+    try:
+        # Send initial data
+        coord = get_coordinator()
+        initial_data = {
+            "type": "initial",
+            "agents": len(coord.registered_agents),
+            "tasks": len(coord.delegation_system.active_tasks),
+            "timestamp": time.time()
+        }
+        await websocket.send_json(initial_data)
+
+        # Listen for messages
+        for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    data = json.loads(message["data"])
+                    await websocket.send_json(data)
+                except json.JSONDecodeError:
+                    await websocket.send_json({"type": "raw", "data": message["data"]})
+    except Exception as e:
+        logger.log("ERROR", "WebSocket", f"Console feed error: {e}")
+    finally:
+        pubsub.unsubscribe()
+        pubsub.close()
 
 @app.websocket("/ws/swarm-view")
 async def swarm_view_websocket(websocket: WebSocket):
