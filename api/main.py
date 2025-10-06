@@ -37,6 +37,9 @@ from dashboard.mission_control import mission_control, get_mission_control_dashb
 from webhook_service.api import router as webhook_router
 from schemas.incident import AlertGroup
 from config import settings
+import psutil
+import shlex
+import subprocess
 
 # Conditional imports for scalability
 if settings.scalability.enabled:
@@ -361,6 +364,15 @@ class MetricsResponse(BaseModel):
     system_metrics: Dict[str, Any]
     task_metrics: Dict[str, Any]
     timestamp: float
+
+# Internal monitoring models
+class LoginAttempt(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ts: dt.datetime
+    user: Optional[str] = None
+    src_ip: Optional[str] = None
+    result: str  # "SUCCESS" | "FAIL"
+    raw: str
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -1106,6 +1118,51 @@ async def sysstats():
         "mem": psutil.virtual_memory().percent,
         "disk": psutil.disk_usage("/").percent
     }
+
+@app.get("/internal/login_attempts")
+async def internal_login_attempts(current_user: Dict = Depends(require_role("admin"))):
+    """Internal endpoint for login attempts (admin only)"""
+    with Session(engine) as s:
+        rows = s.exec(select(LoginAttempt).order_by(LoginAttempt.ts.desc()).limit(500)).all()
+    return {"attempts": [{"ts": r.ts, "user": r.user, "src_ip": r.src_ip, "result": r.result} for r in rows]}
+
+@app.get("/internal/system_stats")
+async def internal_system_stats(current_user: Dict = Depends(require_role("viewer"))):
+    """Internal endpoint for system statistics"""
+    import psutil
+    return {
+        "cpu": psutil.cpu_percent(interval=0.1),
+        "mem": psutil.virtual_memory().percent,
+        "disk": psutil.disk_usage("/").percent
+    }
+
+@app.get("/internal/user_keys")
+async def internal_user_keys(current_user: Dict = Depends(require_role("viewer"))):
+    """Internal endpoint for SSH key fingerprints"""
+    entries = []
+    base = "/home"
+    if not os.path.isdir(base):
+        return {"keys": entries}
+    for uname in os.listdir(base):
+        ak = os.path.join(base, uname, ".ssh", "authorized_keys")
+        if not os.path.isfile(ak):
+            continue
+        try:
+            with open(ak, "r", encoding="utf-8", errors="ignore") as f:
+                for i, line in enumerate(f, start=1):
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    # Use ssh-keygen -lf via stdin
+                    cmd = "ssh-keygen -lf -"
+                    p = subprocess.run(shlex.split(cmd), input=(line+"\n").encode(),
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    out = p.stdout.decode().strip()
+                    if out:
+                        entries.append({"user": uname, "line": i, "fingerprint": out})
+        except Exception as e:
+            entries.append({"user": uname, "line": 0, "fingerprint": f"error: {e}"})
+    return {"keys": entries}
 
 
 @app.get("/monitoring/alerts")
