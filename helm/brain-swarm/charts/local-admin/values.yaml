@@ -16,6 +16,9 @@ env:
   ADMIN_PANEL_SECRET: "please-change-me"
   ALLOW_REGISTRATION: "false"
 
+monitoring:
+  enabled: true
+
 dashboards:
   - name: BrainSwarm Core
     url: "http://brainswarm-core:8000"
