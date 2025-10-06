@@ -1,0 +1,13 @@
+apiVersion: kilo.ai/v1
+kind: Module
+metadata:
+  name: local-admin-helm
+  description: Local Admin Panel deployed via Helm chart
+spec:
+  modules:
+    - name: local-admin
+      chart: ./helm/brain-swarm/charts/local-admin
+      namespace: brainswarm
+      values:
+        env:
+          ADMIN_PANEL_SECRET: "${ADMIN_PANEL_SECRET}"
