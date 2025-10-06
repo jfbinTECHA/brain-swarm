@@ -9,6 +9,8 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 from passlib.hash import bcrypt
 from jose import jwt, JWTError
 import psutil
+import time
+from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,16 @@ ALLOW_REGISTRATION = os.environ.get("ALLOW_REGISTRATION", "false").lower() == "t
 # Brain-Swarm API endpoints (for decoupled integration)
 BRAIN_SWARM_BASE_URL = os.environ.get("BRAIN_SWARM_BASE_URL", "http://localhost:8000")
 BRAIN_SWARM_API_KEY = os.environ.get("BRAIN_SWARM_API_KEY", "")  # Optional API key for authentication
+
+# Prometheus metrics
+REQUEST_COUNT = Counter('admin_requests_total', 'Total number of requests', ['method', 'endpoint', 'status'])
+RESPONSE_TIME = Histogram('admin_request_duration_seconds', 'Request duration in seconds', ['method', 'endpoint'])
+ACTIVE_USERS = Gauge('admin_active_users', 'Number of currently active users')
+LOGIN_ATTEMPTS = Counter('admin_login_attempts_total', 'Total login attempts', ['result'])
+SYSTEM_CPU = Gauge('admin_system_cpu_percent', 'System CPU usage percentage')
+SYSTEM_MEMORY = Gauge('admin_system_memory_percent', 'System memory usage percentage')
+SYSTEM_DISK = Gauge('admin_system_disk_percent', 'System disk usage percentage')
+HEALTH_CHECKS = Counter('admin_health_checks_total', 'Total health checks performed', ['service', 'status'])
 
 # -------------------- Brain-Swarm API helpers --------------------
 async def call_brain_swarm_api(endpoint: str, method: str = "GET", **kwargs) -> Optional[Dict[str, Any]]:
@@ -363,6 +375,21 @@ async def status_check():
         "login_attempts": len(attempt_count),
         "timestamp": dt.datetime.utcnow()
     }
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    # Update system metrics
+    SYSTEM_CPU.set(psutil.cpu_percent(interval=0.1))
+    SYSTEM_MEMORY.set(psutil.virtual_memory().percent)
+    SYSTEM_DISK.set(psutil.disk_usage("/").percent)
+
+    # Update active users count
+    with Session(engine) as s:
+        active_users = len(s.exec(select(User)).all())
+        ACTIVE_USERS.set(active_users)
+
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 if __name__ == "__main__":
     import uvicorn
