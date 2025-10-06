@@ -38,18 +38,14 @@ spec:
               protocol: TCP
           env:
             - name: ADMIN_PANEL_PORT
-              value: "{{ .Values.config.adminPanelPort }}"
+              value: "{{ .Values.env.ADMIN_PANEL_PORT }}"
             - name: ADMIN_PANEL_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ include "local-admin.fullname" . }}-secret
                   key: jwt_secret
             - name: ALLOW_REGISTRATION
-              value: "{{ .Values.config.allowRegistration }}"
-            - name: BRAIN_SWARM_BASE_URL
-              value: "{{ .Values.config.brainSwarmBaseUrl }}"
-            - name: BRAIN_SWARM_API_KEY
-              value: "{{ .Values.config.brainSwarmApiKey }}"
+              value: "{{ .Values.env.ALLOW_REGISTRATION }}"
           volumeMounts:
             - name: dashboards-config
               mountPath: /app/dashboards.json
