@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Mission Control",
+    "url": "/mission-control",
+    "status": "UP",
+    "description": "Real-time swarm coordination dashboard"
+  },
+  {
+    "name": "Grafana",
+    "url": "http://localhost:3000",
+    "status": "UP",
+    "description": "Metrics visualization and monitoring"
+  },
+  {
+    "name": "Prometheus",
+    "url": "http://localhost:9090",
+    "status": "UP",
+    "description": "Time-series metrics collection"
+  },
+  {
+    "name": "Brain-Swarm API",
+    "url": "/docs",
+    "status": "UP",
+    "description": "REST API documentation and testing"
+  }
+]
