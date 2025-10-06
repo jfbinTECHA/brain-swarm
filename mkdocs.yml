@@ -137,6 +137,7 @@ nav:
       - Run a Simulation: run-simulation.md
   - API Reference:
       - Overview: api/overview.md
+      - OpenAPI Specification: api/openapi.md
       - Endpoints: api-reference.md
   - Examples:
       - Embedding Demo: examples/embedding_demo.py
@@ -154,6 +155,7 @@ plugins:
   - git-committers:
       repository: jfbinTECHA/brain-swarm
       branch: main
+  - render_swagger
 
 extra_css:
   - stylesheets/extra.css
