@@ -260,6 +260,26 @@ async def console(request: Request, user: User = Depends(require_role("viewer"))
     ]
     return templates.TemplateResponse("console.html", {"request": request, "user": user, "dashboards": dashboards})
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "local-admin", "timestamp": dt.datetime.utcnow()}
+
+@app.get("/status")
+async def status_check():
+    """Status endpoint with more details"""
+    with Session(engine) as s:
+        user_count = s.exec(select(User)).all()
+        attempt_count = s.exec(select(LoginAttempt)).all()
+
+    return {
+        "status": "operational",
+        "service": "local-admin",
+        "users": len(user_count),
+        "login_attempts": len(attempt_count),
+        "timestamp": dt.datetime.utcnow()
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="127.0.0.1", port=APP_PORT, reload=False)
