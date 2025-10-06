@@ -6,28 +6,8 @@ metadata:
 data:
   dashboards.json: |
     [
-      {
-        "name": "Mission Control",
-        "url": "/mission-control",
-        "status": "UP",
-        "description": "Real-time swarm coordination dashboard"
-      },
-      {
-        "name": "Grafana",
-        "url": "http://grafana.brain-swarm.svc.cluster.local",
-        "status": "UP",
-        "description": "Metrics visualization and monitoring"
-      },
-      {
-        "name": "Prometheus",
-        "url": "http://prometheus.brain-swarm.svc.cluster.local",
-        "status": "UP",
-        "description": "Time-series metrics collection"
-      },
-      {
-        "name": "Brain-Swarm API",
-        "url": "/docs",
-        "status": "UP",
-        "description": "REST API documentation and testing"
-      }
+      {"name": "BrainSwarm Core", "url": "http://brainswarm-core:8000", "health": "http://brainswarm-core:8000/health"},
+      {"name": "Zeta Dashboard", "url": "http://zeta:3000", "health": "http://zeta:3000/api/health"},
+      {"name": "Kilo Console", "url": "http://kilo-console:8080", "health": "http://kilo-console:8080/health"},
+      {"name": "Local Admin", "url": "http://admin.local.brainswarm.ai:8060", "health": "http://admin.local.brainswarm.ai:8060/health"}
     ]
