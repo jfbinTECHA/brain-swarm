@@ -1,78 +1,31 @@
-# Default values for local-admin chart
-replicaCount: 1
-
 image:
   repository: python
   tag: "3.12-slim"
   pullPolicy: IfNotPresent
 
-nameOverride: ""
-fullnameOverride: ""
-
-serviceAccount:
-  create: true
-  annotations: {}
-  name: ""
-
-podAnnotations: {}
-
-podSecurityContext: {}
-
-securityContext: {}
-
 service:
-  type: ClusterIP
   port: 8060
-  targetPort: 8060
+  type: ClusterIP
 
 ingress:
   enabled: true
-  className: ""
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-  hosts:
-    - host: admin.local.brainswarm.ai
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []
+  host: admin.local.brainswarm.ai
 
-resources:
-  limits:
-    cpu: 500m
-    memory: 512Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
+env:
+  ADMIN_PANEL_PORT: "8060"
+  ADMIN_PANEL_SECRET: "please-change-me"
+  ALLOW_REGISTRATION: "false"
 
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
-
-# Application configuration
-config:
-  adminPanelPort: "8060"
-  adminPanelSecret: "change-me-please"
-  allowRegistration: "false"
-  brainSwarmBaseUrl: "http://brainswarm-core:8000"
-  brainSwarmApiKey: ""
-
-# Dashboard configuration
 dashboards:
-  - name: "BrainSwarm Core"
+  - name: BrainSwarm Core
     url: "http://brainswarm-core:8000"
     health: "http://brainswarm-core:8000/health"
-  - name: "Zeta Dashboard"
+  - name: Zeta Dashboard
     url: "http://zeta:3000"
     health: "http://zeta:3000/api/health"
-  - name: "Kilo Console"
+  - name: Kilo Console
     url: "http://kilo-console:8080"
     health: "http://kilo-console:8080/health"
-  - name: "Local Admin"
+  - name: Local Admin
     url: "http://admin.local.brainswarm.ai:8060"
     health: "http://admin.local.brainswarm.ai:8060/health"
-
-# JWT Secret (base64 encoded)
-jwtSecret: "bWFuYWdlLXRoaXMtc2FmZWx5Cg=="
