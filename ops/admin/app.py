@@ -1,5 +1,6 @@
-import asyncio, os, re, subprocess, shlex, datetime as dt, json
-from typing import Optional, List
+import asyncio, os, re, subprocess, shlex, datetime as dt, json, logging
+from typing import Optional, List, Dict, Any
+import httpx
 from fastapi import FastAPI, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,12 +10,62 @@ from passlib.hash import bcrypt
 from jose import jwt, JWTError
 import psutil
 
+logger = logging.getLogger(__name__)
+
 # -------------------- Config --------------------
 APP_PORT = int(os.environ.get("ADMIN_PANEL_PORT", "8060"))
 JWT_SECRET = os.environ.get("ADMIN_PANEL_SECRET", "change-me-please")  # set in systemd
 JWT_ALG = "HS256"
 DB_URL = "sqlite:///./admin.db"
 ALLOW_REGISTRATION = os.environ.get("ALLOW_REGISTRATION", "false").lower() == "true"
+
+# Brain-Swarm API endpoints (for decoupled integration)
+BRAIN_SWARM_BASE_URL = os.environ.get("BRAIN_SWARM_BASE_URL", "http://localhost:8000")
+BRAIN_SWARM_API_KEY = os.environ.get("BRAIN_SWARM_API_KEY", "")  # Optional API key for authentication
+
+# -------------------- Brain-Swarm API helpers --------------------
+async def call_brain_swarm_api(endpoint: str, method: str = "GET", **kwargs) -> Optional[Dict[str, Any]]:
+    """Call Brain-Swarm API endpoint with proper authentication"""
+    url = f"{BRAIN_SWARM_BASE_URL}{endpoint}"
+    headers = {}
+    if BRAIN_SWARM_API_KEY:
+        headers["Authorization"] = f"Bearer {BRAIN_SWARM_API_KEY}"
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            if method == "GET":
+                response = await client.get(url, headers=headers, **kwargs)
+            elif method == "POST":
+                response = await client.post(url, headers=headers, **kwargs)
+            else:
+                return None
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"Brain-Swarm API call failed: {response.status_code} for {endpoint}")
+                return None
+    except Exception as e:
+        logger.warning(f"Brain-Swarm API call error: {e} for {endpoint}")
+        return None
+
+async def get_brain_swarm_login_attempts() -> List[Dict[str, Any]]:
+    """Get login attempts from Brain-Swarm API"""
+    result = await call_brain_swarm_api("/internal/login_attempts")
+    if result and "attempts" in result:
+        return result["attempts"]
+    return []
+
+async def get_brain_swarm_system_stats() -> Optional[Dict[str, Any]]:
+    """Get system stats from Brain-Swarm API"""
+    return await call_brain_swarm_api("/internal/system_stats")
+
+async def get_brain_swarm_user_keys() -> List[Dict[str, Any]]:
+    """Get SSH key fingerprints from Brain-Swarm API"""
+    result = await call_brain_swarm_api("/internal/user_keys")
+    if result and "keys" in result:
+        return result["keys"]
+    return []
 
 engine = create_engine(DB_URL, echo=False)
 app = FastAPI(title="Local Admin Panel")
@@ -177,9 +228,24 @@ def logout():
     return resp
 
 @app.get("/attempts", response_class=HTMLResponse)
-def attempts_page(request: Request, user: User = Depends(require_role("viewer"))):
-    with Session(engine) as s:
-        rows = s.exec(select(LoginAttempt).order_by(LoginAttempt.ts.desc()).limit(500)).all()
+async def attempts_page(request: Request, user: User = Depends(require_role("viewer"))):
+    # Try Brain-Swarm API first, fallback to local data
+    brain_swarm_attempts = await get_brain_swarm_login_attempts()
+    if brain_swarm_attempts:
+        # Convert Brain-Swarm format to local format
+        rows = []
+        for attempt in brain_swarm_attempts[-500:]:  # Limit to 500
+            rows.append(type('LoginAttempt', (), {
+                'ts': dt.datetime.fromisoformat(attempt['ts']) if isinstance(attempt['ts'], str) else attempt['ts'],
+                'user': attempt.get('user'),
+                'src_ip': attempt.get('src_ip'),
+                'result': attempt.get('result', 'UNKNOWN')
+            })())
+    else:
+        # Fallback to local database
+        with Session(engine) as s:
+            rows = s.exec(select(LoginAttempt).order_by(LoginAttempt.ts.desc()).limit(500)).all()
+
     return templates.TemplateResponse("attempts.html", {"request": request, "user": user, "rows": rows})
 
 @app.get("/users", response_class=HTMLResponse)
@@ -199,8 +265,15 @@ def create_user(username: str = Form(...), password: str = Form(...), role: str 
     return RedirectResponse("/users", status_code=302)
 
 @app.get("/keys", response_class=HTMLResponse)
-def keys_page(request: Request, user: User = Depends(require_role("viewer"))):
-    fps = list_authorized_key_fingerprints()
+async def keys_page(request: Request, user: User = Depends(require_role("viewer"))):
+    # Try Brain-Swarm API first, fallback to local parsing
+    brain_swarm_keys = await get_brain_swarm_user_keys()
+    if brain_swarm_keys:
+        fps = brain_swarm_keys
+    else:
+        # Fallback to local parsing
+        fps = list_authorized_key_fingerprints()
+
     return templates.TemplateResponse("keys.html", {"request": request, "user": user, "fps": fps})
 
 @app.post("/register")
@@ -244,11 +317,17 @@ def block_ip(ip: str = Form(...), user: User = Depends(require_role("admin"))):
 @app.get("/sysstats")
 async def sysstats():
     """Get system statistics (CPU, memory, disk usage)"""
-    return {
-        "cpu": psutil.cpu_percent(interval=0.1),
-        "mem": psutil.virtual_memory().percent,
-        "disk": psutil.disk_usage("/").percent
-    }
+    # Try Brain-Swarm API first, fallback to local psutil
+    brain_swarm_stats = await get_brain_swarm_system_stats()
+    if brain_swarm_stats:
+        return brain_swarm_stats
+    else:
+        # Fallback to local system stats
+        return {
+            "cpu": psutil.cpu_percent(interval=0.1),
+            "mem": psutil.virtual_memory().percent,
+            "disk": psutil.disk_usage("/").percent
+        }
 
 @app.get("/console", response_class=HTMLResponse)
 async def console(request: Request, user: User = Depends(require_role("viewer"))):

@@ -26,6 +26,16 @@ This will:
 - Set up systemd service for auto-startup
 - Start the service
 
+## Configuration
+
+The admin panel can be configured via environment variables:
+
+- `ADMIN_PANEL_PORT`: Port to run the admin panel on (default: 8060)
+- `ADMIN_PANEL_SECRET`: JWT secret key for authentication (change this!)
+- `ALLOW_REGISTRATION`: Allow user self-registration (default: false)
+- `BRAIN_SWARM_BASE_URL`: Base URL for Brain-Swarm API integration (default: http://localhost:8000)
+- `BRAIN_SWARM_API_KEY`: Optional API key for Brain-Swarm authentication
+
 ## Usage
 
 - Access at http://localhost:8060
