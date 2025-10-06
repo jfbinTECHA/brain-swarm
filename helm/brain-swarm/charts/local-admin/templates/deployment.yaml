@@ -2,69 +2,38 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "local-admin.fullname" . }}
-  labels:
-    {{- include "local-admin.labels" . | nindent 4 }}
+  labels: {{- include "local-admin.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
-    matchLabels:
-      {{- include "local-admin.selectorLabels" . | nindent 6 }}
+    matchLabels: {{- include "local-admin.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      labels:
-        {{- include "local-admin.selectorLabels" . | nindent 8 }}
+      labels: {{- include "local-admin.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "local-admin.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        - name: admin
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["uvicorn", "local_admin_app:app", "--host", "0.0.0.0", "--port", "{{ .Values.config.adminPanelPort }}"]
+          command:
+            ["uvicorn", "local_admin_app:app", "--host", "0.0.0.0", "--port", "{{ .Values.service.port }}"]
           ports:
-            - name: http
-              containerPort: {{ .Values.service.targetPort }}
-              protocol: TCP
+            - containerPort: {{ .Values.service.port }}
           env:
             - name: ADMIN_PANEL_PORT
               value: "{{ .Values.env.ADMIN_PANEL_PORT }}"
             - name: ADMIN_PANEL_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "local-admin.fullname" . }}-secret
+                  name: {{ include "local-admin.fullname" . }}
                   key: jwt_secret
             - name: ALLOW_REGISTRATION
               value: "{{ .Values.env.ALLOW_REGISTRATION }}"
           volumeMounts:
-            - name: dashboards-config
+            - name: dashboards
               mountPath: /app/dashboards.json
               subPath: dashboards.json
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
       volumes:
-        - name: dashboards-config
+        - name: dashboards
           configMap:
             name: {{ include "local-admin.fullname" . }}-dashboards
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
