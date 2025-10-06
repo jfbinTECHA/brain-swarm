@@ -1,0 +1,20 @@
+{{- if .Values.monitoring.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-grafana-assets
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+binaryData:
+  # Brain Swarm logo for Grafana theming
+  brain-swarm-logo.png: {{ .Files.Get "assets/brain.png" | b64enc }}
+  # Background image for login page
+  brain-swarm-bg.jpg: {{ .Files.Get "assets/brain.png" | b64enc }}
+  # Login box background
+  login-box-bg.png: {{ .Files.Get "assets/brain.png" | b64enc }}
+  # Footer logo
+  brain-swarm-footer-logo.png: {{ .Files.Get "assets/brain.png" | b64enc }}
+  # Favicon
+  favicon.ico: {{ .Files.Get "assets/brain.png" | b64enc }}
+{{- end }}

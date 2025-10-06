@@ -80,8 +80,11 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "github": "/webhooks/github",
+            "gh-webhook": "/webhooks/gh-webhook",
             "jira": "/webhooks/jira",
+            "jira-webhook": "/webhooks/jira-webhook",
             "servicenow": "/webhooks/servicenow",
+            "servicenow-webhook": "/webhooks/servicenow-webhook",
             "prometheus": "/webhooks/prometheus",
             "generic": "/webhooks/{source}",
             "health": "/health",

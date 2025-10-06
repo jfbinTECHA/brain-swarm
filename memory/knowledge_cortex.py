@@ -10,6 +10,7 @@ Implements a hierarchical memory system with:
 
 from typing import Any, Dict, List, Optional, Union
 from ..core.base import MemorySystem, logger, metrics
+from ..observability.metrics import prometheus_metrics
 from .backends import (
     RedisCacheBackend,
     ChromaVectorBackend,
@@ -125,8 +126,12 @@ class KnowledgeCortex(MemorySystem):
         - Relational data goes to graph layer
         - All data gets archived for long-term storage
         """
+        start_time = time.time()
         success = True
         meta = metadata or {}
+
+        # Record memory operation start
+        prometheus_metrics.record_memory_operation("store_start", "knowledge_cortex")
 
         # Determine storage layers based on content type and metadata
         store_cache = self.layers["cache"] is not None
@@ -176,6 +181,10 @@ class KnowledgeCortex(MemorySystem):
         # Track metrics
         metrics.track_memory_operation("store", len(str(data).encode('utf-8')), success)
 
+        # Record completion metrics
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_memory_operation("store_complete", "knowledge_cortex", processing_time)
+
         return success
 
     def _should_store_vector(self, data: Any, metadata: Dict[str, Any]) -> bool:
@@ -220,11 +229,18 @@ class KnowledgeCortex(MemorySystem):
             key: The key to retrieve
             search_fallback: If True, fall back to semantic search if direct lookup fails
         """
+        start_time = time.time()
+
+        # Record retrieval start
+        prometheus_metrics.record_memory_operation("retrieve_start", "knowledge_cortex")
+
         # Try cache first (fastest)
         if self.layers["cache"]:
             result = self.layers["cache"].retrieve(key)
             if result is not None:
                 self.access_stats["cache_hits"] += 1
+                processing_time = time.time() - start_time
+                prometheus_metrics.record_memory_operation("retrieve_complete", "knowledge_cortex", processing_time)
                 logger.log("DEBUG", "KnowledgeCortex", f"Cache hit for: {key}")
                 return result
             else:
@@ -265,8 +281,14 @@ class KnowledgeCortex(MemorySystem):
 
         # If direct lookup failed and search_fallback is enabled, try semantic search
         if search_fallback:
-            return self._semantic_search_retrieve(key)
+            result = self._semantic_search_retrieve(key)
+            if result is not None:
+                processing_time = time.time() - start_time
+                prometheus_metrics.record_memory_operation("retrieve_complete", "knowledge_cortex", processing_time)
+                return result
 
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_memory_operation("retrieve_complete", "knowledge_cortex", processing_time)
         return None
 
     def _semantic_search_retrieve(self, key: str) -> Optional[Any]:

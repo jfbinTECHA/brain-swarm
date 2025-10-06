@@ -42,6 +42,34 @@ async def servicenow_webhook(
     return await _process_webhook(request, "servicenow")
 
 
+# Additional webhook endpoints as requested
+@router.post("/gh-webhook")
+async def gh_webhook(
+    request: Request,
+    current_user: dict = Depends(require_api_key)
+):
+    """Handle GitHub webhooks (alternative endpoint)"""
+    return await _process_webhook(request, "github")
+
+
+@router.post("/jira-webhook")
+async def jira_webhook_alt(
+    request: Request,
+    current_user: dict = Depends(require_api_key)
+):
+    """Handle Jira webhooks (alternative endpoint)"""
+    return await _process_webhook(request, "jira")
+
+
+@router.post("/servicenow-webhook")
+async def servicenow_webhook_alt(
+    request: Request,
+    current_user: dict = Depends(require_api_key)
+):
+    """Handle ServiceNow webhooks (alternative endpoint)"""
+    return await _process_webhook(request, "servicenow")
+
+
 @router.post("/prometheus")
 async def prometheus_webhook(
     request: Request,
