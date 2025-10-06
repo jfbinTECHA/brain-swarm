@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: brain-swarm-prod
+  namespace: argocd
+  labels:
+    environment: production
+spec:
+  project: production  # Use production project with stricter policies
+  source:
+    repoURL: https://github.com/jfbinTECHA/brain-swarm
+    targetRevision: HEAD
+    path: helm/brain-swarm
+    helm:
+      valueFiles:
+        - values-prod.yaml
+      parameters:
+        - name: bridge.image
+          value: jfbintecha/swarmops-hook:latest
+        - name: cortex.image
+          value: jfbintecha/knowledge-cortex:latest
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: brainswarm
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - Validate=true  # Enable schema validation
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  revisionHistoryLimit: 20

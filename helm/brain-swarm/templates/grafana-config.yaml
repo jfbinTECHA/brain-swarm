@@ -348,4 +348,11 @@ data:
       url: http://{{ include "brain-swarm.fullname" . }}-prometheus:9090
       isDefault: true
       editable: true
+    {{- if .Values.monitoring.loki.enabled }}
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://{{ include "brain-swarm.fullname" . }}-loki:3100
+      editable: true
+    {{- end }}
 {{- end }}

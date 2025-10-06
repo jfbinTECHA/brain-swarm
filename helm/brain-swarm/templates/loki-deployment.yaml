@@ -1,0 +1,78 @@
+{{- if .Values.monitoring.loki.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-loki
+  labels:
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.monitoring.loki.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loki
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ include "brain-swarm.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.monitoring.loki.podSecurityContext | nindent 8 }}
+      containers:
+        - name: loki
+          securityContext:
+            {{- toYaml .Values.monitoring.loki.securityContext | nindent 12 }}
+          image: "{{ .Values.monitoring.loki.image.repository }}:{{ .Values.monitoring.loki.image.tag }}"
+          imagePullPolicy: {{ .Values.monitoring.loki.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3100
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 45
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 45
+          resources:
+            {{- toYaml .Values.monitoring.loki.resources | nindent 12 }}
+          volumeMounts:
+            - name: storage
+              mountPath: /tmp/loki
+            - name: config
+              mountPath: /etc/loki
+          args:
+            - -config.file=/etc/loki/loki.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "brain-swarm.fullname" . }}-loki
+        {{- if .Values.monitoring.loki.persistence.enabled }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "brain-swarm.fullname" . }}-loki
+        {{- else }}
+        - name: storage
+          emptyDir: {}
+        {{- end }}
+      {{- with .Values.monitoring.loki.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitoring.loki.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitoring.loki.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

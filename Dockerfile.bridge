@@ -1,0 +1,54 @@
+# ---- Build stage ----
+FROM python:3.11-slim AS builder
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Install build deps only for compiling wheels (kept out of runtime)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy minimal dependency manifests first for better layer caching
+# If you use poetry/requirements.in, adjust accordingly.
+COPY requirements.txt ./requirements.txt
+RUN python -m pip install --upgrade pip wheel setuptools && \
+    pip wheel --wheel-dir=/wheels -r requirements.txt
+
+# ---- Runtime stage ----
+FROM python:3.11-slim AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UVICORN_WORKERS=2 \
+    PORT=8000
+
+# Create non-root user
+RUN addgroup --system app && adduser --system --ingroup app app
+
+# Runtime system deps (very slim)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl tzdata ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy wheels from builder
+COPY --from=builder /wheels /wheels
+RUN python -m pip install --no-cache-dir /wheels/*
+
+# Copy only the bridge package (plus shared modules if any)
+COPY bridge ./bridge
+COPY cortex ./cortex  # optional shared metrics/schemas reuse; remove if not needed
+COPY requirements.txt ./
+
+# Drop privileges
+USER app
+
+EXPOSE 8000
+
+# Healthcheck hits /metrics (FastAPI exposes it in webhook_service)
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD \
+  curl -fsS http://127.0.0.1:${PORT}/metrics || exit 1
+
+# Start the Webhook Bridge (FastAPI)
+CMD ["python", "-m", "uvicorn", "bridge.webhook_service:app", "--host", "0.0.0.0", "--port", "8000"]

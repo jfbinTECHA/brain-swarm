@@ -1,0 +1,195 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Brain Swarm - Incident Response Dashboard",
+    "tags": ["brain-swarm", "incidents", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Active Incidents",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(cortex_incidents_created_total) - sum(cortex_incidents_resolved_total)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 5 }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+      },
+      {
+        "id": 2,
+        "title": "Incidents Created (Last 24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(cortex_incidents_created_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+      },
+      {
+        "id": 3,
+        "title": "Webhook Processing Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(cortex_webhook_processed_total[5m])",
+            "refId": "A",
+            "legendFormat": "Processed"
+          },
+          {
+            "expr": "rate(cortex_webhook_error_total[5m])",
+            "refId": "B",
+            "legendFormat": "Errors"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 }
+      },
+      {
+        "id": 4,
+        "title": "Incident Events by Type",
+        "type": "barchart",
+        "targets": [
+          {
+            "expr": "sum by (event) (increase(cortex_incident_event_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+      },
+      {
+        "id": 5,
+        "title": "API Response Times",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(brain_swarm_api_request_duration_seconds_bucket[5m])) by (le, endpoint))",
+            "refId": "A",
+            "legendFormat": "{{endpoint}} P95"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(brain_swarm_api_request_duration_seconds_bucket[5m])) by (le, endpoint))",
+            "refId": "B",
+            "legendFormat": "{{endpoint}} P50"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+      },
+      {
+        "id": 6,
+        "title": "Agent Performance",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "brain_swarm_agent_load",
+            "refId": "A",
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "displayMode": "color-background"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.7 },
+                { "color": "red", "value": 0.9 }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 }
+      },
+      {
+        "id": 7,
+        "title": "Knowledge Cortex Operations",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(cortex_ingest_total[5m])",
+            "refId": "A",
+            "legendFormat": "Ingest Rate"
+          },
+          {
+            "expr": "rate(cortex_queries_total[5m])",
+            "refId": "B",
+            "legendFormat": "Query Rate"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 }
+      },
+      {
+        "id": 8,
+        "title": "System Resources",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "refId": "A",
+            "legendFormat": "CPU Usage %"
+          },
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "refId": "B",
+            "legendFormat": "Memory Usage %"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 }
+      },
+      {
+        "id": 9,
+        "title": "Recent Incident Events",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"brain-swarm-api\"} |= \"incident\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}
