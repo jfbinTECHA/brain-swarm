@@ -73,3 +73,4 @@ sudo systemctl stop local-admin
 - **Metrics**: Add `/metrics` endpoint for Prometheus with sparklines of failed attempts per hour
 - **Enhanced Logging**: Parse additional auth events (PAM, key-based logins, sudo events)
 - **IP Reputation**: Add IP reputation lookup using MaxMind DB or ipinfo API
+- **External WebSocket Integration**: Connect to brain-swarm WebSocket streams (e.g., `ws://localhost:9000/stream?topic=logins`) for real-time event streaming across the ecosystem
