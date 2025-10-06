@@ -1,8 +1,7 @@
-apiVersion: v1
+apiVersion: kilo.ai/v1
 kind: ConfigMap
 metadata:
   name: dashboards-config
-  namespace: brain-swarm
 data:
   dashboards.json: |
     [
