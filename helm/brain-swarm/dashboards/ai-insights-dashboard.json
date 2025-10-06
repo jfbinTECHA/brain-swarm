@@ -1,0 +1,279 @@
+{
+  "dashboard": {
+    "title": "AI Insights Dashboard",
+    "tags": ["brain-swarm", "ai", "insights"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "AI Confidence Score Distribution",
+        "type": "histogram",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(ai_confidence_score_bucket[5m])) by (le, service))",
+            "legendFormat": "{{service}} - 95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(ai_confidence_score_bucket[5m])) by (le, service))",
+            "legendFormat": "{{service}} - median"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Average AI Confidence Score",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "avg(ai_confidence_score{quantile=\"0.95\"})",
+            "legendFormat": "95th percentile"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 0.7
+                },
+                {
+                  "color": "green",
+                  "value": 0.85
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Triage Success Rate Over Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ai_triage_success_total[5m]) / rate(ai_triage_total[5m]) * 100",
+            "legendFormat": "Success Rate %"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Triage Success Rate by Category",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "sum(rate(ai_triage_success_total[1h])) by (category) / sum(rate(ai_triage_total[1h])) by (category) * 100",
+            "legendFormat": "{{category}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "AI Processing Latency",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(ai_processing_duration_seconds_bucket[5m])) by (le, operation))",
+            "legendFormat": "{{operation}} - 95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(ai_processing_duration_seconds_bucket[5m])) by (le, operation))",
+            "legendFormat": "{{operation}} - median"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "seconds"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "AI Model Performance",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "ai_model_accuracy",
+            "legendFormat": "{{model}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "AI Decision Confidence Trend",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "avg(ai_decision_confidence) by (decision_type)",
+            "legendFormat": "{{decision_type}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "AI Feedback Loop",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(ai_feedback_positive_total[1h]) / rate(ai_feedback_total[1h]) * 100",
+            "legendFormat": "Positive Feedback Rate"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 24
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "AI Model Drift Detection",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "ai_model_drift_score",
+            "legendFormat": "Drift Score"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 32
+        },
+        "thresholds": [
+          {
+            "value": 0.1,
+            "color": "green"
+          },
+          {
+            "value": 0.3,
+            "color": "orange"
+          },
+          {
+            "value": 0.5,
+            "color": "red"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "AI Resource Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ai_tokens_used_total[5m])",
+            "legendFormat": "Tokens per second"
+          },
+          {
+            "expr": "ai_api_calls_per_second",
+            "legendFormat": "API calls/sec"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 32
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    },
+    "refresh": "5s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}

@@ -1,141 +1,37 @@
-{{- if .Values.ingress.enabled }}
+{{- if .Values.bridge.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "brain-swarm.fullname" . }}-api
-  labels:
-    {{- include "brain-swarm.labels" . | nindent 4 }}
-    app.kubernetes.io/component: api
+  name: {{ include "brain-swarm.fullname" . }}-ing
   annotations:
-    {{- with .Values.ingress.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- if not .Values.ingress.traefikEnabled }}
-    # NGINX Ingress Controller
-    kubernetes.io/ingress.class: {{ .Values.ingress.className | default "nginx" }}
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-
-    # 🔒 Security Annotations
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
-    nginx.ingress.kubernetes.io/rate-limit-burst: "20"
-    {{- if .Values.ingress.security.ipWhitelist }}
-    nginx.ingress.kubernetes.io/whitelist-source-range: {{ join "," .Values.ingress.security.ipWhitelist | quote }}
-    {{- end }}
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      # Enhanced security headers
-      add_header X-Frame-Options "DENY" always;
-      add_header X-Content-Type-Options "nosniff" always;
-      add_header X-XSS-Protection "1; mode=block" always;
-      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
-
-      # Block common attack patterns
-      if ($request_uri ~* "(?:<|%3C).*script.*(?:>|%3E)") { return 403; }
-      if ($request_uri ~* "(?:union.*select.*\\(|eval\\(|base64_decode\\(|phpinfo\\()") { return 403; }
-
-      # Rate limiting by endpoint
-      location ~* ^/api/ {
-        limit_req zone=api burst=10 nodelay;
-      }
-      location ~* ^/metrics {
-        limit_req zone=metrics burst=5 nodelay;
-      }
-
-    # Certificate management
-    {{- if .Values.ingress.certManagerIssuer }}
-    cert-manager.io/cluster-issuer: {{ .Values.ingress.certManagerIssuer }}
-    {{- end }}
-
-    # Monitoring
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "80"
-    prometheus.io/path: "/metrics"
-
-    {{- else }}
-    # Traefik IngressRoute (when traefikEnabled=true)
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-brain-swarm-security@kubernetescrd
-    {{- end }}
+    kubernetes.io/ingress.class: {{ .Values.bridge.ingress.className }}
+{{- if .Values.bridge.ingress.annotations }}
+{{ toYaml .Values.bridge.ingress.annotations | indent 4 }}
+{{- end }}
 spec:
-  {{- if .Values.ingress.tls.enabled }}
   tls:
-    - hosts:
-        - {{ .Values.ingress.host }}
-      secretName: {{ .Values.ingress.tls.secretName | default (printf "%s-api-tls" (include "brain-swarm.fullname" .)) }}
-  {{- end }}
+    - hosts: [ {{ .Values.bridge.ingress.host | quote }} ]
+      secretName: {{ .Values.bridge.ingress.tlsSecretName }}
   rules:
-    - host: {{ .Values.ingress.host }}
+    - host: {{ .Values.bridge.ingress.host }}
       http:
         paths:
-          # Main API endpoints
-          - path: /api
+          - path: /gh-webhook
             pathType: Prefix
             backend:
               service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /auth
+                name: {{ include "brain-swarm.fullname" . }}-bridge
+                port: { number: 80 }
+          - path: /jira-webhook
             pathType: Prefix
             backend:
               service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /health
-            pathType: Exact
-            backend:
-              service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /metrics
+                name: {{ include "brain-swarm.fullname" . }}-bridge
+                port: { number: 80 }
+          - path: /servicenow-webhook
             pathType: Prefix
             backend:
               service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /docs
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /redoc
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /monitoring
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /webhooks
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
-          - path: /mission-control
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "brain-swarm.fullname" . }}-api
-                port:
-                  number: 80
+                name: {{ include "brain-swarm.fullname" . }}-bridge
+                port: { number: 80 }
 {{- end }}

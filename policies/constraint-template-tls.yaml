@@ -1,0 +1,40 @@
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8shttpsonly
+  annotations:
+    description: Requires Ingress resources to be HTTPS only.
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sHttpsOnly
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8shttpsonly
+
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Ingress"
+          input.review.object.spec.tls == null
+          msg := "Ingress must use HTTPS (TLS configuration required)"
+        }
+
+        violation[{"msg": msg}] {
+          input.review.kind.kind == "Ingress"
+          tls := input.review.object.spec.tls[_]
+          tls.secretName == ""
+          msg := "Ingress TLS must specify a secretName"
+        }
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sHttpsOnly
+metadata:
+  name: ingress-https-only
+spec:
+  match:
+    kinds:
+      - apiGroups: ["networking.k8s.io"]
+        kinds: ["Ingress"]
+    namespaces:
+      - brainswarm

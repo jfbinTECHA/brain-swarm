@@ -1,0 +1,12 @@
+{{- if .Values.bridge.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-bridge
+spec:
+  selector: { app: bridge }
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- end }}

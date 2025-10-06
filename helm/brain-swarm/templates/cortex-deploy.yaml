@@ -1,0 +1,62 @@
+{{- if .Values.cortex.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-cortex
+  labels: { app.kubernetes.io/name: cortex }
+spec:
+  replicas: {{ .Values.cortex.replicas }}
+  selector: { matchLabels: { app: cortex } }
+  template:
+    metadata:
+      labels: { app: cortex }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: cortex
+          image: {{ .Values.cortex.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports: [ { containerPort: 8001, name: http } ]
+          env:
+            - name: REDIS_URL
+              value: {{ .Values.redis.url | quote }}
+            - name: CHROMA_HOST
+              value: {{ .Values.chroma.host | quote }}
+            - name: CHROMA_PORT
+              value: {{ .Values.chroma.port | quote }}
+            - name: GRAPH_DB_PATH
+              value: {{ .Values.cortex.env.graphDbPath | quote }}
+            - name: ARCHIVE_DB_PATH
+              value: {{ .Values.cortex.env.archiveDbPath | quote }}
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: {{ .Values.secrets.keys.s3Bucket }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: {{ .Values.secrets.keys.openaiApiKey }}
+          volumeMounts:
+            {{- if .Values.cortex.pvc.enabled }}
+            - name: cortex-data
+              mountPath: /data
+            {{- end }}
+          resources:
+            requests:
+              cpu: {{ .Values.cortex.resources.requests.cpu }}
+              memory: {{ .Values.cortex.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.cortex.resources.limits.cpu }}
+              memory: {{ .Values.cortex.resources.limits.memory }}
+      volumes:
+        {{- if .Values.cortex.pvc.enabled }}
+        - name: cortex-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.cortex.pvc.name }}
+        {{- end }}
+{{- end }}

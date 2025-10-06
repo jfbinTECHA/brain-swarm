@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-ticket-sync
+  labels:
+    app.kubernetes.io/name: ticket-sync
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: ticket-sync
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: ticket-sync
+              image: {{ .Values.bridge.image }} # reuse hook image if it contains ticket_sync
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              command: ["python", "-m", "bridge.ticket_sync"]
+              env:
+                - name: REDIS_URL
+                  value: {{ .Values.redis.url | quote }}
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secrets.name }}
+                      key: {{ .Values.secrets.keys.githubToken }}
+                - name: GITHUB_REPO
+                  value: "jfbinTECHA/brain-swarm-incidents"
+                - name: ENABLE_POLLING
+                  value: "true"
+                - name: POLL_INTERVAL_SECONDS
+                  value: "600"

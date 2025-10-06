@@ -1,0 +1,51 @@
+{{- if .Values.bridge.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-bridge
+  labels: { app.kubernetes.io/name: bridge }
+spec:
+  replicas: {{ .Values.bridge.replicas }}
+  selector: { matchLabels: { app: bridge } }
+  template:
+    metadata:
+      labels: { app: bridge }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: bridge
+          image: {{ .Values.bridge.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports: [ { containerPort: 8000, name: http } ]
+          env:
+            - name: REDIS_URL
+              value: {{ .Values.redis.url | quote }}
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: {{ .Values.secrets.keys.webhookSecret }}
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: {{ .Values.secrets.keys.githubToken }}
+          resources:
+            requests:
+              cpu: {{ .Values.bridge.resources.requests.cpu }}
+              memory: {{ .Values.bridge.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.bridge.resources.limits.cpu }}
+              memory: {{ .Values.bridge.resources.limits.memory }}
+          readinessProbe:
+            httpGet: { path: /metrics, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /metrics, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+{{- end }}
