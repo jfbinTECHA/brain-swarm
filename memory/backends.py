@@ -570,7 +570,7 @@ class ChromaVectorBackend(MemoryBackend):
     def _generate_embedding(self, text: str) -> List[float]:
         """Generate embeddings for text using the embedding adapter"""
         try:
-            from ..cortex.adapters.embedding_adapter import embedding_adapter
+            from ..adapters.embedding_adapter import embedding_adapter
             if embedding_adapter:
                 embeddings = embedding_adapter.embed_texts([text])
                 return embeddings[0] if embeddings else []

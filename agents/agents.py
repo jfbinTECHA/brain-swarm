@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 from ..core.base import BaseAgent, AgentRole, Message, MessageType, Task, logger, metrics
+from ..observability.metrics import prometheus_metrics
 from .agent_profiles import AgentBehaviorProfile, apply_behavior_modifier, get_behavior_description
 import time
 import os
@@ -74,8 +75,12 @@ class VisionAgent(BaseAgent):
         content = task.get("content", "")
 
         start_time = time.time()
+
+        # Record agent task execution start
+        prometheus_metrics.record_agent_operation("task_execution_start", self.agent_id, task_type)
+
         logger.log("INFO", "VisionAgent", f"Task execution started with {self.behavior_profile.current_profile} profile",
-                  {"task_type": task_type, "content": content[:50]})
+                   {"task_type": task_type, "content": content[:50]})
 
         result = None
         success = False
@@ -137,8 +142,11 @@ class VisionAgent(BaseAgent):
 
         metrics.track_agent_performance(self.agent_id, task_type, success, execution_time, quality)
 
+        # Record completion metrics
+        prometheus_metrics.record_agent_operation("task_execution_complete", self.agent_id, task_type, execution_time)
+
         logger.log("INFO", "VisionAgent", f"Task execution completed with quality: {quality:.2f}",
-                  {"result": str(result)[:100], "success": success, "profile": self.behavior_profile.current_profile})
+               {"result": str(result)[:100], "success": success, "profile": self.behavior_profile.current_profile})
         return result
 
     def handle_knowledge_sharing(self, message: Message) -> Optional[Message]:

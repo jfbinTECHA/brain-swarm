@@ -65,6 +65,29 @@ class MessageQueue:
         logger.log("DEBUG", "MessageQueue", f"Published message {message_id} from {message.sender} to {message.receiver}")
         return message_id
 
+    async def publish(self, topic: str, data: Dict[str, Any]) -> str:
+        """Publish data to a specific topic/channel"""
+        if not self.redis:
+            raise RuntimeError("MessageQueue not connected")
+
+        # Create a message dict for the topic
+        message_dict = {
+            "topic": topic,
+            "data": json.dumps(data),
+            "timestamp": asyncio.get_event_loop().time()
+        }
+
+        # Use topic as stream name or add to main stream with topic
+        stream_name = f"{self.stream_name}_{topic.replace('.', '_')}"
+        message_id = await self.redis.xadd(stream_name, message_dict)
+
+        # Record message publishing metric
+        from ..observability.metrics import prometheus_metrics
+        prometheus_metrics.record_message("webhook_event", "webhook_service", "redis")
+
+        logger.log("DEBUG", "MessageQueue", f"Published to topic {topic}: {message_id}")
+        return message_id
+
     async def subscribe(self, recipient: str, callback: Callable[[Message], Awaitable[None]]):
         """Subscribe to messages for a specific recipient"""
         if recipient not in self.subscribers:

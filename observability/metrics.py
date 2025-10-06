@@ -443,6 +443,82 @@ class MetricsCollector:
                   {"duration": duration, "events_processed": events_processed,
                    "summaries_created": summaries_created, "status": status})
 
+    def record_memory_operation(self, operation: str, component: str, duration: float = 0):
+        """Record memory operation with timing"""
+        self.memory_operations.labels(
+            operation_type=operation,
+            component=component
+        ).inc()
+
+        if duration > 0:
+            # Use delegation latency as a generic timing metric
+            self.delegation_latency.labels(swarm_id="memory_system").observe(duration)
+
+    def record_agent_operation(self, operation: str, agent_id: str, task_type: str = "", duration: float = 0):
+        """Record agent operation with timing"""
+        # Use coordinator operations metric for agent operations
+        self.coordinator_operations.labels(
+            operation_type=f"agent_{operation}",
+            swarm_id="agent_system"
+        ).inc()
+
+        if duration > 0:
+            # Record as task duration
+            self.task_duration.labels(
+                task_type=task_type or "agent_operation",
+                agent_id=agent_id,
+                swarm_id="agent_system"
+            ).observe(duration)
+
+    def record_coordinator_operation(self, operation: str, swarm_id: str, duration: float = 0):
+        """Record coordinator operation with timing"""
+        self.coordinator_operations.labels(
+            operation_type=operation,
+            swarm_id=swarm_id
+        ).inc()
+
+        if duration > 0:
+            self.delegation_latency.labels(swarm_id=swarm_id).observe(duration)
+
+    def record_webhook_error(self, source: str, error_type: str):
+        """Record webhook processing error"""
+        self.errors_total.labels(
+            error_type=f"webhook_{error_type}",
+            component="webhook_service",
+            severity="medium"
+        ).inc()
+
+    def record_webhook_processed(self, source: str, severity: str):
+        """Record successful webhook processing"""
+        # Use federation operations as a proxy for webhook processing
+        self.federation_operations.labels(
+            operation_type="webhook_processed",
+            source_swarm=source,
+            target_swarm="brain_swarm"
+        ).inc()
+
+    def log_reasoning_trace(self, agent_id: str, task_id: str, steps: List[Dict], result: Any, confidence: float):
+        """Log reasoning trace for transparency"""
+        # Record as learning iteration
+        self.learning_iterations.labels(
+            algorithm_type="reasoning_trace",
+            component=f"agent_{agent_id}"
+        ).inc()
+
+        # Update model accuracy with confidence score
+        self.model_accuracy.labels(
+            model_type="reasoning",
+            metric_name="confidence"
+        ).set(confidence)
+
+    def log_decision_justification(self, agent_id: str, operation: str, decision: Any, justification: Dict):
+        """Log decision justification"""
+        # Record as learning iteration
+        self.learning_iterations.labels(
+            algorithm_type="decision_justification",
+            component=f"agent_{agent_id}"
+        ).inc()
+
     def get_metrics_output(self) -> str:
         """Get Prometheus metrics output"""
         return generate_latest(self.registry).decode('utf-8')

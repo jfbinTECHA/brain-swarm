@@ -377,6 +377,7 @@ async def create_task(
     current_user: Dict = Depends(get_current_user_with_permissions([Permission.TASK_CREATE]))
 ):
     """Create and execute a new task"""
+    start_time = time.time()
     try:
         coord = get_coordinator()
 
@@ -388,8 +389,14 @@ async def create_task(
             "task_id": f"task_{int(time.time())}_{hash(task.description) % 1000}"
         }
 
+        # Record task creation metric
+        prometheus_metrics.record_task_created(task.type or "general", task.priority or 3, coord.swarm_id)
+
         # Execute task in background
         background_tasks.add_task(coord.execute_task, task_data)
+
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request("/tasks", "POST", 200, processing_time)
 
         return TaskResponse(
             task_id=task_data["task_id"],
@@ -398,6 +405,8 @@ async def create_task(
         )
 
     except Exception as e:
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request("/tasks", "POST", 500, processing_time)
         logger.log("ERROR", "API", f"Failed to create task: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
 
@@ -408,6 +417,7 @@ async def process_alert(
     current_user: Dict = Depends(get_current_user_with_permissions([Permission.TASK_CREATE]))
 ):
     """Process alert with AI orchestration for triage and response"""
+    start_time = time.time()
     try:
         coord = get_coordinator()
 
@@ -433,6 +443,9 @@ async def process_alert(
             "alert_data": alert.dict()  # Include full alert data
         }
 
+        # Record alert processing metric
+        prometheus_metrics.record_task_created("alert_processing", task_data["priority"], coord.swarm_id)
+
         # Execute task in background
         background_tasks.add_task(coord.execute_task, task_data)
 
@@ -443,6 +456,9 @@ async def process_alert(
         # Add to Mission Control dashboard
         await mission_control.add_incident(incident_data)
 
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request("/alerts", "POST", 200, processing_time)
+
         return TaskResponse(
             task_id=f"alert_{int(time.time())}_{hash(alert.groupKey) % 1000}",
             status="accepted",
@@ -450,66 +466,93 @@ async def process_alert(
         )
 
     except Exception as e:
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request("/alerts", "POST", 500, processing_time)
         logger.log("ERROR", "API", f"Failed to process alert: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Alert processing failed: {str(e)}")
 
 @app.get("/tasks/{task_id}")
 async def get_task_status(task_id: str):
     """Get the status of a specific task"""
-    coord = get_coordinator()
+    start_time = time.time()
+    try:
+        coord = get_coordinator()
 
-    # Check if task exists in active tasks
-    if task_id in coord.delegation_system.active_tasks:
-        task_info = coord.delegation_system.active_tasks[task_id]
-        return {
-            "task_id": task_id,
-            "status": task_info["status"],
-            "assigned_agent": task_info["task"].assigned_agent,
-            "created_at": task_info["assigned_at"],
-            "priority": task_info.get("priority", 1)
-        }
-
-    # Check working memory for completed tasks
-    if coord.working_memory:
-        result = coord.working_memory.retrieve(f"task_result_{task_id}")
-        if result:
+        # Check if task exists in active tasks
+        if task_id in coord.delegation_system.active_tasks:
+            task_info = coord.delegation_system.active_tasks[task_id]
+            processing_time = time.time() - start_time
+            prometheus_metrics.record_api_request(f"/tasks/{task_id}", "GET", 200, processing_time)
             return {
                 "task_id": task_id,
-                "status": "completed",
-                "result": result
+                "status": task_info["status"],
+                "assigned_agent": task_info["task"].assigned_agent,
+                "created_at": task_info["assigned_at"],
+                "priority": task_info.get("priority", 1)
             }
 
-    raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+        # Check working memory for completed tasks
+        if coord.working_memory:
+            result = coord.working_memory.retrieve(f"task_result_{task_id}")
+            if result:
+                processing_time = time.time() - start_time
+                prometheus_metrics.record_api_request(f"/tasks/{task_id}", "GET", 200, processing_time)
+                return {
+                    "task_id": task_id,
+                    "status": "completed",
+                    "result": result
+                }
+
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request(f"/tasks/{task_id}", "GET", 404, processing_time)
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request(f"/tasks/{task_id}", "GET", 500, processing_time)
+        logger.log("ERROR", "API", f"Error getting task status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/agents")
 async def list_agents():
     """List all registered agents"""
-    coord = get_coordinator()
-    agents = []
-    for agent_id in coord.registered_agents:
-        load = coord.agent_loads.get(agent_id, 0)
-        agents.append({
-            "agent_id": agent_id,
-            "current_load": load,
-            "status": "active" if load < coord.max_agent_load else "busy"
-        })
+    start_time = time.time()
+    try:
+        coord = get_coordinator()
+        agents = []
+        for agent_id in coord.registered_agents:
+            load = coord.agent_loads.get(agent_id, 0)
+            agents.append({
+                "agent_id": agent_id,
+                "current_load": load,
+                "status": "active" if load < coord.max_agent_load else "busy"
+            })
 
-    # Add scalable agents if enabled
-    if settings.scalability.enabled and settings.scalability.async_agents_enabled:
-        from ..scalability.async_agents import agent_pool
-        if agent_pool:
-            pool_metrics = agent_pool.get_pool_metrics()
-            for agent_id in agent_pool.agents.keys():
-                agent = agent_pool.agents[agent_id]
-                agents.append({
-                    "agent_id": agent_id,
-                    "type": "async",
-                    "current_load": agent.load_metrics.current_load,
-                    "status": agent.state.value,
-                    "utilization": agent.load_metrics.utilization
-                })
+        # Add scalable agents if enabled
+        if settings.scalability.enabled and settings.scalability.async_agents_enabled:
+            from ..scalability.async_agents import agent_pool
+            if agent_pool:
+                pool_metrics = agent_pool.get_pool_metrics()
+                for agent_id in agent_pool.agents.keys():
+                    agent = agent_pool.agents[agent_id]
+                    agents.append({
+                        "agent_id": agent_id,
+                        "type": "async",
+                        "current_load": agent.load_metrics.current_load,
+                        "status": agent.state.value,
+                        "utilization": agent.load_metrics.utilization
+                    })
 
-    return {"agents": agents, "total": len(agents)}
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request("/agents", "GET", 200, processing_time)
+
+        return {"agents": agents, "total": len(agents)}
+    except Exception as e:
+        processing_time = time.time() - start_time
+        prometheus_metrics.record_api_request("/agents", "GET", 500, processing_time)
+        logger.log("ERROR", "API", f"Error listing agents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/metrics", response_model=MetricsResponse)
 async def get_metrics():
