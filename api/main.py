@@ -6,7 +6,7 @@ Provides REST API endpoints for task management, monitoring, and swarm coordinat
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, HTMLResponse
+from fastapi.responses import JSONResponse, Response, HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
@@ -943,6 +943,45 @@ async def console_websocket(websocket: WebSocket):
     finally:
         pubsub.unsubscribe()
         pubsub.close()
+
+@app.get("/sse/console")
+async def console_sse():
+    """Server-Sent Events endpoint for HTMX console updates"""
+
+    async def event_generator():
+        pubsub = redis_client.pubsub()
+        pubsub.subscribe("console:events", "alerts", "agent:status")
+
+        try:
+            # Send initial data
+            coord = get_coordinator()
+            initial_data = {
+                "type": "initial",
+                "agents": len(coord.registered_agents),
+                "tasks": len(coord.delegation_system.active_tasks),
+                "timestamp": time.time()
+            }
+            yield f"data: {json.dumps(initial_data)}\n\n"
+
+            # Listen for messages
+            for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        data = json.loads(message["data"])
+                        yield f"data: {json.dumps(data)}\n\n"
+                    except json.JSONDecodeError:
+                        yield f"data: {message['data']}\n\n"
+        except Exception as e:
+            logger.log("ERROR", "SSE", f"Console SSE error: {e}")
+        finally:
+            pubsub.unsubscribe()
+            pubsub.close()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+    )
 
 @app.websocket("/ws/swarm-view")
 async def swarm_view_websocket(websocket: WebSocket):
