@@ -15,7 +15,7 @@ scrape_configs:
   # Brain Swarm API
   - job_name: 'brain-swarm-api'
     static_configs:
-      - targets: ['brain-swarm-api:8000']
+      - targets: ['brainswarm-api:8001']
     metrics_path: '/metrics'
     scrape_interval: 15s
 

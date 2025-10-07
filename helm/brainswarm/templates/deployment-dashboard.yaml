@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brainswarm-dashboard
+  labels:
+    app: brainswarm-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brainswarm-dashboard
+  template:
+    metadata:
+      labels:
+        app: brainswarm-dashboard
+    spec:
+      containers:
+        - name: brainswarm-dashboard
+          image: "{{ .Values.dashboard.image }}:{{ .Values.dashboard.tag }}"
+          ports:
+            - containerPort: {{ .Values.dashboard.port }}
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: NEXT_PUBLIC_API_URL
+              value: "http://brainswarm-api:{{ .Values.service.apiPort }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

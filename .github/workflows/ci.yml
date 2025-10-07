@@ -26,6 +26,7 @@ jobs:
         if: ${{ hashFiles('frontend/package.json') != '' }}
         working-directory: frontend
         run: |
+          npm run lint || (echo "Frontend lint failed" && exit 1)
           npm run -s build || (echo "Frontend build failed" && exit 1)
 
       - name: Set up Python
@@ -38,6 +39,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest
+
+      - name: Backend test
+        working-directory: api
+        run: |
+          if [ -d ../tests ]; then pytest ../tests/; fi
 
       - name: Backend import check
         working-directory: api
@@ -47,6 +54,13 @@ jobs:
           importlib.import_module("app.main")
           print("OK: app.main importable")
           PY
+
+      - name: Backend health check
+        working-directory: api
+        run: |
+          docker compose up -d api db redis
+          sleep 10
+          curl -s localhost:8001/healthz | jq
 
       - name: Helm lint (if charts present)
         run: |

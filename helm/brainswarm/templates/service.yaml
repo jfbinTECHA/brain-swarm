@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: brainswarm-api
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.apiPort }}
+      targetPort: {{ .Values.service.apiPort }}
+  selector:
+    app: brainswarm-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: brainswarm-dashboard
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.dashboardPort }}
+      targetPort: {{ .Values.service.dashboardPort }}
+  selector:
+    app: brainswarm-dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: brainswarm-redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.redis.port }}
+      targetPort: {{ .Values.redis.port }}
+  selector:
+    app: brainswarm-redis

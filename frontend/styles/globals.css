@@ -1,0 +1,37 @@
+pre {
+  @apply bg-black text-teal-400 p-4 rounded-xl shadow-glow overflow-x-auto;
+}
+
+/* Toast glow effect */
+.shadow-glow {
+  box-shadow: 0 0 12px rgba(0, 198, 209, 0.45);
+}
+
+.toast-enter {
+  animation: toastFadeIn 0.4s ease-out forwards;
+}
+.toast-exit {
+  animation: toastFadeOut 0.5s ease-in forwards;
+}
+
+@keyframes toastFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}

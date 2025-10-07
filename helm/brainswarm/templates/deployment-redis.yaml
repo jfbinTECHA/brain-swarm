@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brainswarm-redis
+  labels:
+    app: brainswarm-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brainswarm-redis
+  template:
+    metadata:
+      labels:
+        app: brainswarm-redis
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image }}"
+          ports:
+            - containerPort: {{ .Values.redis.port }}
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-pvc

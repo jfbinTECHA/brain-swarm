@@ -1,0 +1,56 @@
+# 🧠 Default values for BrainSwarmOps Helm deployment
+
+replicaCount: 3
+
+image:
+  repository: jfbintecha/brain-swarm-api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+dashboard:
+  image: jfbintecha/brain-swarm-dashboard
+  tag: latest
+  port: 3000
+
+redis:
+  image: redis:7-alpine
+  port: 6379
+
+service:
+  type: ClusterIP
+  apiPort: 8000
+  dashboardPort: 3000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: brainswarm.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+env:
+  ENVIRONMENT: production
+  NODE__SWARM_ID: brainswarm_cluster_1
+  NODE__HOST: 0.0.0.0
+  SCALABILITY__ENABLED: "true"
+  SCALABILITY__MESSAGE_QUEUE_MODE: redis
+  FEDERATION__ENABLED: "true"
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi

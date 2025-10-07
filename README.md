@@ -569,6 +569,38 @@ docker pull jfbintecha/brain-swarm:v1.0.0
 
 ---
 
+## 🏗️ Admin Console Architecture
+
+```
+┌──────────────────────────────────────────┐
+│          BrainSwarmOps Admin UI          │
+│  Next.js + Tailwind + SSE + Toasts       │
+│  ├── SystemHealth.tsx                    │
+│  ├── AdminControls.tsx                   │
+│  ├── AdminEvents.tsx                     │
+│  ├── ToastManager.tsx                    │
+│  └── LiveOpsIndicator.tsx                │
+└──────────────────────────────────────────┘
+             ▲             │
+             │ SSE Stream  ▼
+┌──────────────────────────────────────────┐
+│          FastAPI Backend (API)           │
+│  Routes: /healthz, /admin/shutdown,      │
+│          /admin/restart, /admin/events   │
+│  Logs admin actions → Redis stream       │
+└──────────────────────────────────────────┘
+             ▲
+             │ Redis Stream (`admin_events`)
+             ▼
+┌──────────────────────────────────────────┐
+│   Redis   │   Postgres   │   Watchdog    │
+│  Cache +  │  Cortex DB   │  Self-healing │
+│  Events   │              │  Diagnostics  │
+└──────────────────────────────────────────┘
+```
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
