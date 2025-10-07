@@ -77,6 +77,18 @@ sudo systemctl restart local-admin
 sudo systemctl stop local-admin
 ```
 
+## Integration with Brain-Swarm Dashboard
+
+To add navigation from the main Brain-Swarm dashboard (Next.js/React frontend), include this link:
+
+```jsx
+<a href="http://localhost:8060" target="_blank" className="text-teal-400 hover:underline">
+  Local Admin Console
+</a>
+```
+
+This provides seamless navigation between the operational dashboard and the administrative console.
+
 ## Future Enhancements
 
 - **Rich UI**: Replace simple HTML with HTMX + Tailwind for live-updating dashboards

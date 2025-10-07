@@ -1,0 +1,75 @@
+<svg width="595" height="842" viewBox="0 0 595 842" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0f23;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="brainGradientPDF" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#64b5f6;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00bcd4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="glowGradientPDF" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#64b5f6;stop-opacity:0.6" />
+      <stop offset="50%" style="stop-color:#4CAF50;stop-opacity:0.4" />
+      <stop offset="100%" style="stop-color:#00bcd4;stop-opacity:0.6" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="595" height="842" fill="url(#backgroundGradient)"/>
+
+  <!-- Decorative background elements -->
+  <circle cx="100" cy="150" r="80" fill="url(#glowGradientPDF)" opacity="0.3"/>
+  <circle cx="495" cy="692" r="60" fill="url(#glowGradientPDF)" opacity="0.2"/>
+  <circle cx="450" cy="200" r="40" fill="url(#glowGradientPDF)" opacity="0.4"/>
+
+  <!-- Main brain logo -->
+  <g transform="translate(297.5, 250)">
+    <!-- Outer glow ring -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="url(#glowGradientPDF)" stroke-width="2" opacity="0.5"/>
+
+    <!-- Brain lobes -->
+    <path d="M0 -80c-13.5 0-26 4.5-36 13.5-10 9-15 22.5-9 36 6 13.5 18 22.5 31.5 22.5s25.5-9 31.5-22.5c6-13.5 1-27-9-36C26 -75.5 13.5 -80 0 -80z" fill="url(#brainGradientPDF)" filter="url(#glow)"/>
+    <path d="M-54 0c-9 0-18 4.5-22.5 13.5-4.5 9-4.5 22.5 4.5 31.5 9 9 22.5 13.5 36 9 13.5-4.5 22.5-18 22.5-31.5C46.5 4.5 37.5 0 28.5 0 19.5 0 10.5 4.5 4.5 13.5-1.5 22.5-1.5 31.5 4.5 36 10.5 40.5 19.5 40.5 28.5 40.5 37.5 40.5 46.5 36 52.5 31.5 58.5 27 58.5 22.5 54 13.5 49.5 4.5 40.5 0 31.5 0 22.5 0 13.5 4.5 7.5 13.5-1.5 22.5-1.5 27 4.5 31.5 10.5 36 19.5 36 28.5 36 37.5 31.5 43.5 22.5 43.5 13.5 39 4.5 30 0 21 0-54 0z" fill="url(#brainGradientPDF)" filter="url(#glow)"/>
+    <path d="M54 0c9 0 18 4.5 22.5 13.5 4.5 9 4.5 22.5-4.5 31.5-9 9-22.5 13.5-36 9-13.5-4.5-22.5-18-22.5-31.5C-46.5 4.5-37.5 0-28.5 0-19.5 0-10.5 4.5-4.5 13.5 1.5 22.5 1.5 31.5-4.5 36-10.5 40.5-19.5 40.5-28.5 40.5-37.5 40.5-46.5 36-52.5 31.5-58.5 27-58.5 22.5-54 13.5-49.5 4.5-40.5 0-31.5 0-22.5 0-13.5 4.5-7.5 13.5 1.5 22.5 1.5 27-4.5 31.5-10.5 36-19.5 36-28.5 36-37.5 31.5-43.5 22.5-43.5 13.5-39 4.5-30 0-21 0 54 0z" fill="url(#brainGradientPDF)" filter="url(#glow)"/>
+    <path d="M-36 48c-9 0-18 4.5-22.5 13.5-4.5 9-4.5 22.5 4.5 31.5 9 9 22.5 13.5 36 9 13.5-4.5 22.5-18 22.5-31.5C46 52.5 37 48 28 48z" fill="url(#brainGradientPDF)" filter="url(#glow)"/>
+    <path d="M36 48c9 0 18 4.5 22.5 13.5 4.5 9 4.5 22.5-4.5 31.5-9 9-22.5 13.5-36 9-13.5-4.5-22.5-18-22.5-31.5C-46 52.5-37 48-28 48z" fill="url(#brainGradientPDF)" filter="url(#glow)"/>
+    <path d="M0 80c13.5 0 26-4.5 36-13.5 10-9 15-22.5 9-36-6-13.5-18-22.5-31.5-22.5s-25.5 9-31.5 22.5c-6 13.5-1 27 9 36C-26 75.5-13.5 80 0 80z" fill="url(#brainGradientPDF)" filter="url(#glow)"/>
+
+    <!-- Neural connections -->
+    <line x1="0" y1="-60" x2="-30" y2="-10" stroke="url(#brainGradientPDF)" stroke-width="3" opacity="0.8"/>
+    <line x1="0" y1="-60" x2="30" y2="-10" stroke="url(#brainGradientPDF)" stroke-width="3" opacity="0.8"/>
+    <line x1="-30" y1="10" x2="-45" y2="35" stroke="url(#brainGradientPDF)" stroke-width="3" opacity="0.8"/>
+    <line x1="30" y1="10" x2="45" y2="35" stroke="url(#brainGradientPDF)" stroke-width="3" opacity="0.8"/>
+    <line x1="-30" y1="10" x2="0" y2="60" stroke="url(#brainGradientPDF)" stroke-width="3" opacity="0.8"/>
+    <line x1="30" y1="10" x2="0" y2="60" stroke="url(#brainGradientPDF)" stroke-width="3" opacity="0.8"/>
+  </g>
+
+  <!-- Title -->
+  <text x="297.5" y="480" text-anchor="middle" fill="#e0e0e0" font-family="Arial, sans-serif" font-size="48" font-weight="bold">Brain Swarm</text>
+  <text x="297.5" y="520" text-anchor="middle" fill="#64b5f6" font-family="Arial, sans-serif" font-size="24" font-weight="300">Enterprise Incident Response Platform</text>
+
+  <!-- Subtitle/Version -->
+  <text x="297.5" y="570" text-anchor="middle" fill="#b0b0b0" font-family="Arial, sans-serif" font-size="18">Documentation v1.0.0</text>
+
+  <!-- Decorative lines -->
+  <line x1="150" y1="620" x2="445" y2="620" stroke="url(#brainGradientPDF)" stroke-width="2" opacity="0.6"/>
+  <line x1="200" y1="650" x2="395" y2="650" stroke="url(#brainGradientPDF)" stroke-width="1" opacity="0.4"/>
+
+  <!-- Footer -->
+  <text x="297.5" y="720" text-anchor="middle" fill="#808080" font-family="Arial, sans-serif" font-size="14">Multi-Agent Swarm Intelligence System</text>
+  <text x="297.5" y="750" text-anchor="middle" fill="#808080" font-family="Arial, sans-serif" font-size="12">© 2023 Brain Swarm Team</text>
+
+  <!-- Small accent elements -->
+  <circle cx="100" cy="750" r="3" fill="url(#brainGradientPDF)" opacity="0.8"/>
+  <circle cx="495" cy="750" r="3" fill="url(#brainGradientPDF)" opacity="0.8"/>
+</svg>

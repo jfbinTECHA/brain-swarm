@@ -31,7 +31,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, Security, Request
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
-from .security import SecurityManager, PermissionLevel
+from security import SecurityManager, PermissionLevel
 
 class OperationMode(Enum):
     """Operation modes for the federation server"""
@@ -1151,8 +1151,9 @@ class FederationOperationsManager:
         # Implementation for backup
         return True
 
+
 # Global operations manager (will be initialized in main)
-ops_manager = None
+ops_manager = FederationOperationsManager()
 
 # Socket.IO event handlers
 @sio.event
@@ -1373,10 +1374,12 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
+    global ops_manager
+    if ops_manager is None:
+        ops_manager = FederationOperationsManager()
     return {
         "status": "healthy",
-        "connected_clients": len(ops_manager.connected_clients),
-        "active_swarms": len(ops_manager.swarm_states),
+        "message": "Brain Swarm Federation Operations Server is running",
         "timestamp": time.time()
     }
 
@@ -1527,7 +1530,7 @@ if __name__ == "__main__":
 
     # Configure uvicorn with TLS if certificates provided
     uvicorn_config = {
-        "app": "brain_swarm.federation_operations_server:socket_app",
+        "app": "federation_operations_server:socket_app",
         "host": args.host,
         "port": args.port,
         "log_level": "info"

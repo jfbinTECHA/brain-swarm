@@ -11,8 +11,8 @@ import secrets
 import hashlib
 from enum import Enum
 
-from ..config import settings
-from ..core.base import logger
+from config import settings
+from core.base import logger
 
 
 class UserRole(str, Enum):

@@ -366,81 +366,81 @@
 %% Start of Mermaid Diagram
 graph TB
     %% Main Title
-    TITLE["🧠 Brain Swarm Federation<br/>Live Status Dashboard"]
+    TITLE["🧠 Brain Swarm Federation\nLive Status Dashboard"]
 
     %% Network Environments with Dynamic States
     subgraph "🏢 ENTERPRISE NETWORK A"
-        SWARM_A1[Swarm Alpha<br/>Node 1<br/>192.168.1.100:8000<br/>🟢 ACTIVE<br/>♥ 2s ago]
-        SWARM_A2[Swarm Alpha<br/>Node 2<br/>192.168.1.101:8000<br/>🟢 ACTIVE<br/>♥ 1s ago]
+        SWARM_A1["Swarm Alpha\nNode 1\n192.168.1.100:8000\n🟢 ACTIVE\n♥ 2s ago"]
+        SWARM_A2["Swarm Alpha\nNode 2\n192.168.1.101:8000\n🟢 ACTIVE\n♥ 1s ago"]
     end
 
     subgraph "🏢 ENTERPRISE NETWORK B"
-        SWARM_B1[Swarm Beta<br/>Node 1<br/>10.0.0.100:8000<br/>🟢 ACTIVE<br/>♥ 3s ago]
-        SWARM_B2[Swarm Beta<br/>Node 2<br/>10.0.0.101:8000<br/>🟢 ACTIVE<br/>♥ 5s ago]
+        SWARM_B1["Swarm Beta\nNode 1\n10.0.0.100:8000\n🟢 ACTIVE\n♥ 3s ago"]
+        SWARM_B2["Swarm Beta\nNode 2\n10.0.0.101:8000\n🟢 ACTIVE\n♥ 5s ago"]
     end
 
     subgraph "☁️ PUBLIC CLOUD"
-        SWARM_C1[Swarm Gamma<br/>Node 1<br/>cloud.example.com:8000<br/>🟢 ACTIVE<br/>♥ 4s ago]
+        SWARM_C1["Swarm Gamma\nNode 1\ncloud.example.com:8000\n🟢 ACTIVE\n♥ 4s ago"]
     end
 
     subgraph "🏠 HOME NETWORK"
-        SWARM_D1[Swarm Delta<br/>Node 1<br/>192.168.0.50:8000<br/>🟡 WARNING<br/>♥ 45s ago]
+        SWARM_D1["Swarm Delta\nNode 1\n192.168.0.50:8000\n🟡 WARNING\n♥ 45s ago"]
     end
 
     %% Central Registry Service with Live Status
     subgraph "🔐 SECURE REGISTRY SERVICE"
-        REGISTRY[(Federation Registry<br/>registry.brain-swarm.com<br/>🔒 TLS 1.3 + API Keys<br/>🟢 ONLINE<br/>6/6 Swarms Active)]
-        API_KEYS[(API Key Store<br/>Hashed & Secured<br/>8 Active Keys)]
-        SWARM_DB[(Swarm Registry<br/>Metadata & Status<br/>6 Registered)]
-        AUDIT_LOG[(Audit Logs<br/>All Operations<br/>247 Events)]
-        RATE_LIMIT[(Rate Limiter<br/>per API Key<br/>98% Available)]
+        REGISTRY["Federation Registry\nregistry.brain-swarm.com\n🔒 TLS 1.3 + API Keys\n🟢 ONLINE\n6/6 Swarms Active"]
+        API_KEYS["API Key Store\nHashed & Secured\n8 Active Keys"]
+        SWARM_DB["Swarm Registry\nMetadata & Status\n6 Registered"]
+        AUDIT_LOG["Audit Logs\nAll Operations\n247 Events"]
+        RATE_LIMIT["Rate Limiter\nper API Key\n98% Available"]
     end
 
     %% Dynamic Discovery Flows (BLUE connections)
-    SWARM_A1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>LAN Discovery<br/>⚡ < 1ms"| SWARM_A2
-    SWARM_B1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>LAN Discovery<br/>⚡ < 1ms"| SWARM_B2
+    SWARM_A1 -.->|"🔵 UDP Broadcast\nPort 9999\nLAN Discovery\n⚡ < 1ms"| SWARM_A2
+    SWARM_B1 -.->|"🔵 UDP Broadcast\nPort 9999\nLAN Discovery\n⚡ < 1ms"| SWARM_B2
 
-    SWARM_A1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 45ms"| REGISTRY
-    SWARM_A2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 42ms"| REGISTRY
-    SWARM_B1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 67ms"| REGISTRY
-    SWARM_B2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 58ms"| REGISTRY
-    SWARM_C1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 123ms"| REGISTRY
-    SWARM_D1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 89ms"| REGISTRY
+    SWARM_A1 -.->|"🔵 HTTPS Registration\nAPI Key Auth\nGlobal Discovery\n🌐 45ms"| REGISTRY
+    SWARM_A2 -.->|"🔵 HTTPS Registration\nAPI Key Auth\nGlobal Discovery\n🌐 42ms"| REGISTRY
+    SWARM_B1 -.->|"🔵 HTTPS Registration\nAPI Key Auth\nGlobal Discovery\n🌐 67ms"| REGISTRY
+    SWARM_B2 -.->|"🔵 HTTPS Registration\nAPI Key Auth\nGlobal Discovery\n🌐 58ms"| REGISTRY
+    SWARM_C1 -.->|"🔵 HTTPS Registration\nAPI Key Auth\nGlobal Discovery\n🌐 123ms"| REGISTRY
+    SWARM_D1 -.->|"🔵 HTTPS Registration\nAPI Key Auth\nGlobal Discovery\n🌐 89ms"| REGISTRY
 
     %% Security Flows (RED connections)
-    REGISTRY -.->|"🔴 API Key Validation<br/>Security Layer<br/>✓ Authorized"| API_KEYS
-    API_KEYS -.->|"🔴 Permission Check<br/>AuthZ<br/>✓ Read/Write"| RATE_LIMIT
-    RATE_LIMIT -.->|"🔴 Database Access<br/>Controlled<br/>✓ Encrypted"| SWARM_DB
-    SWARM_DB -.->|"🔴 Operation Logging<br/>Audit Trail<br/>✓ Logged"| AUDIT_LOG
+    REGISTRY -.->|"🔴 API Key Validation\nSecurity Layer\n✓ Authorized"| API_KEYS
+    API_KEYS -.->|"🔴 Permission Check\nAuthZ\n✓ Read/Write"| RATE_LIMIT
+    RATE_LIMIT -.->|"🔴 Database Access\nControlled\n✓ Encrypted"| SWARM_DB
+    SWARM_DB -.->|"🔴 Operation Logging\nAudit Trail\n✓ Logged"| AUDIT_LOG
 
     %% Dynamic Task Sharing Flows (GREEN connections)
-    SWARM_A1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>LAN Sharing<br/>📊 1.2GB/s"| SWARM_A2
-    SWARM_B1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>LAN Sharing<br/>📊 980MB/s"| SWARM_B2
+    SWARM_A1 -.->|"🟢 WebSocket Direct\nFederation Tasks\nLAN Sharing\n📊 1.2GB/s"| SWARM_A2
+    SWARM_B1 -.->|"🟢 WebSocket Direct\nFederation Tasks\nLAN Sharing\n📊 980MB/s"| SWARM_B2
 
-    SWARM_A1 -.->|"🟢 WebSocket Federation<br/>Cross-Network Tasks<br/>Registry Discovered<br/>📈 245ms"| SWARM_B1
-    SWARM_A2 -.->|"🟢 WebSocket Federation<br/>Memory Sync<br/>Registry Discovered<br/>🧠 156ms"| SWARM_C1
-    SWARM_B2 -.->|"🟢 WebSocket Federation<br/>Analytics Sharing<br/>Registry Discovered<br/>📊 89ms"| SWARM_D1
-    SWARM_C1 -.->|"🟢 WebSocket Federation<br/>Task Distribution<br/>Registry Discovered<br/>🎯 134ms"| SWARM_D1
+    SWARM_A1 -.->|"🟢 WebSocket Federation\nCross-Network Tasks\nRegistry Discovered\n📈 245ms"| SWARM_B1
+    SWARM_A2 -.->|"🟢 WebSocket Federation\nMemory Sync\nRegistry Discovered\n🧠 156ms"| SWARM_C1
+    SWARM_B2 -.->|"🟢 WebSocket Federation\nAnalytics Sharing\nRegistry Discovered\n📊 89ms"| SWARM_D1
+    SWARM_C1 -.->|"🟢 WebSocket Federation\nTask Distribution\nRegistry Discovered\n🎯 134ms"| SWARM_D1
 
     %% Live Federation Examples
     subgraph "📊 LIVE FEDERATION FLOWS"
-        TASK_FLOW["Task: 'ML Model Training'<br/>Alpha → Beta<br/>Status: 🟢 ACTIVE<br/>Progress: 67%<br/>ETA: 2.3s"]
-        MEMORY_FLOW["Memory: User Sessions<br/>Gamma → Delta<br/>Status: 🟢 SYNCING<br/>Transferred: 45MB<br/>Rate: 12MB/s"]
-        ANALYTICS_FLOW["Analytics: Performance<br/>Beta → Alpha<br/>Status: 🟢 STREAMING<br/>Metrics: CPU, Memory, Latency<br/>Frequency: 1Hz"]
+        TASK_FLOW["Task: 'ML Model Training'\nAlpha → Beta\nStatus: 🟢 ACTIVE\nProgress: 67%\nETA: 2.3s"]
+        MEMORY_FLOW["Memory: User Sessions\nGamma → Delta\nStatus: 🟢 SYNCING\nTransferred: 45MB\nRate: 12MB/s"]
+        ANALYTICS_FLOW["Analytics: Performance\nBeta → Alpha\nStatus: 🟢 STREAMING\nMetrics: CPU, Memory, Latency\nFrequency: 1Hz"]
     end
 
     %% Connection Legend
     subgraph "🎨 DYNAMIC CONNECTION LEGEND"
-        DISCOVERY_LEGEND["🔵 BLUE: Discovery Flows<br/>• UDP Broadcast (LAN)<br/>• HTTPS Registration (Global)<br/>• Live latency metrics"]
-        SECURITY_LEGEND["🔴 RED: Security Flows<br/>• API Key Validation<br/>• Permission Checks<br/>• Audit Logging<br/>• Real-time status"]
-        FEDERATION_LEGEND["🟢 GREEN: Task Sharing Flows<br/>• WebSocket Connections<br/>• Data Synchronization<br/>• Live throughput<br/>• Active transfers"]
+        DISCOVERY_LEGEND["🔵 BLUE: Discovery Flows\n• UDP Broadcast (LAN)\n• HTTPS Registration (Global)\n• Live latency metrics"]
+        SECURITY_LEGEND["🔴 RED: Security Flows\n• API Key Validation\n• Permission Checks\n• Audit Logging\n• Real-time status"]
+        FEDERATION_LEGEND["🟢 GREEN: Task Sharing Flows\n• WebSocket Connections\n• Data Synchronization\n• Live throughput\n• Active transfers"]
     end
 
     %% System Health Overview
     subgraph "💚 SYSTEM HEALTH OVERVIEW"
-        HEALTH_REGISTRY["Registry Health: 🟢 99.9% Uptime<br/>Response Time: 23ms<br/>Active Connections: 6"]
-        HEALTH_SECURITY["Security Status: 🟢 SECURE<br/>Failed Auth: 0/24h<br/>TLS Handshakes: 1,247"]
-        HEALTH_FEDERATION["Federation Status: 🟢 HEALTHY<br/>Active Links: 8/8<br/>Data Transferred: 2.3TB"]
+        HEALTH_REGISTRY["Registry Health: 🟢 99.9% Uptime\nResponse Time: 23ms\nActive Connections: 6"]
+        HEALTH_SECURITY["Security Status: 🟢 SECURE\nFailed Auth: 0/24h\nTLS Handshakes: 1,247"]
+        HEALTH_FEDERATION["Federation Status: 🟢 HEALTHY\nActive Links: 8/8\nData Transferred: 2.3TB"]
     end
 
     %% Styling with Dynamic States

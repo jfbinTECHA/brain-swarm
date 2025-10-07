@@ -1173,7 +1173,18 @@
 
             init() {
                 this.updateConnectionStatus('connecting');
-                this.showAuthModal();
+
+                // Check if authentication is disabled
+                const urlParams = new URLSearchParams(window.location.search);
+                const enableAuth = urlParams.get('ENABLE_AUTH') !== 'false';
+
+                if (enableAuth) {
+                    this.showAuthModal();
+                } else {
+                    this.authenticated = true;
+                    this.enableControls();
+                    this.logActivity('Authentication disabled - operating in demo mode');
+                }
             }
 
             setupEventListeners() {

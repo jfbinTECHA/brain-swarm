@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.coverage
+
+# Node / Next.js
+node_modules/
+.next/
+.vercel/
+out/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# OS / Editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Docker/Build
+dist/
+build/

@@ -1,0 +1,313 @@
+*** Begin Patch
+*** Add File: vercel.json
++{
++  "version": 2,
++  "framework": "nextjs",
++  "rootDirectory": "frontend",
++  "buildCommand": "npm run build",
++  "outputDirectory": ".next",
++ "ignoreCommand": "echo Ignoring non-frontend files at repo root"
++}*** Begin Patch
+*** Add File: .gitignore
++# Python
++__pycache__/
++*.py[cod]
++.pytest_cache/
++.venv/
++venv/
++.coverage
++
++# Node / Next.js
++node_modules/
++.next/
++.vercel/
++out/
++
++# Env & secrets
++.env
++.env.*
++!.env.example*** Begin Patch
+*** Add File: docker-compose.yml
++version: "3.9"
++
++services:
++  api:
++    build:
++      context: .
++      dockerfile: api/Dockerfile
++    container_name: brainswarm-api
++    ports:
++      - "8001:8001"
++    env_file:
++      - api/.env.example
++    environment:
++      - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/brainswarm
++      - REDIS_URL=redis://redis:6379/0
++    depends_on:
++      - db
++      - redis
++    healthcheck:
++      test: ["CMD", "curl", "-fsS", "http://localhost:8001/healthz"]
++      interval: 10s
++      timeout: 3s
++      retries: 10
++
++  frontend:
++    build:
++      context: .
++      dockerfile: frontend/Dockerfile
++    container_name: brainswarm-frontend
++    environment:
++      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
++    ports:
++      - "3000:3000"
++    depends_on:
++      api:
+        condition: service_healthy
++
++  db:
++    image: postgres:16
++    container_name: brainswarm-db
++    ports:
++      - "5432:5432"
++    environment:
++      - POSTGRES_USER=postgres
++      - POSTGRES_PASSWORD=postgres
++      - POSTGRES_DB=brainswarm
+    healthcheck:
++      test: ["CMD-SHELL", "pg_isready -U postgres"]
++      interval: 10s
++      timeout: 5s
++      retries: 10
++*** Begin Patch
+*** Add File: frontend/Dockerfile
++# Next.js production image
++FROM node:20-alpine AS deps
++WORKDIR /app
++COPY frontend/package*.json ./
++RUN npm ci
++
++FROM node:20-alpine AS build
++WORKDIR /app
++COPY --from=deps /app/node_modules ./node_modules
++COPY frontend/. .
++RUN npm run build*** Begin Patch
+*** Add File: api/Dockerfile*** Begin Patch*** Begin Patch
+*** Add File: api/app/__init__.py*** Begin Patch
+*** Add File: api/app/main.py
++from fastapi import FastAPI
++from prometheus_fastapi_instrumentator import Instrumentator
++import os
++
++app = FastAPI(title="Brain Swarm API")
++
++
++@app.get("/healthz")
++def healthz():
++    return {"status": "ok"}
++
++
++# Example "/gpt/meta" and "/gpt/supervise" stubs if routers not yet wired
++@app.get("/gpt/meta")
++def gpt_meta():
++    return {"meta": "Brain Swarm meta endpoint ready"}
++
++
++@app.get("/gpt/supervise")
++def gpt_supervise():*** Begin Patch
+*** Add File: .github/workflows/ci.yml
++name: ci
++on:
++  push:
++    branches: [ main ]
++  pull_request:
++    branches: [ main ]
++
++jobs:
++  build-and-lint:
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++
++      - name: Set up Node
++        uses: actions/setup-node@v4
++        with:
++          node-version: 20
++
++      - name: Frontend install
++        working-directory: frontend
++        run: |
++          if [ -f package.json ]; then npm ci; fi
++
++      - name: Frontend lint/build
++        if: ${{ hashFiles('frontend/package.json') != '' }}
++        working-directory: frontend
++        run: |
++          npm run -s build || (echo "Frontend build failed" && exit 1)
++
++      - name: Set up Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: '3.12'
++
++      - name: Backend install
++        working-directory: api
++        run: |
++          python -m pip install --upgrade pip
++          pip install -r requirements.txt
++
++      - name: Backend import check
++        working-directory: api
++        run: |
++          python - <<'PY'
++          import importlib
++          importlib.import_module("app.main")
++          print("OK: app.main importable")
++          PY
++
++      - name: Helm lint (if charts present)
++        run: |
++          if [ -d helm ]; then
++            curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
++            helm lint helm/* || true
++          fi
++
+*** End Patch
+*** Begin Patch
+*** Add File: helm/publish.sh
++#!/usr/bin/env bash
++set -euo pipefail
++
++# Publishes a Helm chart repo to GitHub Pages (gh-pages branch)
++# Assumes: you have chart sources under ./charts or ./brain-swarm and want to host at:
++#   https://jfbinTECHA.github.io/kilo-charts
++#
++# Steps:
++#  1) Package charts into ./.helm-repo
++#  2) Generate index.yaml with --url pointing to your GH Pages URL
++#  3) Commit & push to gh-pages
++
++REPO_URL="https://jfbinTECHA.github.io/kilo-charts"
++OUT_DIR=".helm-repo"
++
++rm -rf "$OUT_DIR"
++mkdir -p "$OUT_DIR"
++
++if [ -d charts ]; then
++  helm package charts/* -d "$OUT_DIR"
++elif [ -d brain-swarm ]; then
++  helm package brain-swarm -d "$OUT_DIR"
++else
++  echo "No charts/ or brain-swarm/ chart directory found under helm/"
++  exit 1# from the root of your repo
+git checkout -b chore/next-fastapi-compose-ci
+# save the diff above as brainswarm.patch
+git apply brainswarm.patch
+git add .
+git commit -m "Setup Next.js+FastAPI stack: compose, Vercel, CI, Helm publisher, .gitignore"
+git push -u origin chore/next-fastapi-compose-ci
+
++fi
++
++helm repo index "$OUT_DIR" --url "$REPO_URL"
++
++git fetch origin gh-pages || true
++git switch -c gh-pages origin/gh-pages 2>/dev/null || git checkout -b gh-pages
++mkdir -p kilo-charts
++cp -r "$OUT_DIR"/* kilo-charts/
++git add kilo-charts
++git commit -m "Publish Helm charts"
++git push -u origin gh-pages
++
++echo "Done. Ensure GitHub Pages is enabled for the repository and points to the gh-pages branch."
++
+*** End Patch
+
++    return {"supervise": "Brain Swarm supervise endpoint ready"}
++
++
++@app.on_event("startup")
++async def _startup():
++    # Prometheus metrics at /metrics
++    Instrumentator().instrument(app).expose(app)
++
+*** End Patch
+
++# makes app a package
++
+*** End Patch
+
+*** Add File: api/requirements.txt
++fastapi==0.115.0
++uvicorn[standard]==0.30.6*** Begin Patch
+*** Add File: api/.env.example
++# Example env for local/dev. Duplicate to .env and edit as needed.
++DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/brainswarm
++REDIS_URL=redis://localhost:6379/0
++OPENAI_API_KEY=sk-your-key
++
+*** End Patch
+
++prometheus-fastapi-instrumentator==6.1.0
++psycopg2-binary==2.9.9
++redis==5.0.8
++python-dotenv==1.0.1
++
+*** End Patch
+
++FROM python:3.12-slim
++WORKDIR /app
++
++# system deps
++RUN apt-get update && apt-get install -y --no-install-recommends curl build-essential && rm -rf /var/lib/apt/lists/*
++
++COPY api/requirements.txt /app/requirements.txt
++RUN pip install --no-cache-dir -r /app/requirements.txt
++
++COPY api /app
++ENV PORT=8001
++EXPOSE 8001
++CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
++
+*** End Patch
+
++
++FROM node:20-alpine AS runner
++WORKDIR /app
++ENV NODE_ENV=production
++COPY --from=build /app/.next ./.next
++COPY --from=build /app/public ./public
++COPY frontend/package*.json ./
++EXPOSE 3000
++CMD ["npm", "start"]
++
+*** End Patch
+
++  redis:
++    image: redis:7
++    container_name: brainswarm-redis
++    ports:
++      - "6379:6379"
++
++networks:
++  default:
++    name: brainswarm-net
++
+*** End Patch
+
++
++# OS / Editor
++.DS_Store
++*.swp
++.idea/
++.vscode/
++
++# Docker/Build
++dist/
++build/
++
+*** End Patch
+
++
+*** End Patch

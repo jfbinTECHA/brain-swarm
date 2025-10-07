@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 import importlib
 import inspect
 from dataclasses import dataclass
-from ..core.base import BaseAgent, AgentRole
+from core.base import BaseAgent, AgentRole
 from ..security.auth import verify_api_key
 
 

@@ -1,0 +1,157 @@
+/* Brain Swarm Documentation Custom Styles */
+
+/* Code block improvements */
+.highlight pre,
+.codehilite pre {
+    border-radius: 8px;
+    border: 1px solid var(--md-code-bg-color);
+}
+
+/* Custom admonition styles */
+.md-typeset .admonition {
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.md-typeset .admonition.important {
+    border-left-color: #ff6b35;
+}
+
+.md-typeset .admonition.note {
+    border-left-color: #4a90e2;
+}
+
+.md-typeset .admonition.warning {
+    border-left-color: #f5a623;
+}
+
+/* Table improvements */
+.md-typeset table:not([class]) {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.md-typeset table:not([class]) th {
+    background-color: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+}
+
+/* Button styles for interactive elements */
+.md-button {
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.md-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Custom navigation styles */
+.md-nav__link--active {
+    font-weight: 600;
+    color: var(--md-primary-fg-color) !important;
+}
+
+/* Footer improvements */
+.md-footer {
+    background: linear-gradient(135deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+}
+
+/* Search improvements */
+.md-search__input {
+    border-radius: 25px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.md-search__input:focus {
+    border-color: var(--md-accent-fg-color);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+/* Tab improvements */
+.md-tabs {
+    background: linear-gradient(135deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+}
+
+/* Animation for page transitions */
+.md-main__inner {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Custom logo animation */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+    transition: transform 0.3s ease;
+}
+
+.md-header__button.md-logo:hover img,
+.md-header__button.md-logo:hover svg {
+    transform: rotate(5deg) scale(1.05);
+}
+
+/* Code annotation improvements */
+.md-typeset .highlight span.c1 {
+    color: #6a737d;
+    font-style: italic;
+}
+
+/* Mermaid diagram styling */
+.mermaid {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.mermaid svg {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Responsive improvements */
+@media screen and (max-width: 76.1875em) {
+    .md-nav--primary .md-nav__title {
+        background: linear-gradient(135deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+    }
+}
+
+/* Dark mode improvements */
+[data-md-color-scheme="slate"] {
+    --md-code-bg-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-md-color-scheme="slate"] .highlight pre,
+[data-md-color-scheme="slate"] .codehilite pre {
+    background-color: var(--md-code-bg-color);
+}
+
+/* Print styles */
+@media print {
+    .md-nav,
+    .md-sidebar,
+    .md-footer,
+    .md-search,
+    .md-tabs {
+        display: none !important;
+    }
+
+    .md-main__inner {
+        margin: 0;
+        max-width: none;
+    }
+}

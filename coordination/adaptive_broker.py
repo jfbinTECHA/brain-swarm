@@ -13,7 +13,7 @@ import json
 import random
 from enum import Enum
 
-from ..core.base import logger
+from core.base import logger
 
 try:
     import torch

@@ -1,17 +1,17 @@
 from typing import Dict, List, Any, Optional
-from ..core.base import BaseAgent, AgentRole, Message, MessageType, Task, DebateResult, logger, metrics
-from ..analytics.predictive_analytics import (
+from core.base import BaseAgent, AgentRole, Message, MessageType, Task, DebateResult, logger, metrics
+from analytics.predictive_analytics import (
     TaskCompletionPredictor, MemoryBottleneckPredictor, FailurePredictor,
     task_completion_predictor, memory_bottleneck_predictor, failure_predictor
 )
-from ..analytics.self_tuning import (
+from analytics.self_tuning import (
     SelfTuningParameterManager, get_adaptive_reasoning_depth, get_adaptive_branch_limits,
     get_adaptive_retry_strategy, record_task_performance_for_tuning, get_self_tuning_status
 )
-from ..analytics.autonomous_goals import (
+from analytics.autonomous_goals import (
     initialize_autonomous_goals, generate_autonomous_goals, get_goal_statistics
 )
-from ..security.policy_layer import (
+from security.policy_layer import (
     PolicyEngine, evaluate_task_policy, check_ethical_alignment,
     get_governance_status, report_policy_violation
 )
@@ -1292,7 +1292,7 @@ class RetryManager:
         self._update_circuit_breaker(agent_id, error_details)
 
         # Log retry attempt
-        from ..core.base import logger
+        from core.base import logger
         logger.log("WARNING", "RetryManager", f"Task retry attempt: {task_id} on agent {agent_id}",
                   {"attempt": retry_record['attempt_number'], "error": error_details.get('error_type', 'unknown')})
 
@@ -1381,7 +1381,7 @@ class RetryManager:
             state['status'] = 'open'
             state['opened_at'] = time.time()
 
-            from ..core.base import logger
+            from core.base import logger
             logger.log("ERROR", "RetryManager", f"Circuit breaker opened for agent {agent_id}",
                       {"failure_count": state['failure_count'], "threshold": state['failure_threshold']})
 
@@ -1397,7 +1397,7 @@ class RetryManager:
                 state['status'] = 'closed'
                 state['failure_count'] = 0
 
-                from ..core.base import logger
+                from core.base import logger
                 logger.log("INFO", "RetryManager", f"Circuit breaker closed for agent {agent_id}",
                           {"success_count": state['success_count']})
 
@@ -1959,7 +1959,7 @@ class SwarmCoordinator(BaseAgent):
             }
 
             # Log subtask delegation with predictive control info
-            from ..core.base import logger
+            from core.base import logger
             delegation_metadata = {
                 "subtask_type": "single",
                 "coordinator_decision": True,
@@ -1967,7 +1967,7 @@ class SwarmCoordinator(BaseAgent):
                 "rerouting_reason": rerouting_decision.get('reason', None)
             }
 
-            from ..core.base import logger
+            from core.base import logger
             logger.log_subtask(subtask_id, parent_task_id, assigned_agent,
                                f"Delegated: {subtask_desc[:50]}...", "assigned", priority,
                                delegation_metadata)
@@ -2906,7 +2906,7 @@ class DynamicLoadBalancer:
             self.coordinator.send_message(to_agent, MessageType.TASK_ASSIGNMENT, {"task": task_obj})
 
             # Log the redistribution
-            from ..core.base import logger
+            from core.base import logger
             logger.log("INFO", "DynamicLoadBalancer", f"Task redistributed: {from_agent} -> {to_agent}",
                         {"task_id": task_id, "reason": "load_balancing"})
 
