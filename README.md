@@ -1,5 +1,5 @@
 # 🧠 Brain Swarm
-
+WORK HAS STOPPED BIG TECH blame them
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/jfbinTECHA/brain-swarm/releases)
 [![Helm Chart](https://img.shields.io/badge/helm-brain--swarm--ops%20v1.0.0-blue)](https://github.com/jfbinTECHA/brain-swarm/pkgs/container/brain-swarm)
 [![Docker](https://img.shields.io/badge/docker-jfbintecha%2Fbrain--swarm-blue)](https://hub.docker.com/r/jfbintecha/brain-swarm)
