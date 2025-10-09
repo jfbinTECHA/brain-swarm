@@ -1,0 +1,22 @@
+[Unit]
+Description=Bytebot Sensor Agent for BrainSwarmOps
+After=default.target
+
+[Service]
+# Path to Python interpreter and agent
+ExecStart=/home/sysop/brainswarm/venv/bin/python /home/sysop/brainswarm/agents/bytebot_sensor.py
+# Restart on crash or OOM
+Restart=always
+RestartSec=5
+# Gentle scheduling to avoid hogging CPU
+Nice=10
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
+# Lower priority and environment
+Environment="PYTHONUNBUFFERED=1"
+# Log file
+StandardOutput=append:/home/sysop/brainswarm/logs/bytebot.log
+StandardError=append:/home/sysop/brainswarm/logs/bytebot.log
+
+[Install]
+WantedBy=default.target

@@ -8,6 +8,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+import redis
+
+_r = redis.from_url("redis://localhost:6379", decode_responses=True)
+
+from ..memory.edge_tracker import get_edges
+
 # ---- Optional Redis (graceful if missing) ----
 try:
     import redis.asyncio as aioredis  # type: ignore
@@ -251,3 +257,61 @@ async def get_state():
 async def ws_dashboard(socket: WebSocket):
     await hub.register(socket)
     await hub.pump(socket)
+
+@router.get("/edges")
+async def dashboard_edges():
+    """Return all known edges with weights for visualization."""
+    return {"edges": get_edges()}
+
+# New: sensor feed endpoint
+@router.get("/sensors")
+async def get_sensor_stats():
+    """
+    Return the latest system metrics from Bytebot Sensor Agent.
+    """
+    metrics = {}
+    try:
+        # fetch last ~100 events and pick newest of each metric
+        stream = list(_r.xrevrange("sensor_stream", count=100))
+        for _id, data in stream:
+            m = data.get("metric")
+            if m and m not in metrics:
+                metrics[m] = float(data.get("value", 0))
+    except Exception as e:
+        metrics["error"] = str(e)
+    return metrics
+
+
+# === Cognitive focus endpoint ===
+import json
+
+@router.get("/focus")
+async def get_focus():
+    """Return the latest cognitive focus stored in Redis."""
+    val = _r.get("current_focus")
+    return json.loads(val) if val else {"focus": None, "confidence": 0}
+
+# === Timeline endpoint ===
+import duckdb
+from typing import List, Dict, Any
+
+@router.get("/timeline")
+async def get_timeline(limit: int = 50):
+    """Return recent cognitive cycles from DuckDB."""
+    try:
+        db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "cognitive.duckdb"))
+        conn = duckdb.connect(db_path)
+        rows = conn.execute(f"SELECT * FROM cognitive_timeline ORDER BY ts DESC LIMIT {limit}").fetchall()
+        cycles = []
+        for row in rows:
+            ts, focus, confidence, related_json, actions_json = row
+            cycles.append({
+                "ts": ts,
+                "focus": focus,
+                "confidence": confidence,
+                "related": json.loads(related_json) if related_json else [],
+                "actions": json.loads(actions_json) if actions_json else []
+            })
+        return {"cycles": cycles}
+    except Exception as e:
+        return {"cycles": [], "error": str(e)}
