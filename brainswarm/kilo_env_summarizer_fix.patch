@@ -1,0 +1,24 @@
+diff --git a/.env b/.env
+index 1234567..89abcde 100644
+--- a/.env
++++ b/.env
+@@
+ # === Cortex Summarizer Configuration ===
+ REDIS_URL=redis://localhost:6379
+ CHROMA_URL=http://localhost:8000
+ DUCKDB_PATH=/home/sysop/brainswarm/data/cortex.duckdb
+ S3_BUCKET=brainswarm-cortex
+
+ # Optional fine-tuning
+-SUMMARIZATION_INTERVAL=300               # Run summarization every 300s (5 min)
+-EMBEDDING_MODEL=text-embedding-3-large
+-CORTEX_MODE=live
++SUMMARIZATION_INTERVAL=300
++EMBEDDING_MODEL=text-embedding-3-large
++CORTEX_MODE=live
++
++# --- Cortex Summarizer Notes ---
++# • Integers must be plain values (no comments or trailing spaces)
++# • Use separate comment lines starting with '#'
++# • This prevents type parsing errors in Pydantic Settings
++# • Typical refresh interval is 300 seconds (5 minutes)

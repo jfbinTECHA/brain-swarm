@@ -1,0 +1,22 @@
+# brainswarm.analytics.predictive_analytics
+# Temporary stub for predictive analytics module
+
+class TaskCompletionPredictor:
+    """Stub for task completion time/likelihood prediction."""
+
+    def __init__(self):
+        self.model_name = "stubbed_predictor"
+
+    def predict(self, task_data=None):
+        # Return dummy prediction to keep coordinator working
+        return {"predicted_time": 0, "confidence": 0.0, "status": "stubbed"}
+
+def predict_agent_behavior(agent_data=None):
+    return {"prediction": "N/A", "status": "stubbed"}
+
+def forecast_system_load(metrics=None):
+    return {"forecast": "neutral", "confidence": 0.0}
+
+def detect_anomalies(data=None):
+    return {"anomalies": [], "status": "stubbed"}
+

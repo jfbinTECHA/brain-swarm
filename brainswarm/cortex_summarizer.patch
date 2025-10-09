@@ -1,0 +1,55 @@
+diff --git a/cortex/config.py b/cortex/config.py
+index 0000000..1111111 100644
+--- a/cortex/config.py
++++ b/cortex/config.py
+@@
+ class CortexSettings(BaseSettings):
+     redis_url: str
+     chroma_url: str
+     duckdb_path: str
+     s3_bucket: str
+     summarization_interval: int = 300
+     embedding_model: str = "text-embedding-3-large"
+     cortex_mode: str = "live"
+
+     class Config:
+-        env_file = ".env"
++        # ✅ Updated to explicitly load system-wide .env for BrainSwarm
++        env_file = "/home/sysop/brainswarm/.env"
++        env_file_encoding = "utf-8"
+
+diff --git a/services/brainswarm-summarizer.service b/services/brainswarm-summarizer.service
+new file mode 100644
+--- /dev/null
++++ b/services/brainswarm-summarizer.service
+@@
++ [Unit]
++ Description=BrainSwarm Cortex Summarizer
++ After=network.target redis.service
++
++ [Service]
++ Type=simple
++ WorkingDirectory=/home/sysop/brainswarm
++ EnvironmentFile=/home/sysop/brainswarm/.env
++ ExecStart=/usr/bin/python3 -m cortex.summarizer
++ Restart=always
++ RestartSec=10
++ User=sysop
++ StandardOutput=append:/home/sysop/brainswarm/logs/summarizer.log
++ StandardError=append:/home/sysop/brainswarm/logs/summarizer.err
++
++ [Install]
++ WantedBy=multi-user.target
+
+diff --git a/.env b/.env
+index 0000000..2222222 100644
+--- a/.env
++++ b/.env
+@@
++ REDIS_URL=redis://localhost:6379
++ CHROMA_URL=http://localhost:8000
++ DUCKDB_PATH=/home/sysop/brainswarm/data/cortex.duckdb
++ S3_BUCKET=brainswarm-cortex
++ SUMMARIZATION_INTERVAL=300
++ EMBEDDING_MODEL=text-embedding-3-large
++ CORTEX_MODE=live
