@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# =====================================================================
+# 🧠  LOCAL KILO EMULATOR
+# ---------------------------------------------------------------------
+# Emulates the real kilo-cli behavior for local testing & ops workflows.
+# Executes any provided YAML or Bash workflow file directly.
+# =====================================================================
+
+set -e
+
+# Ensure "run" argument and workflow path exist
+if [[ "$1" == "run" && -n "$2" ]]; then
+  WORKFLOW="$2"
+  if [[ -f "$WORKFLOW" ]]; then
+    echo "🔧 Emulating Kilo execution: $WORKFLOW"
+    # Determine interpreter: YAML (bash shebang) or JSON (jq parser)
+    if head -n 1 "$WORKFLOW" | grep -qE '^#!'; then
+      bash "$WORKFLOW"
+    else
+      echo "⚙️  Workflow appears to be YAML; running via bash for compatibility..."
+      bash "$WORKFLOW"
+    fi
+  else
+    echo "❌ Workflow not found: $WORKFLOW"
+    exit 1
+  fi
+else
+  echo "Usage: kilo run <workflow.yml>"
+  echo "Example: kilo run workflows/summarizer_health_check.yml"
+  exit 1
+fi
+
+exit 0

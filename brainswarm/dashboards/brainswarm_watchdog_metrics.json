@@ -1,0 +1,108 @@
+{
+  "id": null,
+  "title": "🧠 BrainSwarm Cortex Watchdog Metrics",
+  "tags": ["brainswarm", "watchdog", "metrics"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "style": "dark",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Watchdog Uptime (seconds)",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "brainswarm_watchdog_uptime_seconds",
+          "legendFormat": "Uptime"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {"mode": "continuous-BlYlRd"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 3600}]}
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total Config Changes Detected",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "brainswarm_watchdog_config_changes_total"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "red", "value": 5}]}
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Summarizer Restart Count",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "brainswarm_watchdog_restarts_total"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [{"color": "green", "value": null}, {"color": "orange", "value": 3}, {"color": "red", "value": 10}]}
+        }
+      }
+    },
+    {
+      "type": "graph",
+      "title": "Watchdog Restart Trend",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 6},
+      "targets": [
+        {
+          "expr": "rate(brainswarm_watchdog_restarts_total[5m])",
+          "legendFormat": "Restart Rate (5m avg)"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "type": "graph",
+      "title": "Configuration Changes Over Time",
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 6},
+      "targets": [
+        {
+          "expr": "increase(brainswarm_watchdog_config_changes_total[15m])",
+          "legendFormat": "Config Changes (15m)"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "type": "gauge",
+      "title": "Overall Watchdog Health",
+      "gridPos": {"x": 0, "y": 10, "w": 24, "h": 4},
+      "targets": [
+        {
+          "expr": "1 - rate(brainswarm_watchdog_restarts_total[15m])",
+          "legendFormat": "Stability Index"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {"mode": "continuous-GrYlRd"},
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": 0.8},
+              {"color": "orange", "value": 0.6},
+              {"color": "red", "value": 0.4}
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "annotations": {"list": []}
+}

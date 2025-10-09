@@ -1,0 +1,19 @@
+[Unit]
+Description=BrainSwarmOps Unified AI Stack
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sysop/brainswarm
+Environment="PYTHONPATH=/home/sysop"
+ExecStartPre=/usr/bin/docker compose -f docker/brainswarm-stack.yml up -d redis chroma
+ExecStart=/home/sysop/brainswarm/venv/bin/python -m uvicorn brainswarm.main:app --host 0.0.0.0 --port 8001
+ExecStartPost=/home/sysop/brainswarm/venv/bin/python -m brainswarm.cortex.summarizer --run
+Restart=always
+User=sysop
+StandardOutput=append:/var/log/brainswarm/stack.log
+StandardError=append:/var/log/brainswarm/stack.err
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=BrainSwarm Ngrok Tunnel
+After=network.target brainswarm-coder.service
+Requires=brainswarm-coder.service
+
+[Service]
+Type=simple
+User=sysop
+ExecStart=/home/sysop/brainswarm/ops/scripts/ngrok-reset.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

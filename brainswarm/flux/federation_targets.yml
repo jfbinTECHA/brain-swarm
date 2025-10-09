@@ -1,0 +1,36 @@
+# =====================================================================
+# 🧠 Prometheus Federation Configuration
+# ---------------------------------------------------------------------
+#  This file defines remote Cortex nodes that participate in
+#  multi-node BrainSwarmOps federation. Each target exposes metrics
+#  at port 9201 (watchdog) or 9090 (Prometheus).
+# =====================================================================
+
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: 'brainswarm_local'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'brainswarm_nodes'
+    honor_labels: true
+    static_configs:
+      - targets:
+          - 'ai-node-1.local:9201'
+          - 'ai-node-2.local:9201'
+          - 'ai-node-3.local:9201'
+
+  - job_name: 'federated_prometheus'
+    metrics_path: '/federate'
+    honor_labels: true
+    params:
+      'match[]':
+        - '{job="brainswarm_nodes"}'
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance

@@ -1,0 +1,50 @@
+{
+  "title": "🧠 BrainSwarm Cortex Summarizer Metrics",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "time": {"from": "now-30m", "to": "now"},
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Summarization Cycles Completed",
+      "targets": [
+        {"expr": "increase(brainswarm_summarizer_cycles_total[5m])", "legendFormat": "Cycles per 5m"}
+      ],
+      "lines": true,
+      "yaxes": [{"format": "short"}, {"format": "short"}]
+    },
+    {
+      "type": "graph",
+      "title": "Summarization Failures",
+      "targets": [
+        {"expr": "increase(brainswarm_summarizer_failures_total[5m])", "legendFormat": "Failures per 5m"}
+      ],
+      "lines": true,
+      "color": "red",
+      "yaxes": [{"format": "short"}, {"format": "short"}]
+    },
+    {
+      "type": "heatmap",
+      "title": "Cycle Duration Histogram (seconds)",
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum(rate(brainswarm_summarizer_cycle_duration_seconds_bucket[5m])) by (le))", "legendFormat": "95th Percentile"}
+      ],
+      "xaxis": {"show": true},
+      "yaxis": {"format": "s"}
+    },
+    {
+      "type": "stat",
+      "title": "Summarizer Uptime (s)",
+      "targets": [
+        {"expr": "time() - process_start_time_seconds{job=\"brainswarm-summarizer\"}", "legendFormat": "Uptime"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green"}]}
+        }
+      }
+    }
+  ]
+}

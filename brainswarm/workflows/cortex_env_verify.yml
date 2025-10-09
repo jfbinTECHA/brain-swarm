@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# =====================================================================
+# 🧠  BRAINSWARM CORTEX ENVIRONMENT VERIFICATION WORKFLOW
+# ---------------------------------------------------------------------
+# Validates that cortex/config.py can load all required environment
+# variables from /home/sysop/brainswarm/.env without errors.
+# Logs results to logs/cortex_env_verify.log
+# =====================================================================
+
+set -e
+
+LOG_DIR="/home/sysop/brainswarm/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/cortex_env_verify.log"
+
+echo "🔍 Verifying Cortex environment configuration..." | tee "$LOG_FILE"
+
+source /home/sysop/brainswarm/venv/bin/activate
+
+python3 - <<'PYCODE' 2>&1 | tee -a "$LOG_FILE"
+from brainswarm.cortex.config import settings
+print("✅ Loaded CortexSettings successfully")
+for field, value in settings.model_dump().items():
+    print(f" - {field} = {value}")
+print("\nEnvironment verification completed successfully.")
+PYCODE
+
+echo "🏁 Cortex environment verification complete. Log saved at $LOG_FILE"
