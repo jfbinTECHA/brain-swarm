@@ -1,30 +1,30 @@
 from fastapi import FastAPI
-from brainswarm.api.main import app as brain_app  # Import the existing Brain Swarm API
+from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
+import os
+from .routers import health
+from .routes import dashboard as dashboard_routes
 
-app = FastAPI(
-    title="Brain Swarm Federation",
-    description="Multi-Agent Swarm Intelligence System",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+app = FastAPI(title="BrainSwarm API", version="0.2.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
+
+app.include_router(health.router, prefix="/health", tags=["health"])
+app.include_router(dashboard_routes.router, prefix="/dashboard", tags=["dashboard"])
 
 @app.get("/")
 def root():
-    return {"message": "Brain Swarm Federation is alive!"}
+    return {"message": "BrainSwarm API online"}
 
-# Mount the existing Brain Swarm API
-try:
-    app.mount("/api", brain_app)
-    print("✅ Brain Swarm API mounted at /api")
-except Exception as e:
-    print(f"⚠️  Could not mount Brain Swarm API: {e}")
-    print("   Make sure the api module is available")
-
-if __name__ == "__main__":
-    import uvicorn
-    print("🚀 Starting Brain Swarm Federation...")
-    print("📖 API Documentation: http://localhost:8000/docs")
-    print("🔄 ReDoc: http://localhost:8000/redoc")
-    print("💚 Health Check: http://localhost:8000/api/health")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.get("/metrics")
+def metrics():
+    # Basic single-process export. If you use Gunicorn workers,
+    # switch to multiprocess mode per prometheus_client docs.
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
