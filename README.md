@@ -6,9 +6,7 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/jfbinTECHA/brain-swarm/ci.yml)](https://github.com/jfbinTECHA/brain-swarm/actions)
 [![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://jfbintecha.github.io/brain-swarm/)
 
-**Brain Swarm** is a modular, swarm-intelligence AI framework designed to coordinate multiple agents across distributed environments.
-It’s the foundation for Joseph Buzzell’s *Zeta AI / Kilo Code / Nomi Bridge* ecosystem — built for research, DevOps automation, and real-time adaptive reasoning.
-Note: I am x service pstd so to be honest on a fixed income once I am able to save up for the hardware this needs till bring it online and continue with roadmap toward congnition.
+Note: Project on hold on fixed income prior service ptsd : once hardware is achieved will continue on roadmap to cognition
 ---
 <p align="center">
   <img src="https://github.com/jfbinTECHA/brain-swarm/assets/brain.png" width="100%" alt="Brain Swarm Banner"/>
