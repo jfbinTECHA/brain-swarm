@@ -7,7 +7,7 @@ help:  ## Show this help message
 
 # Start services
 up:  ## Start docker stack
-	cd infra && docker compose up -d
+	docker compose -f infra/docker-compose.yml up -d
 	@echo "Services started. Access:"
 	@echo "  Grafana: http://localhost:3000"
 	@echo "  API: http://localhost:8001/docs"
@@ -15,7 +15,7 @@ up:  ## Start docker stack
 
 # Stop services
 down:  ## Stop stack
-	cd infra && docker compose down
+	docker compose -f infra/docker-compose.yml down
 
 # Show status
 status:  ## Check service health
@@ -28,30 +28,33 @@ status:  ## Check service health
 
 # Follow logs
 logs:  ## Follow service logs
-	cd infra && docker compose logs -f
+	docker compose -f infra/docker-compose.yml logs -f
 
 # Clean rebuild
 clean:  ## Remove containers and volumes, rebuild
-	cd infra && docker compose down -v --remove-orphans
-	cd infra && docker compose up -d --build
+	docker compose -f infra/docker-compose.yml down -v --remove-orphans
+	docker compose -f infra/docker-compose.yml up -d --build
 
 # Build services
 build:  ## Build docker images
-	cd infra && docker compose build
+	docker compose -f infra/docker-compose.yml build
 
 # Restart services
 restart:  ## Restart all services
-	cd infra && docker compose restart
+	docker compose -f infra/docker-compose.yml restart
 
 # Run tests
 test:  ## Run test suite
-	pytest tests/ -v
+	pytest -v
 
 # Lint code
 lint:  ## Lint Python code
-	ruff check backend/
-	ruff format --check backend/
+	ruff check .
 
 # Security scan
 sbom:  ## Generate SBOM and security scan
-	trivy fs --format table --output trivy-report.md .
+	trivy fs .
+
+# Fix code style
+fix:  ## Auto-fix code style issues
+	ruff check . --fix && black . && isort .
