@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🧹 Clean cache & backup files",
+      "type": "shell",
+      "command": "git rm -r --cached __pycache__ .pytest_cache *.db *.duckdb *.log *.save* || true && rm -rf __pycache__ .pytest_cache *.db *.duckdb *.log *.save* && git add . && git commit -m 'chore: clean cache and backup files' || echo 'No cache files to clean'"
+    },
+    {
+      "label": "🧱 Reorganize repository structure",
+      "type": "shell",
+      "command": "mkdir -p docs infra tests .github/workflows && mv docker-compose.yml infra/ 2>/dev/null || true && git add . && git commit -m 'chore(structure): reorganize repo into infra/docs/tests folders' || echo 'Structure already clean'"
+    },
+    {
+      "label": "🧩 Set up CI & test scaffold",
+      "type": "shell",
+      "command": "mkdir -p .github/workflows tests && echo 'def test_placeholder(): assert True' > tests/test_api.py && echo 'name: CI\\non: [push, pull_request]\\njobs:\\n  build:\\n    runs-on: ubuntu-latest\\n    steps:\\n      - uses: actions/checkout@v4\\n      - name: Set up Python\\n        uses: actions/setup-python@v5\\n        with:\\n          python-version: 3.12\\n      - name: Install dependencies\\n        run: pip install -r backend/requirements.txt pytest ruff black isort\\n      - name: Lint and test\\n        run: |\\n          ruff check .\\n          pytest -v' > .github/workflows/ci.yml && git add . && git commit -m 'ci: add workflow and test scaffold' || echo 'CI already configured'"
+    },
+    {
+      "label": "🚀 Push & Tag v0.2-prep",
+      "type": "shell",
+      "command": "git push origin main || git push origin master && git tag -a v0.2-prep -m 'Repository cleanup and structure reorganization' && git push origin v0.2-prep || echo 'Tag already exists'"
+    },
+    {
+      "label": "🔍 Verify GitHub Actions pipeline status",
+      "type": "shell",
+      "command": "curl -s https://api.github.com/repos/jfbinTECHA/brain-swarm/actions/runs?per_page=1 | grep -E 'status|conclusion' || echo 'Unable to fetch workflow status'"
+    },
+    {
+      "label": "🧰 Full Cleanup Routine",
+      "dependsOn": [
+        "🧹 Clean cache & backup files",
+        "🧱 Reorganize repository structure",
+        "🧩 Set up CI & test scaffold",
+        "🚀 Push & Tag v0.2-prep",
+        "🔍 Verify GitHub Actions pipeline status"
+      ],
+      "dependsOrder": "sequence"
+    }
+  ]
+}
