@@ -7,7 +7,7 @@ help:  ## Show this help message
 
 # Start services
 up:  ## Start docker stack
-	docker compose up -d
+	cd infra && docker compose up -d
 	@echo "Services started. Access:"
 	@echo "  Grafana: http://localhost:3000"
 	@echo "  API: http://localhost:8001/docs"
@@ -15,7 +15,7 @@ up:  ## Start docker stack
 
 # Stop services
 down:  ## Stop stack
-	docker compose down
+	cd infra && docker compose down
 
 # Show status
 status:  ## Check service health
@@ -28,20 +28,20 @@ status:  ## Check service health
 
 # Follow logs
 logs:  ## Follow service logs
-	docker compose logs -f
+	cd infra && docker compose logs -f
 
 # Clean rebuild
 clean:  ## Remove containers and volumes, rebuild
-	docker compose down -v --remove-orphans
-	docker compose up -d --build
+	cd infra && docker compose down -v --remove-orphans
+	cd infra && docker compose up -d --build
 
 # Build services
 build:  ## Build docker images
-	docker compose build
+	cd infra && docker compose build
 
 # Restart services
 restart:  ## Restart all services
-	docker compose restart
+	cd infra && docker compose restart
 
 # Run tests
 test:  ## Run test suite
