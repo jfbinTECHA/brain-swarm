@@ -8,9 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies for C++ compilation
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -29,4 +31,4 @@ USER app
 EXPOSE 8000
 
 # Run the application
-CMD ["python", "-m", "api.main"]
+CMD ["python", "-m", "backend.main"]

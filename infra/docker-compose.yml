@@ -6,7 +6,7 @@ version: '3.8'
 
 services:
   brain-swarm-api:
-    build: .
+    build: ..
     ports:
       - "${NODE__PORT:-8000}:8000"
     environment:
@@ -33,7 +33,7 @@ services:
       - SCALABILITY__AUTO_SCALING_ENABLED=${SCALABILITY__AUTO_SCALING_ENABLED:-false}
     volumes:
       - ./data:/app/data
-      - ./.env:/app/.env:ro
+      - ../.env:/app/.env:ro
     depends_on:
       - redis
     networks:
@@ -41,9 +41,9 @@ services:
     restart: unless-stopped
 
   brain-swarm-operations:
-    build: .
+    build: ..
     ports:
-      - "8001:8001"
+      - "8003:8001"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - NODE__NODE_NAME=${NODE__NODE_NAME:-brain_swarm_operations}
@@ -65,7 +65,7 @@ services:
       - SCALABILITY__AUTO_SCALING_ENABLED=${SCALABILITY__AUTO_SCALING_ENABLED:-false}
     volumes:
       - ./data:/app/data
-      - ./.env:/app/.env:ro
+      - ../.env:/app/.env:ro
     command: ["python", "run_operations_server.py"]
     depends_on:
       - redis
@@ -101,7 +101,7 @@ services:
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
     ports:
-      - "8001:8000"
+      - "8002:8000"
     environment:
       - CHROMA_SERVER_HOST=0.0.0.0
       - CHROMA_SERVER_HTTP_PORT=8000
