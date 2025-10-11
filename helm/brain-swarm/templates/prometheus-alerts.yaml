@@ -1,0 +1,14 @@
+{{- if .Values.cortex.enabled }}
+{{- if .Values.monitoring.prometheus.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-cortex-alerts
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus-alerts
+data:
+  cortex-alerts.yaml: |
+{{ .Files.Get "alerts/cortex-alerts.yaml" | indent 4 }}
+{{- end }}
+{{- end }}

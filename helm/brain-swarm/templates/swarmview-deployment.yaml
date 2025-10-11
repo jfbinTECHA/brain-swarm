@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmview
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmview
+spec:
+  replicas: {{ .Values.swarmview.replicas }}
+  selector:
+    matchLabels:
+      {{- include "brain-swarm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: swarmview
+  template:
+    metadata:
+      labels:
+        {{- include "brain-swarm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: swarmview
+    spec:
+      containers:
+        - name: swarmview
+          image: "{{ .Values.swarmview.image.repository }}:{{ .Values.swarmview.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.swarmview.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.swarmview.service.port }}
+              protocol: TCP
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-cortex-secrets
+                  key: redis_url
+            - name: API_URL
+              value: "http://{{ include "brain-swarm.fullname" . }}-api:{{ .Values.api.service.port }}"
+            - name: CORTEX_CHROMA_HOST
+              value: {{ include "brain-swarm.fullname" . }}-chroma
+            - name: CORTEX_DUCKDB_PATH
+              value: "/data/cortex.duckdb"
+          volumeMounts:
+            - name: cortex-data
+              mountPath: /data
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 10 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.swarmview.resources | nindent 12 }}
+      volumes:
+        - name: cortex-data
+          persistentVolumeClaim:
+            claimName: {{ include "brain-swarm.fullname" . }}-cortex-data
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 6 }}
+        {{- end }}
+      {{- with .Values.swarmview.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.swarmview.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.swarmview.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

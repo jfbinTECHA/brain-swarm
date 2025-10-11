@@ -1,0 +1,88 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-cortex-summarizer
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cortex-summarizer
+spec:
+  schedule: {{ .Values.cortex.summarizer.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.cortex.summarizer.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cortex.summarizer.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "brain-swarm.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: cortex-summarizer
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: summarizer
+              image: "{{ .Values.global.imageRegistry }}{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+              command: ["python", "-m", "cortex.scheduled_summarizer"]
+              env:
+                - name: REDIS_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-cortex-secrets
+                      key: redis_url
+                - name: OPENAI_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-cortex-secrets
+                      key: openai_api_key
+                - name: CORTEX_S3_BUCKET
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-cortex-secrets
+                      key: s3_bucket
+                - name: CORTEX_S3_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-cortex-secrets
+                      key: s3_region
+                - name: CORTEX_S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-cortex-secrets
+                      key: s3_access_key
+                - name: CORTEX_S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "brain-swarm.fullname" . }}-cortex-secrets
+                      key: s3_secret_key
+                - name: CORTEX_CHROMA_HOST
+                  value: {{ include "brain-swarm.fullname" . }}-chroma
+                - name: CORTEX_DUCKDB_PATH
+                  value: "/data/cortex.duckdb"
+                - name: CORTEX_FAISS_INDEX_PATH
+                  value: "/data/faiss.index"
+              volumeMounts:
+                - name: cortex-data
+                  mountPath: /data
+                {{- with .Values.extraVolumeMounts }}
+                {{- toYaml . | nindent 12 }}
+                {{- end }}
+          volumes:
+            - name: cortex-data
+              persistentVolumeClaim:
+                claimName: {{ include "brain-swarm.fullname" . }}-cortex-data
+            {{- with .Values.extraVolumes }}
+            {{- toYaml . | nindent 8 }}
+            {{- end }}
+          {{- with .Values.api.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+          {{- with .Values.api.affinity }}
+          affinity:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+          {{- with .Values.api.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}

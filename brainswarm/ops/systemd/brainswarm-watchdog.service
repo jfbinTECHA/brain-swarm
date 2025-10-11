@@ -1,0 +1,16 @@
+[Unit]
+Description=BrainSwarm Cortex Environment Watchdog
+After=network.target redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sysop/brainswarm
+ExecStart=/bin/bash /home/sysop/brainswarm/workflows/cortex_env_watchdog.yml
+Restart=always
+RestartSec=10
+User=sysop
+StandardOutput=append:/home/sysop/brainswarm/logs/config_watchdog.log
+StandardError=append:/home/sysop/brainswarm/logs/config_watchdog.log
+
+[Install]
+WantedBy=multi-user.target

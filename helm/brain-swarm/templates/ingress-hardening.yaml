@@ -1,0 +1,109 @@
+# ---------- NGINX Hardening (if using NGINX Ingress) ----------
+{{- if and .Values.bridge.ingress.enabled (eq .Values.bridge.ingress.className "nginx") }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-bridge-secure
+  labels:
+    app.kubernetes.io/name: bridge
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+    # ---- Rate limit & allow-list ----
+    nginx.ingress.kubernetes.io/limit-rpm: "{{ .Values.bridge.ingress.security.rateRPM | default 30 }}"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "{{ .Values.bridge.ingress.security.burstMultiplier | default 2 }}"
+    nginx.ingress.kubernetes.io/limit-whitelist: "{{ join \",\" .Values.bridge.ingress.security.allowCidrs }}"
+    # Optional: quick header gates (block empty UA or missing signature)
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($http_user_agent = "") { return 403; }
+      if ($http_x_hub_signature_256 = "") { return 403; }
+
+spec:
+  tls:
+    - hosts: [ {{ .Values.bridge.ingress.host | quote }} ]
+      secretName: {{ .Values.bridge.ingress.tlsSecretName }}
+  rules:
+    - host: {{ .Values.bridge.ingress.host }}
+      http:
+        paths:
+          - path: /gh-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-bridge
+                port: { number: 80 }
+          - path: /jira-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-bridge
+                port: { number: 80 }
+          - path: /servicenow-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-bridge
+                port: { number: 80 }
+{{- end }}
+
+---
+
+# ---------- Traefik Middleware + IngressRoute (if using Traefik) ----------
+{{- if and .Values.bridge.ingress.enabled (eq .Values.bridge.ingress.className "traefik") }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-bridge-rl
+spec:
+  rateLimit:
+    average: {{ .Values.bridge.ingress.security.rateRPS | default 5 }}
+    burst: {{ .Values.bridge.ingress.security.burst | default 10 }}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-bridge-ipwl
+spec:
+  ipWhiteList:
+    sourceRange:
+      {{- range .Values.bridge.ingress.security.allowCidrs }}
+      - {{ . | quote }}
+      {{- end }}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-bridge-ing
+spec:
+  entryPoints: [ websecure ]
+  routes:
+    - match: Host(`{{ .Values.bridge.ingress.host }}`) && PathPrefix(`/gh-webhook`)
+      kind: Rule
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-bridge
+          port: 80
+      middlewares:
+        - name: {{ include "brain-swarm.fullname" . }}-bridge-rl
+        - name: {{ include "brain-swarm.fullname" . }}-bridge-ipwl
+    - match: Host(`{{ .Values.bridge.ingress.host }}`) && PathPrefix(`/jira-webhook`)
+      kind: Rule
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-bridge
+          port: 80
+      middlewares:
+        - name: {{ include "brain-swarm.fullname" . }}-bridge-rl
+        - name: {{ include "brain-swarm.fullname" . }}-bridge-ipwl
+    - match: Host(`{{ .Values.bridge.ingress.host }}`) && PathPrefix(`/servicenow-webhook`)
+      kind: Rule
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-bridge
+          port: 80
+      middlewares:
+        - name: {{ include "brain-swarm.fullname" . }}-bridge-rl
+        - name: {{ include "brain-swarm.fullname" . }}-bridge-ipwl
+  tls:
+    secretName: {{ .Values.bridge.ingress.tlsSecretName }}
+{{- end }}

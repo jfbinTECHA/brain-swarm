@@ -1,0 +1,78 @@
+{{- if and .Values.webhookBridge.ingress.enabled .Values.webhookBridge.ingress.traefikEnabled }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-webhook-bridge
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webhook-bridge
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`{{ .Values.webhookBridge.ingress.host }}`) && PathPrefix(`/gh-webhook`)
+      kind: Rule
+      middlewares:
+        - name: {{ .Release.Namespace }}-webhook-rate-limit
+          namespace: {{ .Release.Namespace }}
+        - name: {{ .Release.Namespace }}-webhook-security
+          namespace: {{ .Release.Namespace }}
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-api
+          port: 80
+    - match: Host(`{{ .Values.webhookBridge.ingress.host }}`) && PathPrefix(`/jira-webhook`)
+      kind: Rule
+      middlewares:
+        - name: {{ .Release.Namespace }}-webhook-rate-limit
+          namespace: {{ .Release.Namespace }}
+        - name: {{ .Release.Namespace }}-webhook-security
+          namespace: {{ .Release.Namespace }}
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-api
+          port: 80
+    - match: Host(`{{ .Values.webhookBridge.ingress.host }}`) && PathPrefix(`/servicenow-webhook`)
+      kind: Rule
+      middlewares:
+        - name: {{ .Release.Namespace }}-webhook-rate-limit
+          namespace: {{ .Release.Namespace }}
+        - name: {{ .Release.Namespace }}-webhook-security
+          namespace: {{ .Release.Namespace }}
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-api
+          port: 80
+  tls:
+    certResolver: {{ .Values.webhookBridge.ingress.certResolver | default "letsencrypt" }}
+---
+# Rate limiting middleware for webhooks
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .Release.Namespace }}-webhook-rate-limit
+  namespace: {{ .Release.Namespace }}
+spec:
+  rateLimit:
+    burst: {{ .Values.webhookBridge.ingress.security.webhookRateLimit.burst | default 20 }}
+    average: {{ .Values.webhookBridge.ingress.security.webhookRateLimit.average | default 10 }}
+---
+# Security middleware for webhooks
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .Release.Namespace }}-webhook-security
+  namespace: {{ .Release.Namespace }}
+spec:
+  headers:
+    customRequestHeaders:
+      X-Frame-Options: "DENY"
+      X-Content-Type-Options: "nosniff"
+      X-XSS-Protection: "1; mode=block"
+      Referrer-Policy: "strict-origin-when-cross-origin"
+      Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+    customResponseHeaders:
+      X-Webhook-Bridge: "brain-swarm"
+  ipWhiteList:
+    sourceRange:
+      {{- range .Values.webhookBridge.ingress.security.ipWhitelist }}
+      - {{ . }}
+      {{- end }}
+{{- end }}

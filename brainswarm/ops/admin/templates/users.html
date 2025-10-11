@@ -1,0 +1,26 @@
+<!doctype html><html><body>
+<h3>Users & Registrations</h3>
+<a href="/">Home</a>
+<h4>Create User</h4>
+<form method="post" action="/users/create">
+  <input name="username" placeholder="username" required>
+  <input name="password" type="password" placeholder="password" required>
+  <select name="role"><option>viewer</option><option>admin</option></select>
+  <button type="submit">Create</button>
+</form>
+<h4>Existing Users</h4>
+<ul>{% for u in rows %}<li>{{u.username}} ({{u.role}})</li>{% endfor %}</ul>
+{% if allow_reg %}
+<h4>Registrations</h4>
+<ul>
+{% for g in regs %}
+<li>{{g.username}} — {{g.status}}
+  {% if g.status == 'pending' %}
+    <form style="display:inline" method="post" action="/registrations/{{g.id}}/approve"><button>Approve</button></form>
+    <form style="display:inline" method="post" action="/registrations/{{g.id}}/reject"><button>Reject</button></form>
+  {% endif %}
+</li>
+{% endfor %}
+</ul>
+{% endif %}
+</body></html>

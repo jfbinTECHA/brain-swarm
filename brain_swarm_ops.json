@@ -1,0 +1,32 @@
+{
+  "name": "BrainSwarmOps",
+  "version": "1.0",
+  "description": "Incident intake, triage, and reasoning interface for Brain Swarm.",
+  "author": "jfbinTECHA",
+  "endpoints": [
+    {
+      "path": "/api/incidents",
+      "methods": ["GET", "POST", "PATCH"],
+      "purpose": "Read and update Cortex incidents"
+    },
+    {
+      "path": "/ws/incidents",
+      "methods": ["WEBSOCKET"],
+      "purpose": "Real-time Cortex incident feed for AI agents"
+    }
+  ],
+  "events": [
+    {
+      "type": "incident_created",
+      "description": "Triggered when Cortex or Alertmanager creates a new incident"
+    },
+    {
+      "type": "incident_resolved",
+      "description": "Triggered when an incident is closed"
+    }
+  ],
+  "auth": {
+    "type": "jwt",
+    "scopes": ["incident:read", "incident:write"]
+  }
+}

@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Swarm Federation Interactive Presenter</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .presenter-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .control-panel h2 {
+            color: #1e3c72;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 2px solid #1e3c72;
+            padding-bottom: 10px;
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+
+        .control-section h3 {
+            color: #495057;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+
+        .toggle-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toggle-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .toggle-option:hover {
+            background: #e9ecef;
+        }
+
+        .toggle-option.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .toggle-option input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #007bff;
+        }
+
+        .toggle-option.active input[type="checkbox"] {
+            accent-color: white;
+        }
+
+        .flow-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .flow-toggle:hover {
+            background: rgba(0,123,255,0.1);
+        }
+
+        .flow-toggle.active {
+            background: #007bff;
+            color: white;
+            border-color: #0056b3;
+            box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+        }
+
+        .flow-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .flow-blue { background: #1976d2; }
+        .flow-red { background: #d32f2f; }
+        .flow-green { background: #388e3c; }
+
+        .presentation-controls {
+            margin-top: 20px;
+        }
+
+        .presentation-controls h3 {
+            margin-bottom: 15px;
+            color: #1e3c72;
+        }
+
+        .step-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .step-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .step-button.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .narrative-text {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            border-left: 4px solid #2196F3;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Main Display Area */
+        .main-display {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .diagram-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid-wrapper {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            overflow: auto;
+            transition: all 0.5s ease;
+        }
+
+        .mermaid {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Overlay Effects */
+        .overlay-highlight {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .highlight-content {
+            text-align: center;
+            color: #1e3c72;
+        }
+
+        .highlight-content h2 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .highlight-content p {
+            font-size: 1.5em;
+            opacity: 0.8;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0,123,255,0.7); }
+            50% { box-shadow: 0 0 0 20px rgba(0,123,255,0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .highlight-pulse {
+            animation: highlightPulse 2s infinite;
+        }
+
+        /* Connection highlighting */
+        .connection-highlight-blue .mermaid svg .edgePath:not(.discovery-hidden) .edgeLabel {
+            fill: #1976d2 !important;
+            font-weight: bold;
+        }
+
+        .connection-highlight-red .mermaid svg .edgePath:not(.security-hidden) .edgeLabel {
+            fill: #d32f2f !important;
+            font-weight: bold;
+        }
+
+        .connection-highlight-green .mermaid svg .edgePath:not(.federation-hidden) .edgeLabel {
+            fill: #388e3c !important;
+            font-weight: bold;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .presenter-container {
+                flex-direction: column;
+            }
+
+            .control-panel {
+                width: 100%;
+                height: 300px;
+            }
+
+            .step-button {
+                font-size: 12px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="presenter-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2>🎮 Interactive Presenter</h2>
+
+            <!-- View Mode Controls -->
+            <div class="control-section">
+                <h3>👁️ View Mode</h3>
+                <div class="toggle-group">
+                    <div class="toggle-option active" data-mode="full">
+                        <input type="radio" name="view-mode" value="full" checked>
+                        <span>Full System View</span>
+                    </div>
+                    <div class="toggle-option" data-mode="discovery">
+                        <input type="radio" name="view-mode" value="discovery">
+                        <span>🔵 Discovery Focus</span>
+                    </div>
+                    <div class="toggle-option" data-mode="security">
+                        <input type="radio" name="view-mode" value="security">
+                        <span>🔴 Security Focus</span>
+                    </div>
+                    <div class="toggle-option" data-mode="federation">
+                        <input type="radio" name="view-mode" value="federation">
+                        <span>🟢 Federation Focus</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flow Toggle Controls -->
+            <div class="control-section">
+                <h3>🔗 Flow Visibility</h3>
+                <div class="flow-toggle active" data-flow="discovery">
+                    <div class="flow-color flow-blue"></div>
+                    <span>🔵 Discovery Flows</span>
+                    <input type="checkbox" checked>
+                </div>
+                <div class="flow-toggle active" data-flow="security">
+                    <div class="flow-color flow-red"></div>
+                    <span>🔴 Security Flows</span>
+                    <input type="checkbox" checked>
+                </div>
+                <div class="flow-toggle active" data-flow="federation">
+                    <div class="flow-color flow-green"></div>
+                    <span>🟢 Task Sharing Flows</span>
+                    <input type="checkbox" checked>
+                </div>
+            </div>
+
+            <!-- Presentation Steps -->
+            <div class="control-section presentation-controls">
+                <h3>📊 Presentation Flow</h3>
+                <button class="step-button" data-step="intro">
+                    🎬 1. Introduction
+                </button>
+                <button class="step-button" data-step="architecture">
+                    🏗️ 2. System Architecture
+                </button>
+                <button class="step-button" data-step="discovery">
+                    🔵 3. Discovery Mechanisms
+                </button>
+                <button class="step-button" data-step="security">
+                    🔐 4. Security Layers
+                </button>
+                <button class="step-button" data-step="federation">
+                    🤝 5. Task Federation
+                </button>
+                <button class="step-button" data-step="scaling">
+                    📈 6. Scaling & Performance
+                </button>
+                <button class="step-button" data-step="conclusion">
+                    🎯 7. Key Benefits
+                </button>
+            </div>
+
+            <!-- Narrative Text Area -->
+            <div class="narrative-text" id="narrative-text">
+                <strong>🎬 Introduction</strong><br>
+                Welcome to the Brain Swarm Federation interactive presentation.
+                Click the steps above to guide your audience through the system architecture.
+            </div>
+        </div>
+
+        <!-- Main Display Area -->
+        <div class="main-display">
+            <div class="overlay-highlight" id="highlight-overlay">
+                <div class="highlight-content">
+                    <h2 id="highlight-title">Brain Swarm Federation</h2>
+                    <p id="highlight-subtitle">Global Discovery & Task Sharing Architecture</p>
+                </div>
+            </div>
+
+            <div class="diagram-container">
+                <div class="mermaid-wrapper" id="mermaid-wrapper">
+                    <div class="mermaid" id="mermaid-diagram">
+%% Brain Swarm Federation Interactive Diagram
+graph TB
+    %% Main Title
+    TITLE["🧠 Brain Swarm Federation<br/>Interactive Architecture Guide"]
+
+    %% Network Environments
+    subgraph "🏢 ENTERPRISE NETWORKS"
+        SWARM_A1[Swarm Alpha<br/>Node 1<br/>192.168.1.100:8000<br/>🟢 ACTIVE]
+        SWARM_A2[Swarm Alpha<br/>Node 2<br/>192.168.1.101:8000<br/>🟢 ACTIVE]
+        SWARM_B1[Swarm Beta<br/>Node 1<br/>10.0.0.100:8000<br/>🟢 ACTIVE]
+        SWARM_B2[Swarm Beta<br/>Node 2<br/>10.0.0.101:8000<br/>🟢 ACTIVE]
+    end
+
+    subgraph "☁️ PUBLIC CLOUD"
+        SWARM_C1[Swarm Gamma<br/>cloud.example.com:8000<br/>🟢 ACTIVE]
+    end
+
+    subgraph "🏠 HOME NETWORK"
+        SWARM_D1[Swarm Delta<br/>192.168.0.50:8000<br/>🟡 WARNING]
+    end
+
+    %% Central Registry Service
+    subgraph "🔐 SECURE REGISTRY SERVICE"
+        REGISTRY[(Federation Registry<br/>registry.brain-swarm.com<br/>🔒 TLS 1.3 + API Keys<br/>6/6 Swarms Active)]
+        API_KEYS[(API Key Store<br/>8 Active Keys)]
+        SWARM_DB[(Swarm Registry<br/>6 Registered)]
+        AUDIT_LOG[(Audit Logs<br/>247 Events)]
+        RATE_LIMIT[(Rate Limiter<br/>98% Available)]
+    end
+
+    %% Discovery Flows (BLUE connections) - Taggable class: discovery-flow
+    SWARM_A1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>LAN Discovery<br/>⚡ < 1ms<br/>class: discovery-flow"| SWARM_A2
+    SWARM_B1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>LAN Discovery<br/>⚡ < 1ms<br/>class: discovery-flow"| SWARM_B2
+
+    SWARM_A1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 45ms<br/>class: discovery-flow"| REGISTRY
+    SWARM_A2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 42ms<br/>class: discovery-flow"| REGISTRY
+    SWARM_B1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 67ms<br/>class: discovery-flow"| REGISTRY
+    SWARM_B2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 58ms<br/>class: discovery-flow"| REGISTRY
+    SWARM_C1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 123ms<br/>class: discovery-flow"| REGISTRY
+    SWARM_D1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 89ms<br/>class: discovery-flow"| REGISTRY
+
+    %% Security Flows (RED connections) - Taggable class: security-flow
+    REGISTRY -.->|"🔴 API Key Validation<br/>Security Layer<br/>✓ Authorized<br/>class: security-flow"| API_KEYS
+    API_KEYS -.->|"🔴 Permission Check<br/>AuthZ<br/>✓ Read/Write<br/>class: security-flow"| RATE_LIMIT
+    RATE_LIMIT -.->|"🔴 Database Access<br/>Controlled<br/>✓ Encrypted<br/>class: security-flow"| SWARM_DB
+    SWARM_DB -.->|"🔴 Operation Logging<br/>Audit Trail<br/>✓ Logged<br/>class: security-flow"| AUDIT_LOG
+
+    %% Task Sharing Flows (GREEN connections) - Taggable class: federation-flow
+    SWARM_A1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>LAN Sharing<br/>📊 1.2GB/s<br/>class: federation-flow"| SWARM_A2
+    SWARM_B1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>LAN Sharing<br/>📊 980MB/s<br/>class: federation-flow"| SWARM_B2
+
+    SWARM_A1 -.->|"🟢 WebSocket Federation<br/>Cross-Network Tasks<br/>Registry Discovered<br/>📈 245ms<br/>class: federation-flow"| SWARM_B1
+    SWARM_A2 -.->|"🟢 WebSocket Federation<br/>Memory Sync<br/>Registry Discovered<br/>🧠 156ms<br/>class: federation-flow"| SWARM_C1
+    SWARM_B2 -.->|"🟢 WebSocket Federation<br/>Analytics Sharing<br/>Registry Discovered<br/>📊 89ms<br/>class: federation-flow"| SWARM_D1
+    SWARM_C1 -.->|"🟢 WebSocket Federation<br/>Task Distribution<br/>Registry Discovered<br/>🎯 134ms<br/>class: federation-flow"| SWARM_D1
+
+    %% Live Federation Examples
+    subgraph "📊 ACTIVE FEDERATION FLOWS"
+        TASK_FLOW["Task: 'ML Model Training'<br/>Alpha → Beta<br/>🟢 ACTIVE<br/>Progress: 67%<br/>ETA: 2.3s"]
+        MEMORY_FLOW["Memory: User Sessions<br/>Gamma → Delta<br/>🟢 SYNCING<br/>Transferred: 45MB<br/>Rate: 12MB/s"]
+        ANALYTICS_FLOW["Analytics: Performance<br/>Beta → Alpha<br/>🟢 STREAMING<br/>Metrics: CPU, Memory, Latency<br/>Frequency: 1Hz"]
+    end
+
+    %% Connection Legend
+    subgraph "🎨 INTERACTIVE CONTROLS"
+        DISCOVERY_TOGGLE["🔵 Discovery: 🔍 Finding swarms<br/>UDP Broadcast + HTTPS Registry"]
+        SECURITY_TOGGLE["🔴 Security: 🔐 Protecting communications<br/>API Keys + TLS + Audit"]
+        FEDERATION_TOGGLE["🟢 Federation: 🤝 Task sharing<br/>WebSocket connections + data sync"]
+    end
+
+    %% System Health Overview
+    subgraph "💚 SYSTEM STATUS"
+        HEALTH_REGISTRY["Registry: 🟢 99.9% Uptime<br/>23ms Response<br/>6 Active Connections"]
+        HEALTH_SECURITY["Security: 🟢 SECURE<br/>0 Failed Auth/24h<br/>1247 TLS Handshakes"]
+        HEALTH_FEDERATION["Federation: 🟢 HEALTHY<br/>8/8 Links Active<br/>2.3TB Data Transferred"]
+    end
+
+    %% Styling
+    classDef swarmActive fill:#e8f5e8,stroke:#388e3c,stroke-width:3px
+    classDef swarmWarning fill:#fff3e0,stroke:#f57c00,stroke-width:3px
+    classDef registryActive fill:#f3e5f5,stroke:#7b1fa2,stroke-width:4px
+    classDef securityActive fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    classDef flowActive fill:#e8f5e8,stroke:#388e3c,stroke-width:3px
+
+    class TITLE titleClass
+    class SWARM_A1,SWARM_A2,SWARM_B1,SWARM_B2,SWARM_C1 swarmActive
+    class SWARM_D1 swarmWarning
+    class REGISTRY,API_KEYS,SWARM_DB,AUDIT_LOG,RATE_LIMIT registryActive
+    class TASK_FLOW,MEMORY_FLOW,ANALYTICS_FLOW flowActive
+    class DISCOVERY_TOGGLE,SECURITY_TOGGLE,FEDERATION_TOGGLE,HEALTH_REGISTRY,HEALTH_SECURITY,HEALTH_FEDERATION securityActive
+
+    %% Link styling for different connection types
+    linkStyle 1 stroke:#1976d2,stroke-width:4px,stroke-dasharray: 5 5,class:discovery-flow
+    linkStyle 2 stroke:#1976d2,stroke-width:4px,stroke-dasharray: 5 5,class:discovery-flow
+    linkStyle 3 stroke:#1976d2,stroke-width:3px,class:discovery-flow
+    linkStyle 4 stroke:#1976d2,stroke-width:3px,class:discovery-flow
+    linkStyle 5 stroke:#1976d2,stroke-width:3px,class:discovery-flow
+    linkStyle 6 stroke:#1976d2,stroke-width:3px,class:discovery-flow
+    linkStyle 7 stroke:#1976d2,stroke-width:3px,class:discovery-flow
+    linkStyle 8 stroke:#1976d2,stroke-width:3px,class:discovery-flow
+    linkStyle 9 stroke:#d32f2f,stroke-width:2px,class:security-flow
+    linkStyle 10 stroke:#d32f2f,stroke-width:2px,class:security-flow
+    linkStyle 11 stroke:#d32f2f,stroke-width:2px,class:security-flow
+    linkStyle 12 stroke:#d32f2f,stroke-width:2px,class:security-flow
+    linkStyle 13 stroke:#388e3c,stroke-width:5px,class:federation-flow
+    linkStyle 14 stroke:#388e3c,stroke-width:5px,class:federation-flow
+    linkStyle 15 stroke:#388e3c,stroke-width:4px,class:federation-flow
+    linkStyle 16 stroke:#388e3c,stroke-width:4px,class:federation-flow
+    linkStyle 17 stroke:#388e3c,stroke-width:4px,class:federation-flow
+    linkStyle 18 stroke:#388e3c,stroke-width:4px,class:federation-flow
+%% End of Mermaid Diagram
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#e3f2fd',
+                primaryTextColor: '#1976d2',
+                primaryBorderColor: '#1976d2',
+                lineColor: '#1976d2',
+                sectionBkgColor: '#f8f9fa',
+                altSectionBkgColor: '#ffffff',
+                gridColor: '#e9ecef',
+                tertiaryColor: '#f8f9fa'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis',
+                nodeSpacing: 50,
+                rankSpacing: 50
+            },
+            securityLevel: 'loose'
+        });
+
+        // Interactive Presenter Class
+        class FederationPresenter {
+            constructor() {
+                this.currentViewMode = 'full';
+                this.visibleFlows = {
+                    discovery: true,
+                    security: true,
+                    federation: true
+                };
+                this.currentStep = null;
+
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.updateNarrative('intro');
+            }
+
+            setupEventListeners() {
+                // View mode toggles
+                document.querySelectorAll('.toggle-option').forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        const mode = e.currentTarget.dataset.mode;
+                        this.setViewMode(mode);
+                    });
+                });
+
+                // Flow visibility toggles
+                document.querySelectorAll('.flow-toggle').forEach(toggle => {
+                    toggle.addEventListener('click', (e) => {
+                        const flow = e.currentTarget.dataset.flow;
+                        this.toggleFlow(flow);
+                    });
+
+                    // Also listen to checkbox changes
+                    const checkbox = toggle.querySelector('input[type="checkbox"]');
+                    checkbox.addEventListener('change', (e) => {
+                        const flow = toggle.dataset.flow;
+                        this.setFlowVisibility(flow, e.target.checked);
+                    });
+                });
+
+                // Presentation step buttons
+                document.querySelectorAll('.step-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const step = e.currentTarget.dataset.step;
+                        this.presentStep(step);
+                    });
+                });
+            }
+
+            setViewMode(mode) {
+                // Update UI
+                document.querySelectorAll('.toggle-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+                this.currentViewMode = mode;
+
+                // Apply view mode
+                const wrapper = document.getElementById('mermaid-wrapper');
+
+                // Remove previous view classes
+                wrapper.classList.remove('view-full', 'view-discovery', 'view-security', 'view-federation');
+
+                // Add new view class
+                wrapper.classList.add(`view-${mode}`);
+
+                // Apply specific styling based on mode
+                this.applyViewModeStyling(mode);
+
+                // Update narrative
+                this.updateNarrative(mode);
+            }
+
+            applyViewModeStyling(mode) {
+                const wrapper = document.getElementById('mermaid-wrapper');
+
+                switch(mode) {
+                    case 'discovery':
+                        wrapper.style.filter = 'sepia(0.2) hue-rotate(200deg) saturate(1.2)';
+                        this.highlightFlows(['discovery']);
+                        break;
+                    case 'security':
+                        wrapper.style.filter = 'sepia(0.2) hue-rotate(340deg) saturate(1.2)';
+                        this.highlightFlows(['security']);
+                        break;
+                    case 'federation':
+                        wrapper.style.filter = 'sepia(0.2) hue-rotate(100deg) saturate(1.2)';
+                        this.highlightFlows(['federation']);
+                        break;
+                    default:
+                        wrapper.style.filter = 'none';
+                        this.highlightFlows(['discovery', 'security', 'federation']);
+                }
+            }
+
+            highlightFlows(flows) {
+                // This would manipulate the SVG to highlight specific flows
+                // For now, we'll use CSS classes
+                const wrapper = document.getElementById('mermaid-wrapper');
+
+                // Remove previous highlight classes
+                wrapper.classList.remove('connection-highlight-blue', 'connection-highlight-red', 'connection-highlight-green');
+
+                // Add appropriate highlight class
+                if (flows.includes('discovery')) {
+                    wrapper.classList.add('connection-highlight-blue');
+                }
+                if (flows.includes('security')) {
+                    wrapper.classList.add('connection-highlight-red');
+                }
+                if (flows.includes('federation')) {
+                    wrapper.classList.add('connection-highlight-green');
+                }
+            }
+
+            toggleFlow(flow) {
+                const toggle = document.querySelector(`[data-flow="${flow}"]`);
+                const checkbox = toggle.querySelector('input[type="checkbox"]');
+
+                checkbox.checked = !checkbox.checked;
+                this.setFlowVisibility(flow, checkbox.checked);
+            }
+
+            setFlowVisibility(flow, visible) {
+                this.visibleFlows[flow] = visible;
+
+                const toggle = document.querySelector(`[data-flow="${flow}"]`);
+                if (visible) {
+                    toggle.classList.add('active');
+                } else {
+                    toggle.classList.remove('active');
+                }
+
+                // Apply visibility to diagram elements
+                this.applyFlowVisibility(flow, visible);
+            }
+
+            applyFlowVisibility(flow, visible) {
+                // This would hide/show specific SVG elements
+                // For demonstration, we'll add CSS classes
+                const wrapper = document.getElementById('mermaid-wrapper');
+
+                if (visible) {
+                    wrapper.classList.remove(`${flow}-hidden`);
+                } else {
+                    wrapper.classList.add(`${flow}-hidden`);
+                }
+            }
+
+            presentStep(step) {
+                // Update active step button
+                document.querySelectorAll('.step-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`[data-step="${step}"]`).classList.add('active');
+
+                this.currentStep = step;
+
+                // Apply step-specific presentation
+                this.applyPresentationStep(step);
+
+                // Update narrative
+                this.updateNarrative(step);
+            }
+
+            applyPresentationStep(step) {
+                const overlay = document.getElementById('highlight-overlay');
+                const title = document.getElementById('highlight-title');
+                const subtitle = document.getElementById('highlight-subtitle');
+
+                // Hide overlay first
+                overlay.style.display = 'none';
+
+                // Clear any existing animations
+                overlay.classList.remove('fade-in');
+
+                setTimeout(() => {
+                    switch(step) {
+                        case 'intro':
+                            this.setViewMode('full');
+                            overlay.style.display = 'flex';
+                            title.textContent = '🧠 Brain Swarm Federation';
+                            subtitle.textContent = 'Global Discovery & Task Sharing Architecture';
+                            overlay.classList.add('fade-in');
+                            break;
+
+                        case 'architecture':
+                            overlay.style.display = 'none';
+                            this.setViewMode('full');
+                            // Add highlight effect to key components
+                            this.highlightKeyComponents(['TITLE', 'REGISTRY']);
+                            break;
+
+                        case 'discovery':
+                            this.setViewMode('discovery');
+                            overlay.style.display = 'flex';
+                            title.textContent = '🔵 Discovery Mechanisms';
+                            subtitle.textContent = 'How swarms find each other across networks';
+                            overlay.classList.add('fade-in');
+                            break;
+
+                        case 'security':
+                            this.setViewMode('security');
+                            overlay.style.display = 'flex';
+                            title.textContent = '🔐 Security Architecture';
+                            subtitle.textContent = 'API keys, TLS encryption, and audit trails';
+                            overlay.classList.add('fade-in');
+                            break;
+
+                        case 'federation':
+                            this.setViewMode('federation');
+                            overlay.style.display = 'flex';
+                            title.textContent = '🤝 Task Federation';
+                            subtitle.textContent = 'WebSocket connections and data synchronization';
+                            overlay.classList.add('fade-in');
+                            break;
+
+                        case 'scaling':
+                            overlay.style.display = 'flex';
+                            title.textContent = '📈 Scaling & Performance';
+                            subtitle.textContent = 'Supporting thousands of swarms globally';
+                            overlay.classList.add('fade-in');
+                            break;
+
+                        case 'conclusion':
+                            overlay.style.display = 'flex';
+                            title.textContent = '🎯 Key Benefits';
+                            subtitle.textContent = 'Hybrid discovery, enterprise security, scalable federation';
+                            overlay.classList.add('fade-in');
+                            break;
+                    }
+                }, 500);
+            }
+
+            highlightKeyComponents(components) {
+                // This would add highlight effects to specific diagram elements
+                // For now, we'll add a general highlight class
+                const wrapper = document.getElementById('mermaid-wrapper');
+                wrapper.classList.add('highlight-pulse');
+
+                setTimeout(() => {
+                    wrapper.classList.remove('highlight-pulse');
+                }, 3000);
+            }
+
+            updateNarrative(step) {
+                const narrativeDiv = document.getElementById('narrative-text');
+
+                const narratives = {
+                    intro: `
+                        <strong>🎬 Introduction</strong><br>
+                        Welcome to the Brain Swarm Federation interactive presentation.
+                        This system enables secure, global discovery and task sharing between AI swarms across different networks.
+                        Use the controls to explore different aspects of the architecture.
+                    `,
+                    architecture: `
+                        <strong>🏗️ System Architecture</strong><br>
+                        The federation consists of four main environments: Enterprise networks, Public cloud, Home networks, and a Central registry service.
+                        Each swarm can discover and connect with others through hybrid mechanisms.
+                    `,
+                    discovery: `
+                        <strong>🔵 Discovery Mechanisms</strong><br>
+                        <strong>LAN Discovery:</strong> UDP broadcasts within local networks (fast, < 1ms)<br>
+                        <strong>Global Discovery:</strong> HTTPS registration with central registry (secure, 50-200ms)<br>
+                        <strong>Hybrid Approach:</strong> Best of both worlds with automatic fallback
+                    `,
+                    security: `
+                        <strong>🔐 Security Architecture</strong><br>
+                        <strong>API Keys:</strong> Secure authentication with hashed storage<br>
+                        <strong>TLS 1.3:</strong> End-to-end encryption for all communications<br>
+                        <strong>Rate Limiting:</strong> Prevents abuse and ensures fair usage<br>
+                        <strong>Audit Logging:</strong> Complete operation tracking
+                    `,
+                    federation: `
+                        <strong>🤝 Task Federation</strong><br>
+                        <strong>WebSocket Connections:</strong> Bidirectional communication channels<br>
+                        <strong>Data Types:</strong> Tasks, memory sync, analytics sharing<br>
+                        <strong>Cross-Network:</strong> Registry-discovered connections<br>
+                        <strong>LAN Direct:</strong> Optimized local connections
+                    `,
+                    scaling: `
+                        <strong>📈 Scaling & Performance</strong><br>
+                        <strong>Small Deployments:</strong> 2-5 swarms, LAN-focused<br>
+                        <strong>Enterprise:</strong> Multi-site with VPN connectivity<br>
+                        <strong>Global Internet:</strong> Thousands of swarms worldwide<br>
+                        <strong>Hybrid Cloud:</strong> Seamless on-prem + cloud integration
+                    `,
+                    conclusion: `
+                        <strong>🎯 Key Benefits</strong><br>
+                        <strong>🔄 Hybrid Discovery:</strong> LAN speed + global reach<br>
+                        <strong>🔐 Enterprise Security:</strong> TLS + API keys + audit<br>
+                        <strong>📈 Scalable Federation:</strong> Thousands of swarms<br>
+                        <strong>🛡️ Resilient:</strong> Automatic fallback & recovery<br>
+                        <strong>🚀 Production Ready:</strong> Comprehensive deployment tools
+                    `,
+                    full: `
+                        <strong>👁️ Full System View</strong><br>
+                        Complete architecture showing all discovery, security, and federation flows.
+                        Toggle individual flow types using the controls above to focus on specific aspects.
+                    `,
+                    discovery: `
+                        <strong>🔍 Discovery Focus</strong><br>
+                        Highlighting how swarms discover each other through UDP broadcasts (LAN) and HTTPS registration (global).
+                        Notice the different latency characteristics and security levels.
+                    `,
+                    security: `
+                        <strong>🔒 Security Focus</strong><br>
+                        Emphasizing the security layers: API key validation, TLS encryption, rate limiting, and audit logging.
+                        Every connection is authenticated and encrypted.
+                    `,
+                    federation: `
+                        <strong>🔗 Federation Focus</strong><br>
+                        Showing the task sharing flows through WebSocket connections.
+                        Notice the different connection types: LAN direct vs registry-discovered cross-network.
+                    `
+                };
+
+                narrativeDiv.innerHTML = narratives[step] || narratives.intro;
+                narrativeDiv.classList.add('fade-in');
+
+                setTimeout(() => {
+                    narrativeDiv.classList.remove('fade-in');
+                }, 500);
+            }
+        }
+
+        // Initialize presenter when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.presenter = new FederationPresenter();
+
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                switch(e.key) {
+                    case '1':
+                        window.presenter.presentStep('intro');
+                        break;
+                    case '2':
+                        window.presenter.presentStep('architecture');
+                        break;
+                    case '3':
+                        window.presenter.presentStep('discovery');
+                        break;
+                    case '4':
+                        window.presenter.presentStep('security');
+                        break;
+                    case '5':
+                        window.presenter.presentStep('federation');
+                        break;
+                    case '6':
+                        window.presenter.presentStep('scaling');
+                        break;
+                    case '7':
+                        window.presenter.presentStep('conclusion');
+                        break;
+                }
+            });
+
+            console.log('🧠 Brain Swarm Federation Interactive Presenter initialized');
+            console.log('💡 Keyboard shortcuts: Press 1-7 for presentation steps');
+        });
+    </script>
+</body>
+</html>

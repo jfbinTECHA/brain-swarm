@@ -1,0 +1,135 @@
+version: '3.8'
+
+# Brain Swarm with optional horizontal scaling support
+# To enable scalability features, set SCALABILITY__ENABLED=true in your .env file
+# For full multi-cluster setup, use docker-compose.scalable.yml instead
+
+services:
+  brain-swarm-api:
+    build: .
+    ports:
+      - "${NODE__PORT:-8000}:8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - NODE__NODE_NAME=${NODE__NODE_NAME:-brain_swarm_api}
+      - NODE__SWARM_ID=${NODE__SWARM_ID:-default_swarm}
+      - NODE__HOST=0.0.0.0
+      - NODE__PORT=8000
+      - DATABASE__URL=${DATABASE__URL:-sqlite:///data/brain_swarm.db}
+      - LOGGING__LEVEL=${LOGGING__LEVEL:-INFO}
+      - FEDERATION__ENABLED=${FEDERATION__ENABLED:-false}
+      # Scalability configuration
+      - SCALABILITY__ENABLED=${SCALABILITY__ENABLED:-false}
+      - SCALABILITY__MESSAGE_QUEUE_MODE=${SCALABILITY__MESSAGE_QUEUE_MODE:-single_node}
+      - SCALABILITY__REDIS_URLS=${SCALABILITY__REDIS_URLS:-["redis://redis:6379"]}
+      - SCALABILITY__PARTITIONS=${SCALABILITY__PARTITIONS:-8}
+      - SCALABILITY__ASYNC_AGENTS_ENABLED=${SCALABILITY__ASYNC_AGENTS_ENABLED:-false}
+      - SCALABILITY__AGENT_POOL_MIN=${SCALABILITY__AGENT_POOL_MIN:-1}
+      - SCALABILITY__AGENT_POOL_MAX=${SCALABILITY__AGENT_POOL_MAX:-10}
+      - SCALABILITY__LOAD_BALANCING_STRATEGY=${SCALABILITY__LOAD_BALANCING_STRATEGY:-least_loaded}
+      - SCALABILITY__MULTI_CLUSTER_ENABLED=${SCALABILITY__MULTI_CLUSTER_ENABLED:-false}
+      - SCALABILITY__CLUSTER_ID=${SCALABILITY__CLUSTER_ID:-default_cluster}
+      - SCALABILITY__CLUSTER_ROLE=${SCALABILITY__CLUSTER_ROLE:-primary}
+      - SCALABILITY__AUTO_SCALING_ENABLED=${SCALABILITY__AUTO_SCALING_ENABLED:-false}
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    depends_on:
+      - redis
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
+  brain-swarm-operations:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - NODE__NODE_NAME=${NODE__NODE_NAME:-brain_swarm_operations}
+      - NODE__SWARM_ID=${NODE__SWARM_ID:-operations_swarm}
+      - DATABASE__URL=${DATABASE__URL:-sqlite:///data/brain_swarm.db}
+      - LOGGING__LEVEL=${LOGGING__LEVEL:-INFO}
+      # Scalability configuration
+      - SCALABILITY__ENABLED=${SCALABILITY__ENABLED:-false}
+      - SCALABILITY__MESSAGE_QUEUE_MODE=${SCALABILITY__MESSAGE_QUEUE_MODE:-single_node}
+      - SCALABILITY__REDIS_URLS=${SCALABILITY__REDIS_URLS:-["redis://redis:6379"]}
+      - SCALABILITY__PARTITIONS=${SCALABILITY__PARTITIONS:-8}
+      - SCALABILITY__ASYNC_AGENTS_ENABLED=${SCALABILITY__ASYNC_AGENTS_ENABLED:-false}
+      - SCALABILITY__AGENT_POOL_MIN=${SCALABILITY__AGENT_POOL_MIN:-1}
+      - SCALABILITY__AGENT_POOL_MAX=${SCALABILITY__AGENT_POOL_MAX:-10}
+      - SCALABILITY__LOAD_BALANCING_STRATEGY=${SCALABILITY__LOAD_BALANCING_STRATEGY:-least_loaded}
+      - SCALABILITY__MULTI_CLUSTER_ENABLED=${SCALABILITY__MULTI_CLUSTER_ENABLED:-false}
+      - SCALABILITY__CLUSTER_ID=${SCALABILITY__CLUSTER_ID:-operations_cluster}
+      - SCALABILITY__CLUSTER_ROLE=${SCALABILITY__CLUSTER_ROLE:-secondary}
+      - SCALABILITY__AUTO_SCALING_ENABLED=${SCALABILITY__AUTO_SCALING_ENABLED:-false}
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    command: ["python", "run_operations_server.py"]
+    depends_on:
+      - redis
+      - brain-swarm-api
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    depends_on:
+      - redis
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
+  # ChromaDB for vector storage (Knowledge Cortex)
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    volumes:
+      - chroma_data:/chroma/.chroma
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
+  # Dashboard service (uncomment when dashboard is containerized)
+  # brain-swarm-dashboard:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dashboard
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - API_URL=http://brain-swarm-api:8000
+  #   depends_on:
+  #     - brain-swarm-api
+  #   networks:
+  #     - brain-swarm-network
+  #   restart: unless-stopped
+
+volumes:
+  redis_data:
+  chroma_data:
+
+networks:
+  brain-swarm-network:
+    driver: bridge

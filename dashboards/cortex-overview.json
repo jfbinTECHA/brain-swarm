@@ -1,0 +1,179 @@
+{
+  "title": "Knowledge Cortex Overview",
+  "description": "Comprehensive monitoring dashboard for Brain Swarm Knowledge Cortex system",
+  "tags": ["brain-swarm", "cortex", "knowledge", "ai"],
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Cortex Query Latency (95th percentile)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(cortex_query_seconds_bucket[5m])) by (le, layer))",
+          "legendFormat": "{{layer}}",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "id": 1,
+      "lines": true,
+      "linewidth": 2,
+      "yaxes": [
+        {"format": "s", "label": "Latency"},
+        {"format": "short"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "type": "graph",
+      "title": "Cortex Query Throughput",
+      "targets": [
+        {
+          "expr": "sum(rate(cortex_queries_total[5m])) by (layer)",
+          "legendFormat": "{{layer}} queries/s",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "id": 2,
+      "lines": true,
+      "yaxes": [
+        {"format": "reqps", "label": "Queries/sec"},
+        {"format": "short"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "graph",
+      "title": "Cortex Ingest Rate",
+      "targets": [
+        {
+          "expr": "sum(rate(cortex_ingest_total[5m])) by (layer)",
+          "legendFormat": "{{layer}} ingests/s",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "id": 3,
+      "lines": true,
+      "yaxes": [
+        {"format": "reqps", "label": "Ingests/sec"},
+        {"format": "short"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "Active Redis Connections",
+      "targets": [
+        {
+          "expr": "redis_connected_clients",
+          "legendFormat": "Redis Clients",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "id": 4,
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 200}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8}
+    },
+    {
+      "type": "stat",
+      "title": "S3 Archive Records",
+      "targets": [
+        {
+          "expr": "count(cortex_archive_records_total)",
+          "legendFormat": "Archive Entries",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "id": 5,
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8}
+    },
+    {
+      "type": "table",
+      "title": "Cortex Layer Health",
+      "targets": [
+        {
+          "expr": "up{job=\"cortex\"}",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "id": 6,
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+    },
+    {
+      "type": "heatmap",
+      "title": "Query Latency Heatmap",
+      "targets": [
+        {
+          "expr": "sum(increase(cortex_query_seconds_bucket[5m])) by (le)",
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "id": 7,
+      "cards": {"cardPadding": null, "cardRound": null},
+      "color": {
+        "mode": "spectrum",
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "exponent": 0.5,
+        "colorScheme": "interpolateSpectral"
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": []
+}

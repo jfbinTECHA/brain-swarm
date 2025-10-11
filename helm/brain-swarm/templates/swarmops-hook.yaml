@@ -1,0 +1,215 @@
+{{- if .Values.monitoring.alertmanager.enabled }}
+{{- if .Values.monitoring.alertmanager.webhook.enabled }}
+---
+# SwarmOps Alert Webhook Handler - Helm Template
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmops-hook
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-hook
+spec:
+  replicas: {{ .Values.monitoring.alertmanager.webhook.replicas | default 2 }}
+  selector:
+    matchLabels:
+      {{- include "brain-swarm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: swarmops-hook
+  template:
+    metadata:
+      labels:
+        {{- include "brain-swarm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: swarmops-hook
+    spec:
+      containers:
+        - name: swarmops-hook
+          image: "{{ .Values.monitoring.alertmanager.webhook.image.repository }}:{{ .Values.monitoring.alertmanager.webhook.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.monitoring.alertmanager.webhook.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: PORT
+              value: "{{ .Values.monitoring.alertmanager.webhook.service.port | default 8080 }}"
+            - name: DEFAULT_TICKET_SYSTEM
+              value: "{{ .Values.monitoring.alertmanager.webhook.defaultSystem | default "jira" }}"
+            - name: CRITICAL_TICKET_SYSTEM
+              value: "{{ .Values.monitoring.alertmanager.webhook.criticalSystem | default "jira" }}"
+            # Jira configuration
+            - name: JIRA_ENABLED
+              value: "{{ .Values.monitoring.alertmanager.webhook.jira.enabled | default false }}"
+            - name: JIRA_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_base_url
+            - name: JIRA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_username
+            - name: JIRA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: jira_api_token
+            - name: JIRA_PROJECT_KEY
+              value: "{{ .Values.monitoring.alertmanager.webhook.jira.projectKey | default "ALERT" }}"
+            # GitHub configuration
+            - name: GITHUB_ENABLED
+              value: "{{ .Values.monitoring.alertmanager.webhook.github.enabled | default false }}"
+            - name: GITHUB_OWNER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_owner
+            - name: GITHUB_REPO
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_repo
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_token
+            # ServiceNow configuration
+            - name: SERVICENOW_ENABLED
+              value: "{{ .Values.monitoring.alertmanager.webhook.servicenow.enabled | default false }}"
+            - name: SERVICENOW_INSTANCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: servicenow_instance_url
+            - name: SERVICENOW_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: servicenow_access_token
+            - name: SERVICENOW_ASSIGNMENT_GROUP
+              value: "{{ .Values.monitoring.alertmanager.webhook.servicenow.assignmentGroup | default "" }}"
+            # GitHub Actions integration
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_token
+            - name: GITHUB_OWNER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: github_owner
+            - name: GITHUB_REPO
+              value: "{{ .Values.monitoring.alertmanager.webhook.github.repo | default "brain-swarm" }}"
+            - name: BRAIN_SWARM_API_URL
+              value: "{{ .Values.monitoring.alertmanager.webhook.brainSwarmApiUrl | default "http://brain-swarm-api.brainswarm.svc.cluster.local:8000" }}"
+            - name: BRAIN_SWARM_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-webhook-secrets
+                  key: brain_swarm_api_token
+            {{- with .Values.monitoring.alertmanager.webhook.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.monitoring.alertmanager.webhook.resources | nindent 12 }}
+      restartPolicy: Always
+      {{- with .Values.monitoring.alertmanager.webhook.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitoring.alertmanager.webhook.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.monitoring.alertmanager.webhook.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmops-hook
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-hook
+spec:
+  type: {{ .Values.monitoring.alertmanager.webhook.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.monitoring.alertmanager.webhook.service.port | default 8080 }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.monitoring.alertmanager.webhook.service.type "NodePort") .Values.monitoring.alertmanager.webhook.service.nodePort }}
+      nodePort: {{ .Values.monitoring.alertmanager.webhook.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "brain-swarm.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-hook
+
+---
+# Network Policy for SwarmOps Hook
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: swarmops-hook-network-policy
+  namespace: brainswarm
+spec:
+  podSelector:
+    matchLabels:
+      app: swarmops-hook
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring  # Allow from monitoring namespace (Alertmanager)
+        - podSelector:
+            matchLabels:
+              app: alertmanager  # Allow from Alertmanager pods
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to: []  # Allow all outbound for API calls to external services
+      ports:
+        - protocol: TCP
+          port: 443  # HTTPS for external APIs
+        - protocol: TCP
+          port: 80   # HTTP fallback
+
+---
+# ConfigMap for additional configuration (optional)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmops-hook-config
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-hook
+data:
+  # Additional configuration can be added here
+  log_level: "INFO"
+  ticket_creation_timeout: "30"
+  duplicate_check_window: "3600"  # 1 hour
+{{- end }}
+{{- end }}

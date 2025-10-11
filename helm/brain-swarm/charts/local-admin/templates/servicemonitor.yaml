@@ -1,0 +1,17 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "local-admin.fullname" . }}
+  labels:
+    release: prometheus  # matches your Prometheus release name
+spec:
+  selector:
+    matchLabels: {{- include "local-admin.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      scheme: http
+{{- end }}

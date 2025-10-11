@@ -1,0 +1,22 @@
+{{- if .Values.cortex.enabled }}
+{{- if .Values.cortex.chroma.enabled }}
+{{- if .Values.cortex.chroma.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-chroma-data
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: chroma-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.cortex.chroma.persistence.size }}
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

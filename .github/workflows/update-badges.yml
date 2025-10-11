@@ -1,0 +1,71 @@
+name: Update Version Badges
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'helm/brain-swarm/Chart.yaml'
+      - 'pyproject.toml'
+      - 'package.json'
+  release:
+    types: [published]
+
+jobs:
+  update-badges:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Extract version from Helm chart
+      id: helm-version
+      run: |
+        CHART_VERSION=$(grep '^version:' helm/brain-swarm/Chart.yaml | awk '{print $2}')
+        APP_VERSION=$(grep '^appVersion:' helm/brain-swarm/Chart.yaml | awk '{print $2}' | tr -d '"')
+        echo "chart_version=$CHART_VERSION" >> $GITHUB_OUTPUT
+        echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Extract version from pyproject.toml (if exists)
+      id: python-version
+      run: |
+        if [ -f pyproject.toml ]; then
+          PYTHON_VERSION=$(grep '^version =' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "python_version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
+        else
+          echo "python_version=unknown" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update README badges
+      run: |
+        # Update version badge
+        sed -i "s/version-[0-9]\+\.[0-9]\+\.[0-9]\+/version-${{ steps.helm-version.outputs.app_version }}/g" README.md
+
+        # Update Helm chart badge
+        sed -i "s/brain-swarm-ops%20v[0-9]\+\.[0-9]\+\.[0-9]\+/brain-swarm-ops%20v${{ steps.helm-version.outputs.app_version }}/g" README.md
+
+        # Update Docker badge if needed
+        # sed -i "s/jfbintecha%2Fbrain-swarm:[0-9]\+\.[0-9]\+\.[0-9]\+/jfbintecha%2Fbrain-swarm:${{ steps.helm-version.outputs.app_version }}/g" README.md
+
+    - name: Update release timeline
+      run: |
+        CURRENT_DATE=$(date +%B\ %Y)
+        sed -i "s/Released: [A-Za-z]\+ [0-9]\+/Released: $CURRENT_DATE/g" README.md
+
+    - name: Commit changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update version badges to v${{ steps.helm-version.outputs.app_version }}"
+
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}

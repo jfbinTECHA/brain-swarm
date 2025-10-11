@@ -1,0 +1,20 @@
+diff --git a/cortex/config.py b/cortex/config.py
+index 0000000..1111111 100644
+--- a/cortex/config.py
++++ b/cortex/config.py
+@@
+ class CortexSettings(BaseSettings):
+     redis_url: str
+     chroma_url: str
+     duckdb_path: str
+     s3_bucket: Optional[str]
+     summarization_interval: int = 300
+     embedding_model: str = "text-embedding-3-large"
+     cortex_mode: str = "live"
+
+     class Config:
+-        # Explicit .env path for system service usage
++        # ✅ Updated to explicitly load system-wide .env for BrainSwarm
+         env_file = "/home/sysop/brainswarm/.env"
+         env_file_encoding = "utf-8"
+         extra = "ignore"

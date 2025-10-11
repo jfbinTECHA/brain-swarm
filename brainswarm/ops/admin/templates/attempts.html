@@ -1,0 +1,16 @@
+<!doctype html><html><body>
+<h3>Login Attempts</h3>
+<a href="/">Home</a>
+<form method="post" action="/block-ip">
+  Block IP: <input name="ip" placeholder="x.x.x.x">
+  <button type="submit">Block</button>
+</form>
+<table border="1" cellpadding="4">
+<tr><th>Time (UTC)</th><th>User</th><th>Source IP</th><th>Result</th></tr>
+{% for r in rows %}
+<tr>
+  <td>{{r.ts}}</td><td>{{r.user}}</td><td>{{r.src_ip}}</td><td>{{r.result}}</td>
+</tr>
+{% endfor %}
+</table>
+</body></html>

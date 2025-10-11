@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Swarm Federation Live Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        select, button {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-active { background: #28a745; }
+        .status-inactive { background: #dc3545; }
+        .status-warning { background: #ffc107; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .metrics-panel {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .diagram-container {
+            padding: 20px;
+            position: relative;
+        }
+
+        .mermaid {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 300px;
+        }
+
+        .legend h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .connection-blue { background: #1976d2; }
+        .connection-red { background: #d32f2f; }
+        .connection-green { background: #388e3c; }
+
+        .node-active {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #28a745; }
+            to { box-shadow: 0 0 20px #28a745, 0 0 30px #28a745; }
+        }
+
+        .node-inactive {
+            opacity: 0.6;
+        }
+
+        .connection-active {
+            stroke-width: 4px !important;
+            animation: flow 3s ease-in-out infinite;
+        }
+
+        @keyframes flow {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: -20; }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>🧠 Brain Swarm Federation</h1>
+            <p>Live Dashboard - Global Discovery & Task Sharing</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="view-mode">View Mode:</label>
+                <select id="view-mode">
+                    <option value="full">Full System</option>
+                    <option value="discovery">Discovery Only</option>
+                    <option value="security">Security Only</option>
+                    <option value="federation">Federation Only</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="update-interval">Update Interval:</label>
+                <select id="update-interval">
+                    <option value="5000">5 seconds</option>
+                    <option value="10000">10 seconds</option>
+                    <option value="30000">30 seconds</option>
+                </select>
+            </div>
+
+            <button id="refresh-btn">🔄 Refresh</button>
+            <button id="reset-btn">⚡ Reset View</button>
+
+            <div class="status-indicators">
+                <div class="status-item">
+                    <div class="status-dot status-active"></div>
+                    <span>Registry Online</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot status-active"></div>
+                    <span id="swarm-count">6 Active Swarms</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot status-active"></div>
+                    <span id="federation-count">8 Active Federations</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics-panel">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="total-swarms">6</div>
+                    <div class="metric-label">Total Swarms</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="active-federations">8</div>
+                    <div class="metric-label">Active Federations</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="avg-latency">45ms</div>
+                    <div class="metric-label">Avg Latency</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="security-score">98%</div>
+                    <div class="metric-label">Security Score</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="tasks-shared">1.2K</div>
+                    <div class="metric-label">Tasks Shared</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="uptime">99.9%</div>
+                    <div class="metric-label">System Uptime</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="diagram-container">
+            <div class="legend">
+                <h4>🔗 Connection Types</h4>
+                <div class="legend-item">
+                    <div class="legend-color connection-blue"></div>
+                    <span><strong>🔵 Discovery:</strong> Finding swarms</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color connection-red"></div>
+                    <span><strong>🔴 Security:</strong> Auth & encryption</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color connection-green"></div>
+                    <span><strong>🟢 Federation:</strong> Task sharing</span>
+                </div>
+
+                <h4 style="margin-top: 15px;">📊 Metrics</h4>
+                <div class="legend-item">
+                    <span><strong>Latency:</strong> < 50ms (LAN), 100-500ms (Global)</span>
+                </div>
+                <div class="legend-item">
+                    <span><strong>Capacity:</strong> 1000+ concurrent connections</span>
+                </div>
+                <div class="legend-item">
+                    <span><strong>Security:</strong> TLS 1.3 + API keys</span>
+                </div>
+            </div>
+
+            <div id="mermaid-diagram" class="mermaid">
+%% Start of Mermaid Diagram
+graph TB
+    %% Main Title
+    TITLE["🧠 Brain Swarm Federation<br/>Live Status Dashboard"]
+
+    %% Network Environments with Dynamic States
+    subgraph "🏢 ENTERPRISE NETWORK A"
+        SWARM_A1[Swarm Alpha<br/>Node 1<br/>192.168.1.100:8000<br/>🟢 ACTIVE<br/>♥ 2s ago]
+        SWARM_A2[Swarm Alpha<br/>Node 2<br/>192.168.1.101:8000<br/>🟢 ACTIVE<br/>♥ 1s ago]
+    end
+
+    subgraph "🏢 ENTERPRISE NETWORK B"
+        SWARM_B1[Swarm Beta<br/>Node 1<br/>10.0.0.100:8000<br/>🟢 ACTIVE<br/>♥ 3s ago]
+        SWARM_B2[Swarm Beta<br/>Node 2<br/>10.0.0.101:8000<br/>🟢 ACTIVE<br/>♥ 5s ago]
+    end
+
+    subgraph "☁️ PUBLIC CLOUD"
+        SWARM_C1[Swarm Gamma<br/>Node 1<br/>cloud.example.com:8000<br/>🟢 ACTIVE<br/>♥ 4s ago]
+    end
+
+    subgraph "🏠 HOME NETWORK"
+        SWARM_D1[Swarm Delta<br/>Node 1<br/>192.168.0.50:8000<br/>🟡 WARNING<br/>♥ 45s ago]
+    end
+
+    %% Central Registry Service with Live Status
+    subgraph "🔐 SECURE REGISTRY SERVICE"
+        REGISTRY[(Federation Registry<br/>registry.brain-swarm.com<br/>🔒 TLS 1.3 + API Keys<br/>🟢 ONLINE<br/>6/6 Swarms Active)]
+        API_KEYS[(API Key Store<br/>Hashed & Secured<br/>8 Active Keys)]
+        SWARM_DB[(Swarm Registry<br/>Metadata & Status<br/>6 Registered)]
+        AUDIT_LOG[(Audit Logs<br/>All Operations<br/>247 Events)]
+        RATE_LIMIT[(Rate Limiter<br/>per API Key<br/>98% Available)]
+    end
+
+    %% Dynamic Discovery Flows (BLUE connections)
+    SWARM_A1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>LAN Discovery<br/>⚡ < 1ms"| SWARM_A2
+    SWARM_B1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>LAN Discovery<br/>⚡ < 1ms"| SWARM_B2
+
+    SWARM_A1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 45ms"| REGISTRY
+    SWARM_A2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 42ms"| REGISTRY
+    SWARM_B1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 67ms"| REGISTRY
+    SWARM_B2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 58ms"| REGISTRY
+    SWARM_C1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 123ms"| REGISTRY
+    SWARM_D1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>Global Discovery<br/>🌐 89ms"| REGISTRY
+
+    %% Security Flows (RED connections)
+    REGISTRY -.->|"🔴 API Key Validation<br/>Security Layer<br/>✓ Authorized"| API_KEYS
+    API_KEYS -.->|"🔴 Permission Check<br/>AuthZ<br/>✓ Read/Write"| RATE_LIMIT
+    RATE_LIMIT -.->|"🔴 Database Access<br/>Controlled<br/>✓ Encrypted"| SWARM_DB
+    SWARM_DB -.->|"🔴 Operation Logging<br/>Audit Trail<br/>✓ Logged"| AUDIT_LOG
+
+    %% Dynamic Task Sharing Flows (GREEN connections)
+    SWARM_A1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>LAN Sharing<br/>📊 1.2GB/s"| SWARM_A2
+    SWARM_B1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>LAN Sharing<br/>📊 980MB/s"| SWARM_B2
+
+    SWARM_A1 -.->|"🟢 WebSocket Federation<br/>Cross-Network Tasks<br/>Registry Discovered<br/>📈 245ms"| SWARM_B1
+    SWARM_A2 -.->|"🟢 WebSocket Federation<br/>Memory Sync<br/>Registry Discovered<br/>🧠 156ms"| SWARM_C1
+    SWARM_B2 -.->|"🟢 WebSocket Federation<br/>Analytics Sharing<br/>Registry Discovered<br/>📊 89ms"| SWARM_D1
+    SWARM_C1 -.->|"🟢 WebSocket Federation<br/>Task Distribution<br/>Registry Discovered<br/>🎯 134ms"| SWARM_D1
+
+    %% Live Federation Examples
+    subgraph "📊 LIVE FEDERATION FLOWS"
+        TASK_FLOW["Task: 'ML Model Training'<br/>Alpha → Beta<br/>Status: 🟢 ACTIVE<br/>Progress: 67%<br/>ETA: 2.3s"]
+        MEMORY_FLOW["Memory: User Sessions<br/>Gamma → Delta<br/>Status: 🟢 SYNCING<br/>Transferred: 45MB<br/>Rate: 12MB/s"]
+        ANALYTICS_FLOW["Analytics: Performance<br/>Beta → Alpha<br/>Status: 🟢 STREAMING<br/>Metrics: CPU, Memory, Latency<br/>Frequency: 1Hz"]
+    end
+
+    %% Connection Legend
+    subgraph "🎨 DYNAMIC CONNECTION LEGEND"
+        DISCOVERY_LEGEND["🔵 BLUE: Discovery Flows<br/>• UDP Broadcast (LAN)<br/>• HTTPS Registration (Global)<br/>• Live latency metrics"]
+        SECURITY_LEGEND["🔴 RED: Security Flows<br/>• API Key Validation<br/>• Permission Checks<br/>• Audit Logging<br/>• Real-time status"]
+        FEDERATION_LEGEND["🟢 GREEN: Task Sharing Flows<br/>• WebSocket Connections<br/>• Data Synchronization<br/>• Live throughput<br/>• Active transfers"]
+    end
+
+    %% System Health Overview
+    subgraph "💚 SYSTEM HEALTH OVERVIEW"
+        HEALTH_REGISTRY["Registry Health: 🟢 99.9% Uptime<br/>Response Time: 23ms<br/>Active Connections: 6"]
+        HEALTH_SECURITY["Security Status: 🟢 SECURE<br/>Failed Auth: 0/24h<br/>TLS Handshakes: 1,247"]
+        HEALTH_FEDERATION["Federation Status: 🟢 HEALTHY<br/>Active Links: 8/8<br/>Data Transferred: 2.3TB"]
+    end
+
+    %% Styling with Dynamic States
+    classDef swarmActive fill:#e8f5e8,stroke:#388e3c,stroke-width:3px
+    classDef swarmWarning fill:#fff3e0,stroke:#f57c00,stroke-width:3px
+    classDef registryActive fill:#f3e5f5,stroke:#7b1fa2,stroke-width:4px
+    classDef securityActive fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    classDef flowActive fill:#e8f5e8,stroke:#388e3c,stroke-width:3px
+
+    class TITLE titleClass
+    class SWARM_A1,SWARM_A2,SWARM_B1,SWARM_B2,SWARM_C1 swarmActive
+    class SWARM_D1 swarmWarning
+    class REGISTRY,API_KEYS,SWARM_DB,AUDIT_LOG,RATE_LIMIT registryActive
+    class TASK_FLOW,MEMORY_FLOW,ANALYTICS_FLOW flowActive
+    class DISCOVERY_LEGEND,SECURITY_LEGEND,FEDERATION_LEGEND,HEALTH_REGISTRY,HEALTH_SECURITY,HEALTH_FEDERATION securityActive
+
+    %% Dynamic link styling for active connections
+    linkStyle 1 stroke:#1976d2,stroke-width:4px,animation:pulse-blue 3s infinite
+    linkStyle 2 stroke:#1976d2,stroke-width:4px,animation:pulse-blue 3s infinite
+    linkStyle 11 stroke:#388e3c,stroke-width:5px,animation:pulse-green 2s infinite
+    linkStyle 12 stroke:#388e3c,stroke-width:5px,animation:pulse-green 2s infinite
+    linkStyle 13 stroke:#388e3c,stroke-width:4px,animation:flow-green 4s infinite
+    linkStyle 14 stroke:#388e3c,stroke-width:4px,animation:flow-green 4s infinite
+    linkStyle 15 stroke:#388e3c,stroke-width:4px,animation:flow-green 4s infinite
+    linkStyle 16 stroke:#388e3c,stroke-width:4px,animation:flow-green 4s infinite
+%% End of Mermaid Diagram
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for detailed views -->
+    <div id="detail-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-title">Component Details</h2>
+            <div id="modal-content">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#e3f2fd',
+                primaryTextColor: '#1976d2',
+                primaryBorderColor: '#1976d2',
+                lineColor: '#1976d2',
+                sectionBkgColor: '#f8f9fa',
+                altSectionBkgColor: '#ffffff',
+                gridColor: '#e9ecef',
+                tertiaryColor: '#f8f9fa'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            securityLevel: 'loose'
+        });
+
+        // Dynamic state management
+        class FederationDashboard {
+            constructor() {
+                this.updateInterval = 5000;
+                this.intervalId = null;
+                this.metrics = {
+                    totalSwarms: 6,
+                    activeFederations: 8,
+                    avgLatency: 45,
+                    securityScore: 98,
+                    tasksShared: 1200,
+                    uptime: 99.9
+                };
+                this.swarmStates = {
+                    'SWARM_A1': { active: true, heartbeat: 2 },
+                    'SWARM_A2': { active: true, heartbeat: 1 },
+                    'SWARM_B1': { active: true, heartbeat: 3 },
+                    'SWARM_B2': { active: true, heartbeat: 5 },
+                    'SWARM_C1': { active: true, heartbeat: 4 },
+                    'SWARM_D1': { active: false, heartbeat: 45 }
+                };
+
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.startUpdates();
+                this.updateDisplay();
+            }
+
+            setupEventListeners() {
+                // View mode selector
+                document.getElementById('view-mode').addEventListener('change', (e) => {
+                    this.updateViewMode(e.target.value);
+                });
+
+                // Update interval selector
+                document.getElementById('update-interval').addEventListener('change', (e) => {
+                    this.updateInterval = parseInt(e.target.value);
+                    this.restartUpdates();
+                });
+
+                // Refresh button
+                document.getElementById('refresh-btn').addEventListener('click', () => {
+                    this.updateMetrics();
+                    this.updateDiagram();
+                });
+
+                // Reset button
+                document.getElementById('reset-btn').addEventListener('click', () => {
+                    this.resetView();
+                });
+
+                // Modal close
+                document.querySelector('.close').addEventListener('click', () => {
+                    document.getElementById('detail-modal').style.display = 'none';
+                });
+
+                // Click outside modal
+                window.addEventListener('click', (e) => {
+                    const modal = document.getElementById('detail-modal');
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+
+            startUpdates() {
+                this.intervalId = setInterval(() => {
+                    this.updateMetrics();
+                    this.updateDiagram();
+                }, this.updateInterval);
+            }
+
+            restartUpdates() {
+                if (this.intervalId) {
+                    clearInterval(this.intervalId);
+                }
+                this.startUpdates();
+            }
+
+            updateMetrics() {
+                // Simulate dynamic metrics updates
+                this.metrics.avgLatency = Math.floor(Math.random() * 20) + 30;
+                this.metrics.tasksShared += Math.floor(Math.random() * 10);
+                this.metrics.activeFederations = Math.floor(Math.random() * 2) + 6;
+
+                // Update swarm heartbeats
+                Object.keys(this.swarmStates).forEach(id => {
+                    if (this.swarmStates[id].active) {
+                        this.swarmStates[id].heartbeat = Math.floor(Math.random() * 10) + 1;
+                    }
+                });
+
+                this.updateDisplay();
+            }
+
+            updateDisplay() {
+                // Update metric cards
+                document.getElementById('total-swarms').textContent = this.metrics.totalSwarms;
+                document.getElementById('active-federations').textContent = this.metrics.activeFederations;
+                document.getElementById('avg-latency').textContent = this.metrics.avgLatency + 'ms';
+                document.getElementById('security-score').textContent = this.metrics.securityScore + '%';
+                document.getElementById('tasks-shared').textContent = (this.metrics.tasksShared / 1000).toFixed(1) + 'K';
+                document.getElementById('uptime').textContent = this.metrics.uptime + '%';
+
+                // Update status indicators
+                document.getElementById('swarm-count').textContent =
+                    `${Object.values(this.swarmStates).filter(s => s.active).length} Active Swarms`;
+                document.getElementById('federation-count').textContent =
+                    `${this.metrics.activeFederations} Active Federations`;
+            }
+
+            updateDiagram() {
+                // In a real implementation, this would fetch live data from the registry
+                // For demo purposes, we'll update some visual elements
+                const diagram = document.getElementById('mermaid-diagram');
+
+                // Add some dynamic styling based on current state
+                if (this.metrics.avgLatency > 100) {
+                    diagram.style.borderLeft = '4px solid #ffc107';
+                } else {
+                    diagram.style.borderLeft = '4px solid #28a745';
+                }
+            }
+
+            updateViewMode(mode) {
+                const diagram = document.getElementById('mermaid-diagram');
+                const originalContent = diagram.textContent;
+
+                // In a real implementation, this would filter the diagram content
+                // For demo purposes, we'll just add a visual indicator
+                switch(mode) {
+                    case 'discovery':
+                        diagram.style.filter = 'sepia(0.3) hue-rotate(180deg)';
+                        break;
+                    case 'security':
+                        diagram.style.filter = 'sepia(0.3) hue-rotate(0deg)';
+                        break;
+                    case 'federation':
+                        diagram.style.filter = 'sepia(0.3) hue-rotate(90deg)';
+                        break;
+                    default:
+                        diagram.style.filter = 'none';
+                }
+            }
+
+            resetView() {
+                document.getElementById('view-mode').value = 'full';
+                document.getElementById('update-interval').value = '5000';
+                this.updateInterval = 5000;
+                this.restartUpdates();
+                this.updateViewMode('full');
+            }
+
+            showComponentDetails(componentId) {
+                const modal = document.getElementById('detail-modal');
+                const title = document.getElementById('modal-title');
+                const content = document.getElementById('modal-content');
+
+                title.textContent = `${componentId} - Detailed Information`;
+
+                // Generate detailed content based on component
+                let details = '';
+                switch(componentId) {
+                    case 'REGISTRY':
+                        details = `
+                            <h3>Federation Registry Service</h3>
+                            <p><strong>Status:</strong> 🟢 Online</p>
+                            <p><strong>Endpoint:</strong> https://registry.brain-swarm.com</p>
+                            <p><strong>Active Swarms:</strong> ${this.metrics.totalSwarms}</p>
+                            <p><strong>API Keys:</strong> 8 active</p>
+                            <p><strong>Response Time:</strong> 23ms average</p>
+                            <p><strong>Uptime:</strong> 99.9%</p>
+                        `;
+                        break;
+                    case 'SWARM_A1':
+                        details = `
+                            <h3>Swarm Alpha Node 1</h3>
+                            <p><strong>Status:</strong> 🟢 Active</p>
+                            <p><strong>Location:</strong> Enterprise Network A</p>
+                            <p><strong>Address:</strong> 192.168.1.100:8000</p>
+                            <p><strong>Last Heartbeat:</strong> ${this.swarmStates.SWARM_A1.heartbeat}s ago</p>
+                            <p><strong>Active Federations:</strong> 3</p>
+                            <p><strong>Tasks Processed:</strong> 1,247</p>
+                        `;
+                        break;
+                    default:
+                        details = `<p>Detailed information for ${componentId} would be shown here.</p>`;
+                }
+
+                content.innerHTML = details;
+                modal.style.display = 'block';
+            }
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.dashboard = new FederationDashboard();
+
+            // Add click handlers to diagram elements (in a real implementation)
+            // This would require more complex Mermaid integration
+            console.log('Brain Swarm Federation Dashboard initialized');
+        });
+
+        // Add some CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse-blue {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+            }
+
+            @keyframes pulse-green {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+            }
+
+            @keyframes flow-green {
+                0% { stroke-dashoffset: 0; }
+                100% { stroke-dashoffset: -20; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

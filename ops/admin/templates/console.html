@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Unified Console Dashboard</title>
+  <script src="https://unpkg.com/htmx.org@1.9.9"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.9/dist/ext/sse.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta http-equiv="refresh" content="10">
+</head>
+
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col"
+      hx-sse="connect:/sse/console"
+      hx-sse-swap="updateMetrics"
+      hx-target="this"
+      hx-swap="none">
+  <header class="bg-gradient-to-r from-teal-500 to-cyan-600 p-4 shadow-md flex items-center justify-between">
+    <h1 class="text-2xl font-bold tracking-wide">🧠 Unified Console Dashboard</h1>
+    <nav class="space-x-4">
+      <a href="/" class="hover:text-gray-200 underline">Home</a>
+      <a href="/attempts" class="hover:text-gray-200 underline">Auth Logs</a>
+      <a href="/users" class="hover:text-gray-200 underline">Users</a>
+      <a href="/keys" class="hover:text-gray-200 underline">SSH Keys</a>
+      <a href="/logout" class="hover:text-gray-200 underline">Logout</a>
+    </nav>
+  </header>
+
+  <main class="flex-1 p-6">
+    <h2 class="text-xl mb-4 font-semibold text-teal-300">Linked Dashboards</h2>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="dashboards-grid">
+      {% for d in dashboards %}
+      <div class="dashboard-card rounded-2xl shadow-lg bg-gray-800 border border-gray-700 hover:border-teal-500 transition-all duration-300"
+           data-url="{{ d.url }}" data-health="{{ d.health or '' }}">
+        <div class="p-5 flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-100">{{ d.name }}</h3>
+            <p class="text-sm text-gray-400 truncate">{{ d.url }}</p>
+          </div>
+          <span class="status-badge bg-gray-600 text-gray-300 font-bold px-3 py-1 rounded-full text-sm animate-pulse">Checking...</span>
+        </div>
+        <div class="bg-gray-900 p-4 flex items-center justify-between rounded-b-2xl">
+          <a href="{{ d.url }}" target="_blank"
+             class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg font-medium shadow-md">
+             Open
+          </a>
+          <button hx-get="/console" hx-target="body"
+             class="text-sm text-gray-400 hover:text-teal-300">↻ Refresh</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-10">
+      <h2 class="text-xl mb-3 font-semibold text-teal-300">System Overview</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="bg-gray-800 rounded-2xl p-5 shadow-lg">
+          <h3 class="text-sm text-gray-400 mb-1">CPU Usage</h3>
+          <canvas id="cpuChart"></canvas>
+        </div>
+        <div class="bg-gray-800 rounded-2xl p-5 shadow-lg">
+          <h3 class="text-sm text-gray-400 mb-1">Memory Usage</h3>
+          <canvas id="memChart"></canvas>
+        </div>
+        <div class="bg-gray-800 rounded-2xl p-5 shadow-lg">
+          <h3 class="text-sm text-gray-400 mb-1">Disk Usage</h3>
+          <canvas id="diskChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="p-4 text-center text-gray-500 text-sm border-t border-gray-800">
+    Brain-Swarm Local Admin — Unified Console · Auto-refresh every 10 s
+  </footer>
+
+  <script>
+    let cpuChart, memChart, diskChart;
+
+    const makeChart = (id, label, val, color) => {
+      const ctx = document.getElementById(id);
+      if (window[id]) {
+        window[id].data.datasets[0].data = [val, 100 - val];
+        window[id].update();
+      } else {
+        window[id] = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: [label, 'Remaining'],
+            datasets: [{
+              data: [val, 100 - val],
+              backgroundColor: [color, '#374151'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            cutout: '70%',
+            plugins: { legend: { display: false } },
+          }
+        });
+      }
+    };
+
+    // HTMX SSE event handler
+    document.addEventListener('updateMetrics', (evt) => {
+      const data = JSON.parse(evt.detail.data);
+      if (data.type === 'initial' || data.type === 'metrics') {
+        // Update charts if metrics available
+        if (data.cpu !== undefined) makeChart('cpuChart','CPU',data.cpu,'#14b8a6');
+        if (data.mem !== undefined) makeChart('memChart','MEM',data.mem,'#0ea5e9');
+        if (data.disk !== undefined) makeChart('diskChart','DISK',data.disk,'#22c55e');
+      }
+      // Handle other event types as needed
+    });
+
+    // Check dashboard health status
+    function checkDashboardHealth() {
+      const cards = document.querySelectorAll('.dashboard-card');
+      cards.forEach(card => {
+        const healthUrl = card.dataset.health;
+        const statusBadge = card.querySelector('.status-badge');
+
+        if (!healthUrl) {
+          statusBadge.textContent = 'N/A';
+          statusBadge.className = 'status-badge bg-gray-600 text-gray-300 font-bold px-3 py-1 rounded-full text-sm';
+          return;
+        }
+
+        fetch(healthUrl, { timeout: 5000 })
+          .then(response => {
+            if (response.ok) {
+              statusBadge.textContent = 'UP';
+              statusBadge.className = 'status-badge bg-green-500 text-gray-900 font-bold px-3 py-1 rounded-full text-sm';
+            } else {
+              throw new Error('Not OK');
+            }
+          })
+          .catch(error => {
+            statusBadge.textContent = 'DOWN';
+            statusBadge.className = 'status-badge bg-red-600 text-gray-100 font-bold px-3 py-1 rounded-full text-sm';
+          });
+      });
+    }
+
+    // Check health on page load and every 30 seconds
+    checkDashboardHealth();
+    setInterval(checkDashboardHealth, 30000);
+
+    // Fallback WebSocket for browsers without SSE support
+    if (typeof(EventSource) === 'undefined') {
+      const ws = new WebSocket(`ws://${window.location.host}/ws/console`);
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'initial' || data.type === 'metrics') {
+          if (data.cpu !== undefined) makeChart('cpuChart','CPU',data.cpu,'#14b8a6');
+          if (data.mem !== undefined) makeChart('memChart','MEM',data.mem,'#0ea5e9');
+          if (data.disk !== undefined) makeChart('diskChart','DISK',data.disk,'#22c55e');
+        }
+      };
+    }
+
+    // Initial fetch
+    fetch('/sysstats').then(r=>r.json()).then(d=>{
+      makeChart('cpuChart','CPU',d.cpu,'#14b8a6');
+      makeChart('memChart','MEM',d.mem,'#0ea5e9');
+      makeChart('diskChart','DISK',d.disk,'#22c55e');
+    });
+  </script>
+</body>
+</html>

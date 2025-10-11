@@ -1,0 +1,119 @@
+graph TB
+    %% Main Title
+    TITLE["🧠 Brain Swarm Federation<br/>Complete Reference Architecture"]
+
+    %% Network Environments
+    subgraph "🏢 ENTERPRISE NETWORK A"
+        SWARM_A1[Swarm Alpha<br/>Node 1<br/>192.168.1.100:8000]
+        SWARM_A2[Swarm Alpha<br/>Node 2<br/>192.168.1.101:8000]
+    end
+
+    subgraph "🏢 ENTERPRISE NETWORK B"
+        SWARM_B1[Swarm Beta<br/>Node 1<br/>10.0.0.100:8000]
+        SWARM_B2[Swarm Beta<br/>Node 2<br/>10.0.0.101:8000]
+    end
+
+    subgraph "☁️ PUBLIC CLOUD"
+        SWARM_C1[Swarm Gamma<br/>Node 1<br/>cloud.example.com:8000]
+    end
+
+    subgraph "🏠 HOME NETWORK"
+        SWARM_D1[Swarm Delta<br/>Node 1<br/>192.168.0.50:8000]
+    end
+
+    %% Central Registry Service
+    subgraph "🔐 SECURE REGISTRY SERVICE"
+        REGISTRY[(Federation Registry<br/>registry.brain-swarm.com<br/>🔒 TLS 1.3 + API Keys)]
+        API_KEYS[(API Key Store<br/>Hashed & Secured)]
+        SWARM_DB[(Swarm Registry<br/>Metadata & Status)]
+        AUDIT_LOG[(Audit Logs<br/>All Operations)]
+        RATE_LIMIT[(Rate Limiter<br/>per API Key)]
+    end
+
+    %% Discovery Flows (BLUE connections)
+    %% LAN Discovery - Same network UDP broadcasts
+    SWARM_A1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>(LAN Discovery)"| SWARM_A2
+    SWARM_B1 -.->|"🔵 UDP Broadcast<br/>Port 9999<br/>(LAN Discovery)"| SWARM_B2
+
+    %% Global Discovery - Registry-based across networks
+    SWARM_A1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>(Global Discovery)"| REGISTRY
+    SWARM_A2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>(Global Discovery)"| REGISTRY
+    SWARM_B1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>(Global Discovery)"| REGISTRY
+    SWARM_B2 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>(Global Discovery)"| REGISTRY
+    SWARM_C1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>(Global Discovery)"| REGISTRY
+    SWARM_D1 -.->|"🔵 HTTPS Registration<br/>API Key Auth<br/>(Global Discovery)"| REGISTRY
+
+    %% Registry Internal Security Flow (RED connections)
+    REGISTRY -.->|"🔴 API Key Validation<br/>(Security Layer)"| API_KEYS
+    API_KEYS -.->|"🔴 Permission Check<br/>(AuthZ)"| RATE_LIMIT
+    RATE_LIMIT -.->|"🔴 Database Access<br/>(Controlled)"| SWARM_DB
+    SWARM_DB -.->|"🔴 Operation Logging<br/>(Audit Trail)"| AUDIT_LOG
+
+    %% Task Sharing Flows (GREEN connections)
+    %% Within same network - direct WebSocket
+    SWARM_A1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>(LAN Sharing)"| SWARM_A2
+    SWARM_B1 -.->|"🟢 WebSocket Direct<br/>Federation Tasks<br/>(LAN Sharing)"| SWARM_B2
+
+    %% Cross-network - discovered via registry
+    SWARM_A1 -.->|"🟢 WebSocket Federation<br/>Cross-Network Tasks<br/>(Registry Discovered)"| SWARM_B1
+    SWARM_A2 -.->|"🟢 WebSocket Federation<br/>Memory Sync<br/>(Registry Discovered)"| SWARM_C1
+    SWARM_B2 -.->|"🟢 WebSocket Federation<br/>Analytics Sharing<br/>(Registry Discovered)"| SWARM_D1
+    SWARM_C1 -.->|"🟢 WebSocket Federation<br/>Task Distribution<br/>(Registry Discovered)"| SWARM_D1
+
+    %% Example Data Flows
+    subgraph "📊 EXAMPLE FEDERATION FLOWS"
+        TASK_FLOW["Task: 'Process Dataset X'<br/>From: Swarm Alpha → Swarm Beta<br/>Via: Registry Discovery + WebSocket"]
+        MEMORY_FLOW["Memory: User Preferences<br/>From: Swarm Gamma → Swarm Delta<br/>Via: Registry Discovery + WebSocket"]
+        ANALYTICS_FLOW["Analytics: Performance Metrics<br/>From: Swarm Beta → Swarm Alpha<br/>Via: Registry Discovery + WebSocket"]
+    end
+
+    %% Connection Legend
+    subgraph "🎨 CONNECTION LEGEND"
+        DISCOVERY_LEGEND["🔵 BLUE: Discovery Flows<br/>• UDP Broadcast (LAN)<br/>• HTTPS Registration (Global)"]
+        SECURITY_LEGEND["🔴 RED: Security Flows<br/>• API Key Validation<br/>• Permission Checks<br/>• Audit Logging"]
+        FEDERATION_LEGEND["🟢 GREEN: Task Sharing Flows<br/>• WebSocket Connections<br/>• Data Synchronization<br/>• Cross-Swarm Communication"]
+    end
+
+    %% Architecture Benefits
+    subgraph "✨ KEY BENEFITS"
+        HYBRID_DISC["🔄 Hybrid Discovery<br/>LAN Speed + Global Reach"]
+        AUTO_SECURITY["🔐 Automatic Security<br/>TLS + API Keys + Audit"]
+        SCALABLE_FED["📈 Scalable Federation<br/>Thousands of Swarms"]
+        RESILIENT_COMM["🛡️ Resilient Communication<br/>Fallback & Recovery"]
+    end
+
+    %% Flow Explanations
+    SWARM_A1 -.->|"Registry Query<br/>'Find Beta Swarm'"| REGISTRY
+    REGISTRY -.->|"Return Beta Metadata<br/>host:10.0.0.100:8000"| SWARM_A1
+    SWARM_A1 -.->|"WebSocket Connect<br/>wss://10.0.0.100:8000/federation"| SWARM_B1
+
+    %% Styling
+    classDef swarmClass fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef registryClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px
+    classDef securityClass fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    classDef flowClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef titleClass fill:#fff3e0,stroke:#f57c00,stroke-width:3px,font-size:16px
+
+    class TITLE titleClass
+    class SWARM_A1,SWARM_A2,SWARM_B1,SWARM_B2,SWARM_C1,SWARM_D1 swarmClass
+    class REGISTRY,API_KEYS,SWARM_DB,AUDIT_LOG,RATE_LIMIT registryClass
+    class TASK_FLOW,MEMORY_FLOW,ANALYTICS_FLOW flowClass
+    class DISCOVERY_LEGEND,SECURITY_LEGEND,FEDERATION_LEGEND,HYBRID_DISC,AUTO_SECURITY,SCALABLE_FED,RESILIENT_COMM securityClass
+
+    %% Link styling for different connection types
+    linkStyle 1 stroke:#1976d2,stroke-width:3px
+    linkStyle 2 stroke:#1976d2,stroke-width:3px
+    linkStyle 3 stroke:#1976d2,stroke-width:3px
+    linkStyle 4 stroke:#1976d2,stroke-width:3px
+    linkStyle 5 stroke:#1976d2,stroke-width:3px
+    linkStyle 6 stroke:#1976d2,stroke-width:3px
+    linkStyle 7 stroke:#d32f2f,stroke-width:2px
+    linkStyle 8 stroke:#d32f2f,stroke-width:2px
+    linkStyle 9 stroke:#d32f2f,stroke-width:2px
+    linkStyle 10 stroke:#d32f2f,stroke-width:2px
+    linkStyle 11 stroke:#388e3c,stroke-width:3px
+    linkStyle 12 stroke:#388e3c,stroke-width:3px
+    linkStyle 13 stroke:#388e3c,stroke-width:3px
+    linkStyle 14 stroke:#388e3c,stroke-width:3px
+    linkStyle 15 stroke:#388e3c,stroke-width:3px
+    linkStyle 16 stroke:#388e3c,stroke-width:3px

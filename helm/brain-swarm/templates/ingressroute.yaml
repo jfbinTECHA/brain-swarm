@@ -1,0 +1,142 @@
+{{- if and .Values.ingress.enabled .Values.ingress.traefikEnabled }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-api
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    # Main API routes with security middleware
+    - match: Host(`{{ .Values.ingress.host }}`) && (PathPrefix(`/api`) || Path(`/health`) || PathPrefix(`/auth`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/monitoring`) || PathPrefix(`/webhooks`) || Path(`/mission-control`))
+      kind: Rule
+      middlewares:
+        - name: brain-swarm-rate-limit
+          namespace: {{ .Release.Namespace }}
+        - name: brain-swarm-security-headers
+          namespace: {{ .Release.Namespace }}
+        {{- if .Values.ingress.security.ipWhitelist }}
+        - name: brain-swarm-ip-whitelist
+          namespace: {{ .Release.Namespace }}
+        {{- end }}
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-api
+          port: 80
+
+    # Metrics endpoint with stricter rate limiting
+    - match: Host(`{{ .Values.ingress.host }}`) && PathPrefix(`/metrics`)
+      kind: Rule
+      middlewares:
+        - name: brain-swarm-metrics-rate-limit
+          namespace: {{ .Release.Namespace }}
+        - name: brain-swarm-security-headers
+          namespace: {{ .Release.Namespace }}
+        {{- if .Values.ingress.security.metricsIPWhitelist }}
+        - name: brain-swarm-metrics-ip-whitelist
+          namespace: {{ .Release.Namespace }}
+        {{- end }}
+      services:
+        - name: {{ include "brain-swarm.fullname" . }}-api
+          port: 80
+
+  tls:
+    {{- if .Values.ingress.tls.enabled }}
+    secretName: {{ .Values.ingress.tls.secretName | default (printf "%s-api-tls" (include "brain-swarm.fullname" .)) }}
+    {{- else }}
+    # Use Let's Encrypt or cert-manager
+    certResolver: {{ .Values.ingress.certResolver | default "letsencrypt" }}
+    {{- end }}
+---
+# Rate limiting middleware for API endpoints
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: brain-swarm-rate-limit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+spec:
+  rateLimit:
+    burst: {{ .Values.ingress.security.rateLimit.burst | default 20 }}
+    average: {{ .Values.ingress.security.rateLimit.average | default 10 }}
+
+---
+# Stricter rate limiting for metrics endpoints
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: brain-swarm-metrics-rate-limit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+spec:
+  rateLimit:
+    burst: {{ .Values.ingress.security.metricsRateLimit.burst | default 5 }}
+    average: {{ .Values.ingress.security.metricsRateLimit.average | default 2 }}
+
+---
+# Security headers middleware
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: brain-swarm-security-headers
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+spec:
+  headers:
+    customRequestHeaders:
+      X-Frame-Options: "DENY"
+      X-Content-Type-Options: "nosniff"
+      X-XSS-Protection: "1; mode=block"
+      Referrer-Policy: "strict-origin-when-cross-origin"
+      Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+    customResponseHeaders:
+      Server: ""  # Remove server header
+      X-Powered-By: ""  # Remove powered-by header
+
+---
+# IP whitelist middleware (only created if IP whitelist is configured)
+{{- if .Values.ingress.security.ipWhitelist }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: brain-swarm-ip-whitelist
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+spec:
+  ipWhiteList:
+    sourceRange:
+      {{- range .Values.ingress.security.ipWhitelist }}
+      - {{ . }}
+      {{- end }}
+    {{- if .Values.ingress.security.ipWhitelistRejectStatus }}
+    rejectStatusCode: {{ .Values.ingress.security.ipWhitelistRejectStatus }}
+    {{- end }}
+{{- end }}
+
+---
+# Metrics IP whitelist middleware (separate from main API whitelist)
+{{- if .Values.ingress.security.metricsIPWhitelist }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: brain-swarm-metrics-ip-whitelist
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+spec:
+  ipWhiteList:
+    sourceRange:
+      {{- range .Values.ingress.security.metricsIPWhitelist }}
+      - {{ . }}
+      {{- end }}
+    {{- if .Values.ingress.security.ipWhitelistRejectStatus }}
+    rejectStatusCode: {{ .Values.ingress.security.ipWhitelistRejectStatus }}
+    {{- end }}
+{{- end }}
+{{- end }}

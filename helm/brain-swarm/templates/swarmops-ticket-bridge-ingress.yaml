@@ -1,0 +1,65 @@
+{{- if .Values.ticketBridge.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-ticket-bridge
+  annotations:
+    {{- with .Values.ticketBridge.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if not .Values.ticketBridge.ingress.traefikEnabled }}
+    kubernetes.io/ingress.class: {{ .Values.ticketBridge.ingress.className | default "nginx" }}
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    {{- if .Values.ticketBridge.ingress.certManagerIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.ticketBridge.ingress.certManagerIssuer }}
+    {{- end }}
+    # 🔒 Security Enhancements
+    nginx.ingress.kubernetes.io/limit-rpm: "30"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+    {{- if .Values.ticketBridge.ingress.whitelist }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ .Values.ticketBridge.ingress.whitelist | quote }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Block requests without proper User-Agent or missing signature
+      if ($http_user_agent = "") { return 403; }
+      if ($http_x_hub_signature_256 = "") { return 403; }
+    {{- end }}
+spec:
+  {{- if .Values.ticketBridge.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ticketBridge.ingress.host }}
+      secretName: {{ .Values.ticketBridge.ingress.tls.secretName | default (printf "%s-ticket-bridge-tls" (include "brain-swarm.fullname" .)) }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ticketBridge.ingress.host }}
+      http:
+        paths:
+          - path: /gh-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+                port:
+                  number: 80
+          - path: /jira-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+                port:
+                  number: 80
+          - path: /servicenow-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-ticket-bridge
+                port:
+                  number: 80
+{{- end }}

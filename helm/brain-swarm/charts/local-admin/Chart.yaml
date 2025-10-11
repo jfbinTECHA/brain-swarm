@@ -1,0 +1,6 @@
+apiVersion: v2
+name: local-admin
+description: Local system admin & unified console for Brain-Swarm
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

@@ -1,0 +1,358 @@
+{{- if .Values.monitoring.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-grafana-config
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  # Grafana configuration with Brain Swarm theming
+  grafana.ini: |
+    [server]
+    root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/
+    serve_from_sub_path = true
+
+    [security]
+    admin_user = {{ .Values.monitoring.grafana.adminUser | default "admin" | quote }}
+    admin_password = {{ .Values.monitoring.grafana.adminPassword | default "admin" | quote }}
+    secret_key = {{ .Values.monitoring.grafana.secretKey | default "SW2YcwTIb9zpOOhoPsMm" | quote }}
+    disable_gravatar = true
+
+    [users]
+    allow_sign_up = {{ .Values.monitoring.grafana.allowSignUp | default false }}
+    auto_assign_org = true
+    auto_assign_org_role = {{ .Values.monitoring.grafana.defaultRole | default "Viewer" | quote }}
+
+    [auth.anonymous]
+    enabled = {{ .Values.monitoring.grafana.anonymous.enabled | default true }}
+    org_name = {{ .Values.monitoring.grafana.anonymous.orgName | default "Main Org." | quote }}
+    org_role = {{ .Values.monitoring.grafana.anonymous.orgRole | default "Viewer" | quote }}
+
+    [auth.basic]
+    enabled = true
+
+    [log]
+    mode = console
+    level = {{ .Values.monitoring.grafana.logLevel | default "info" | quote }}
+
+    [paths]
+    data = /var/lib/grafana/data
+    logs = /var/lib/grafana/logs
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
+
+    # Custom Brain Swarm branding
+    [branding]
+    login_title = "Brain Swarm Operations"
+    login_subtitle = "Enterprise Incident Response Platform"
+    login_logo = "/public/img/brain-swarm-logo.png"
+    login_background = "/public/img/brain-swarm-bg.jpg"
+    login_box_background = "/public/img/login-box-bg.png"
+    favicon = "/public/img/favicon.ico"
+
+    # Custom footer branding
+    footer_text = "Powered by Brain Swarm"
+    footer_link = "https://github.com/jfbintecha/brain-swarm"
+    footer_logo = "/public/img/brain-swarm-footer-logo.png"
+
+    # Theme customization
+    theme = "dark"
+    app_title = "Brain Swarm - Operations Dashboard"
+    app_sub_title = "Real-time AI Incident Response"
+
+    [feature_toggles]
+    enable = publicDashboards, expressions, transformations, alertStyling, newPanelChromeUI
+
+    [alerting]
+    enabled = true
+    execute_alerts = true
+
+    [unified_alerting]
+    enabled = true
+
+    [metrics]
+    enabled = true
+
+    [metrics.graphite]
+    address = localhost:2003
+    prefix = prod.grafana.%(instance_name)s.
+
+  # Custom login page HTML
+  login.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Brain Swarm - Login</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+                color: #e0e0e0;
+                overflow: hidden;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .login-container {
+                background: rgba(26, 26, 46, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+                padding: 40px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                border: 1px solid rgba(100, 181, 246, 0.2);
+                max-width: 400px;
+                width: 100%;
+                text-align: center;
+                position: relative;
+            }
+
+            .login-container::before {
+                content: '';
+                position: absolute;
+                top: -2px;
+                left: -2px;
+                right: -2px;
+                bottom: -2px;
+                background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c);
+                border-radius: 17px;
+                z-index: -1;
+                opacity: 0.7;
+                animation: borderGlow 3s ease-in-out infinite alternate;
+            }
+
+            @keyframes borderGlow {
+                0% { opacity: 0.7; }
+                100% { opacity: 1; }
+            }
+
+            .logo {
+                width: 80px;
+                height: 80px;
+                margin: 0 auto 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 36px;
+                font-weight: bold;
+                color: white;
+                box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+            }
+
+            .title {
+                font-size: 28px;
+                font-weight: 600;
+                margin-bottom: 8px;
+                background: linear-gradient(135deg, #64b5f6, #42a5f5);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+
+            .subtitle {
+                color: #b0b0b0;
+                margin-bottom: 30px;
+                font-size: 14px;
+            }
+
+            .form-group {
+                margin-bottom: 20px;
+                text-align: left;
+            }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 5px;
+                color: #e0e0e0;
+                font-size: 14px;
+            }
+
+            .form-group input {
+                width: 100%;
+                padding: 12px 16px;
+                border: 1px solid rgba(100, 181, 246, 0.3);
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.05);
+                color: #e0e0e0;
+                font-size: 16px;
+                transition: all 0.3s ease;
+                box-sizing: border-box;
+            }
+
+            .form-group input:focus {
+                outline: none;
+                border-color: #64b5f6;
+                box-shadow: 0 0 0 3px rgba(100, 181, 246, 0.1);
+                background: rgba(255, 255, 255, 0.08);
+            }
+
+            .login-btn {
+                width: 100%;
+                padding: 14px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border: none;
+                border-radius: 8px;
+                color: white;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                margin-bottom: 20px;
+            }
+
+            .login-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+            }
+
+            .footer {
+                font-size: 12px;
+                color: #666;
+                margin-top: 20px;
+            }
+
+            .footer a {
+                color: #64b5f6;
+                text-decoration: none;
+            }
+
+            .footer a:hover {
+                text-decoration: underline;
+            }
+
+            .particles {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: -2;
+            }
+
+            .particle {
+                position: absolute;
+                background: rgba(100, 181, 246, 0.1);
+                border-radius: 50%;
+                animation: float 6s ease-in-out infinite;
+            }
+
+            .particle:nth-child(1) { width: 4px; height: 4px; top: 20%; left: 20%; animation-delay: 0s; }
+            .particle:nth-child(2) { width: 6px; height: 6px; top: 60%; left: 80%; animation-delay: 2s; }
+            .particle:nth-child(3) { width: 3px; height: 3px; top: 40%; left: 60%; animation-delay: 4s; }
+            .particle:nth-child(4) { width: 5px; height: 5px; top: 80%; left: 30%; animation-delay: 1s; }
+            .particle:nth-child(5) { width: 4px; height: 4px; top: 10%; left: 70%; animation-delay: 3s; }
+
+            @keyframes float {
+                0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.5; }
+                50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
+            }
+
+            @media (max-width: 480px) {
+                .login-container {
+                    margin: 20px;
+                    padding: 30px 20px;
+                }
+                .title { font-size: 24px; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+
+        <div class="login-container">
+            <div class="logo">🧠</div>
+            <h1 class="title">Brain Swarm</h1>
+            <p class="subtitle">Enterprise Incident Response Platform</p>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+
+                <button type="submit" class="login-btn">Access Operations Dashboard</button>
+            </form>
+
+            <div class="footer">
+                <p>Powered by <a href="https://github.com/jfbintecha/brain-swarm" target="_blank">Brain Swarm</a></p>
+            </div>
+        </div>
+
+        <script>
+            // Add some interactive effects
+            document.addEventListener('DOMContentLoaded', function() {
+                const form = document.getElementById('loginForm');
+                const inputs = document.querySelectorAll('input');
+
+                // Focus effects
+                inputs.forEach(input => {
+                    input.addEventListener('focus', function() {
+                        this.parentElement.style.transform = 'translateY(-2px)';
+                    });
+
+                    input.addEventListener('blur', function() {
+                        this.parentElement.style.transform = 'translateY(0)';
+                    });
+                });
+
+                // Form submission (redirect to Grafana login)
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    // This would normally submit to Grafana's login endpoint
+                    alert('Redirecting to Brain Swarm Operations Dashboard...');
+                });
+            });
+        </script>
+    </body>
+    </html>
+
+  # Dashboard provisioning configuration
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+    - name: 'brain-swarm'
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+
+  # Data source provisioning
+  datasources.yml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://{{ include "brain-swarm.fullname" . }}-prometheus:9090
+      isDefault: true
+      editable: true
+    {{- if .Values.monitoring.loki.enabled }}
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://{{ include "brain-swarm.fullname" . }}-loki:3100
+      editable: true
+    {{- end }}
+{{- end }}
