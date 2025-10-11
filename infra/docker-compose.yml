@@ -1,55 +1,135 @@
-version: "3.9"
+version: '3.8'
+
+# Brain Swarm with optional horizontal scaling support
+# To enable scalability features, set SCALABILITY__ENABLED=true in your .env file
+# For full multi-cluster setup, use docker-compose.scalable.yml instead
 
 services:
-  cortex-api:
-    image: python:3.12-slim
-    container_name: cortex-api
-    working_dir: /app
+  brain-swarm-api:
+    build: .
+    ports:
+      - "${NODE__PORT:-8000}:8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - NODE__NODE_NAME=${NODE__NODE_NAME:-brain_swarm_api}
+      - NODE__SWARM_ID=${NODE__SWARM_ID:-default_swarm}
+      - NODE__HOST=0.0.0.0
+      - NODE__PORT=8000
+      - DATABASE__URL=${DATABASE__URL:-sqlite:///data/brain_swarm.db}
+      - LOGGING__LEVEL=${LOGGING__LEVEL:-INFO}
+      - FEDERATION__ENABLED=${FEDERATION__ENABLED:-false}
+      # Scalability configuration
+      - SCALABILITY__ENABLED=${SCALABILITY__ENABLED:-false}
+      - SCALABILITY__MESSAGE_QUEUE_MODE=${SCALABILITY__MESSAGE_QUEUE_MODE:-single_node}
+      - SCALABILITY__REDIS_URLS=${SCALABILITY__REDIS_URLS:-["redis://redis:6379"]}
+      - SCALABILITY__PARTITIONS=${SCALABILITY__PARTITIONS:-8}
+      - SCALABILITY__ASYNC_AGENTS_ENABLED=${SCALABILITY__ASYNC_AGENTS_ENABLED:-false}
+      - SCALABILITY__AGENT_POOL_MIN=${SCALABILITY__AGENT_POOL_MIN:-1}
+      - SCALABILITY__AGENT_POOL_MAX=${SCALABILITY__AGENT_POOL_MAX:-10}
+      - SCALABILITY__LOAD_BALANCING_STRATEGY=${SCALABILITY__LOAD_BALANCING_STRATEGY:-least_loaded}
+      - SCALABILITY__MULTI_CLUSTER_ENABLED=${SCALABILITY__MULTI_CLUSTER_ENABLED:-false}
+      - SCALABILITY__CLUSTER_ID=${SCALABILITY__CLUSTER_ID:-default_cluster}
+      - SCALABILITY__CLUSTER_ROLE=${SCALABILITY__CLUSTER_ROLE:-primary}
+      - SCALABILITY__AUTO_SCALING_ENABLED=${SCALABILITY__AUTO_SCALING_ENABLED:-false}
     volumes:
-      - ./backend:/app
-      - ./data/duckdb:/data
-    command: bash -c "pip install fastapi uvicorn redis duckdb prometheus-fastapi-instrumentator && uvicorn main:app --host 0.0.0.0 --port 8001"
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    depends_on:
+      - redis
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
+  brain-swarm-operations:
+    build: .
     ports:
       - "8001:8001"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - NODE__NODE_NAME=${NODE__NODE_NAME:-brain_swarm_operations}
+      - NODE__SWARM_ID=${NODE__SWARM_ID:-operations_swarm}
+      - DATABASE__URL=${DATABASE__URL:-sqlite:///data/brain_swarm.db}
+      - LOGGING__LEVEL=${LOGGING__LEVEL:-INFO}
+      # Scalability configuration
+      - SCALABILITY__ENABLED=${SCALABILITY__ENABLED:-false}
+      - SCALABILITY__MESSAGE_QUEUE_MODE=${SCALABILITY__MESSAGE_QUEUE_MODE:-single_node}
+      - SCALABILITY__REDIS_URLS=${SCALABILITY__REDIS_URLS:-["redis://redis:6379"]}
+      - SCALABILITY__PARTITIONS=${SCALABILITY__PARTITIONS:-8}
+      - SCALABILITY__ASYNC_AGENTS_ENABLED=${SCALABILITY__ASYNC_AGENTS_ENABLED:-false}
+      - SCALABILITY__AGENT_POOL_MIN=${SCALABILITY__AGENT_POOL_MIN:-1}
+      - SCALABILITY__AGENT_POOL_MAX=${SCALABILITY__AGENT_POOL_MAX:-10}
+      - SCALABILITY__LOAD_BALANCING_STRATEGY=${SCALABILITY__LOAD_BALANCING_STRATEGY:-least_loaded}
+      - SCALABILITY__MULTI_CLUSTER_ENABLED=${SCALABILITY__MULTI_CLUSTER_ENABLED:-false}
+      - SCALABILITY__CLUSTER_ID=${SCALABILITY__CLUSTER_ID:-operations_cluster}
+      - SCALABILITY__CLUSTER_ROLE=${SCALABILITY__CLUSTER_ROLE:-secondary}
+      - SCALABILITY__AUTO_SCALING_ENABLED=${SCALABILITY__AUTO_SCALING_ENABLED:-false}
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    command: ["python", "run_operations_server.py"]
     depends_on:
-      - cortex-redis
-      - cortex-duckdb
+      - redis
+      - brain-swarm-api
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
 
-  cortex-redis:
-    image: redis:7.4
-    container_name: cortex-redis
+  redis:
+    image: redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
-      - ./data/redis:/data
+      - redis_data:/data
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
 
-  cortex-duckdb:
-    image: ubuntu:24.04
-    container_name: cortex-duckdb
-    command: bash -c "apt update && apt install -y duckdb && tail -f /dev/null"
-    volumes:
-      - ./data/duckdb:/duckdb
-
-  cortex-prometheus:
-    image: prom/prometheus:latest
-    container_name: cortex-prometheus
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
     ports:
-      - "9090:9090"
-    volumes:
-      - ./dashboards/prometheus.yml:/etc/prometheus/prometheus.yml
-
-  cortex-grafana:
-    image: grafana/grafana:10.2.0
-    container_name: cortex-grafana
-    ports:
-      - "3000:3000"
+      - "9121:9121"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-    volumes:
-      - ./dashboards:/var/lib/grafana
-      - ./dashboards/provisioning:/etc/grafana/provisioning
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     depends_on:
-      - cortex-prometheus
+      - redis
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
 
+  # ChromaDB for vector storage (Knowledge Cortex)
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    ports:
+      - "8001:8000"
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    volumes:
+      - chroma_data:/chroma/.chroma
+    networks:
+      - brain-swarm-network
+    restart: unless-stopped
+
+  # Dashboard service (uncomment when dashboard is containerized)
+  # brain-swarm-dashboard:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dashboard
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - API_URL=http://brain-swarm-api:8000
+  #   depends_on:
+  #     - brain-swarm-api
+  #   networks:
+  #     - brain-swarm-network
+  #   restart: unless-stopped
+
+volumes:
+  redis_data:
+  chroma_data:
+
+networks:
+  brain-swarm-network:
+    driver: bridge
