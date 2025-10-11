@@ -10,7 +10,3 @@ python-dotenv>=1.0.0
 dynaconf>=3.2.4
 websockets>=12.0
 python-multipart>=0.0.6
-hmac  # stdlib
-hashlib  # stdlib
-json  # stdlib
-asyncio  # stdlib
