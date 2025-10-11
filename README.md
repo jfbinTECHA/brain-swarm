@@ -136,6 +136,11 @@ make test
 pytest tests/test_api.py
 ```
 
+## Use Cases & Applications
+
+- **[Maine Operations Brief](/docs/MAINE_OPS_BRIEF.md)** - Public health and forestry integration
+- **[Deployment Scenario](/docs/DEPLOYMENT_SCENARIO.md)** - Sensor network and emergency response integration
+
 ## Contributing
 
 1. Fork the repository
