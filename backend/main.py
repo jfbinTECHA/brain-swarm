@@ -301,6 +301,78 @@ def evolve_population(population_size: int = 20, generations: int = 10,
         "evolution_history": evolution_history
     }
 
+@app.post("/agent/evolve")
+async def trigger_agent_evolution(
+    population_size: int = 50,
+    generations: int = 25,
+    fitness_measure: str = "comprehensive",
+    num_weights: int = 10,
+    mutation_rate: float = 0.05,
+    elite_size: int = 5
+):
+    """
+    Trigger agent evolution process via API
+
+    This endpoint runs a complete evolutionary optimization cycle for agent genomes,
+    evaluating them against the specified fitness measures and returning the best evolved agent.
+    """
+    if not evolution_available:
+        raise HTTPException(status_code=503, detail="Evolution engine not available")
+
+    try:
+        # Import the evolution manager
+        from backend.agent_evolve.evolve import EvolutionManager
+
+        # Create temporary evolution manager (in production, you'd want persistent storage)
+        manager = EvolutionManager(population_file=None)  # Don't save to disk for API calls
+
+        # Initialize population
+        manager.initialize_population(population_size, num_weights, mutation_rate)
+
+        # Configure evolution
+        from backend.agent_evolve.evolution import EvolutionConfig
+        config = EvolutionConfig(
+            population_size=population_size,
+            elite_size=elite_size,
+            mutation_rate=mutation_rate,
+            crossover_rate=0.8,
+            max_generations=generations
+        )
+
+        # Run evolution
+        evolution_results = []
+        generation = 0
+
+        while manager.evolve_generation(config, fitness_measure) and generation < generations:
+            generation += 1
+            stats = manager.get_population_stats()
+            evolution_results.append({
+                "generation": generation,
+                "stats": stats,
+                "timestamp": time.time()
+            })
+
+        # Get final results
+        best_genome = manager.get_best_genome()
+        final_stats = manager.get_population_stats()
+
+        return {
+            "success": True,
+            "evolution_summary": {
+                "generations_completed": generation,
+                "population_size": population_size,
+                "fitness_measure": fitness_measure,
+                "final_best_fitness": final_stats["best_fitness"],
+                "final_avg_fitness": final_stats["avg_fitness"]
+            },
+            "best_agent_genome": best_genome.to_dict(),
+            "evolution_progress": evolution_results[-5:] if evolution_results else [],  # Last 5 generations
+            "diversity_score": manager.get_population_diversity()
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evolution failed: {str(e)}")
+
 # Federation initialization
 federation_bridge = None
 
