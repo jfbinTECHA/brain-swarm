@@ -78,4 +78,10 @@ Example: `git commit -m "feat: add user authentication"`
 - Metrics: `make metrics` for live system stats
 - CHANGELOG: Auto-generated in `CHANGELOG.md` on releases
 
+## Related Documentation
+
+- [Architecture Overview](ARCHITECTURE.md) - System design and components
+- [Roadmap](ROADMAP.md) - Development milestones and future plans
+- [Contributing Guide](../CONTRIBUTING.md) - How to contribute to the project
+
 This control panel ensures consistent, automated development workflows across the team.
