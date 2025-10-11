@@ -6,10 +6,10 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 import time
 
-from ..core.base import logger
-from ..observability.metrics import prometheus_metrics
-from ..observability.tracing import tracing_manager, get_correlation_id
-from ..security.auth import require_api_key
+from core.base import logger
+from observability.metrics import prometheus_metrics
+from observability.tracing import tracing_manager, get_correlation_id
+from security.auth import require_api_key
 from .webhook_service import webhook_service
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])

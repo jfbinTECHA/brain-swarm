@@ -15,7 +15,7 @@ from enum import Enum
 import websockets
 from websockets.exceptions import ConnectionClosedError, WebSocketException
 
-from .discovery import SwarmMetadata
+from discovery import SwarmMetadata
 
 logger = logging.getLogger(__name__)
 

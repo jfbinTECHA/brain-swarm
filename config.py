@@ -229,6 +229,7 @@ class Settings(BaseSettings):
         env_file = ".env"  # Keep for backward compatibility, but secrets manager takes precedence
         env_file_encoding = "utf-8"
         env_nested_delimiter = "__"
+        extra = "allow"  # Allow extra fields from environment
 
         @classmethod
         def customise_sources(cls, init_settings, env_settings, file_secret_settings):

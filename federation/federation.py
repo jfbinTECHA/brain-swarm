@@ -11,8 +11,8 @@ from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass
 import time
 
-from ..discovery import DiscoveryLayer, SwarmMetadata
-from ..federation_connection import FederationConnectionManager, FederationMessage
+from discovery import DiscoveryLayer, SwarmMetadata
+from federation_connection import FederationConnectionManager, FederationMessage
 
 # Optional imports - handle gracefully if not available
 try:

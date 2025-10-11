@@ -11,10 +11,10 @@ from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
 
-from ..core.base import logger
-from ..observability.metrics import prometheus_metrics
-from ..observability.tracing import tracing_manager, get_correlation_id
-from ..message_queue import message_queue
+from core.base import logger
+from observability.metrics import prometheus_metrics
+from observability.tracing import tracing_manager, get_correlation_id
+from message_queue import message_queue
 
 
 class WebhookSource(Enum):
