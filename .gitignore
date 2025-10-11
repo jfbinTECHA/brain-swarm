@@ -1,21 +1,23 @@
-# Data and logs
-data/
-*.log
-*.db
-*.duckdb
-
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual envs
+.venv/
+venv/
+
+# Test / tooling
 .pytest_cache/
 .mypy_cache/
+.coverage
+htmlcov/
 
-# IDEs
-.idea/
+# Editors
 .vscode/
-.ipynb_checkpoints/
+.idea/
 
-# Environment
-.envvenv/
-
-venv/
+# OS cruft
+.DS_Store
+Thumbs.db
