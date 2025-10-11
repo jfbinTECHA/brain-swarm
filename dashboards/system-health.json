@@ -1,0 +1,49 @@
+{
+  "type": "gauge",
+  "title": "System Load (%)",
+  "id": 100,
+  "datasource": {
+    "type": "prometheus",
+    "uid": "Prometheus"
+  },
+  "fieldConfig": {
+    "defaults": {
+      "unit": "percent",
+      "min": 0,
+      "max": 100,
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 70 },
+          { "color": "red", "value": 90 }
+        ]
+      }
+    },
+    "overrides": []
+  },
+  "options": {
+    "reduceOptions": {
+      "fields": "",
+      "calcs": ["mean"],
+      "values": false
+    },
+    "orientation": "auto",
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true
+  },
+  "gridPos": {
+    "h": 6,
+    "w": 8,
+    "x": 0,
+    "y": 0
+  },
+  "targets": [
+    {
+      "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[1m])) * 100",
+      "legendFormat": "CPU Load",
+      "refId": "A"
+    }
+  ]
+},
+

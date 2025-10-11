@@ -1,0 +1,102 @@
+# /home/sysop/brainswarm  # ==========================================
+# 🧠 Cortex Control Script for Kilo Extension
+# Lean + Safe + Self-Healing Docker Stack
+# ==========================================
+
+log_dir="$HOME/brainswarm/logs"
+mkdir -p "$log_dir"
+
+function log() {
+  local status=$1
+  local msg=$2
+  local color_reset="\033[0m"
+  local color_green="\033[1;32m"
+  local color_red="\033[1;31m"
+  local color_yellow="\033[1;33m"
+
+  case "$status" in
+    ok) echo -e "${color_green}✅  $msg${color_reset}" ;;
+    warn) echo -e "${color_yellow}⚠️  $msg${color_reset}" ;;
+    err) echo -e "${color_red}❌  $msg${color_reset}" ;;
+    *) echo -e "$msg" ;;
+  esac
+}
+
+# -------------------------
+# 🧩 Start Cortex Stack
+# -------------------------
+task "Start Cortex Stack" {
+  run: [
+    "cd ~/brainswarm",
+    "docker compose down --remove-orphans >> $log_dir/stack.log 2>&1 && log ok 'Stopped old containers' || log warn 'Nothing to stop'",
+    "docker compose up -d >> $log_dir/stack.log 2>&1 && log ok 'Cortex stack started successfully'"
+  ]
+}
+
+# -------------------------
+# 🔍 Check Cortex Status
+# -------------------------
+task "Check Cortex Status" {
+  run: [
+    "log warn 'Checking active containers...'",
+    "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' || log err 'Docker not responding'",
+
+    "log warn 'Checking Cortex API...'",
+    "curl -s http://localhost:8001/ping | grep -q 'redis' && log ok 'Cortex API healthy' || log err 'API not responding'",
+
+    "log warn 'Checking Prometheus...'",
+    "curl -s -I http://localhost:9090 | grep -q '200 OK' && log ok 'Prometheus up' || log err 'Prometheus unreachable'",
+
+    "log warn 'Checking Grafana...'",
+    "curl -s -I http://localhost:3000 | grep -q '302 Found' && log ok 'Grafana responding (login page)' || log err 'Grafana down or blocked'",
+
+    "log warn 'Checking Redis...'",
+    "ss -tuln | grep -q ':6379' && log ok 'Redis running on port 6379' || log err 'Redis socket not active'"
+  ]
+}
+
+# -------------------------
+# 🔧 Fix Grafana Permissions
+# -------------------------
+task "Fix Grafana Permissions" {
+  run: [
+    "log warn 'Fixing Grafana file permissions...'",
+    "sudo chown -R 472:472 ~/brainswarm/dashboards && log ok 'Ownership set to Grafana user' || log err 'Failed to set ownership'",
+    "sudo find ~/brainswarm/dashboards -type d -exec chmod 775 {} \\;",
+    "sudo find ~/brainswarm/dashboards -type f -exec chmod 664 {} \\;",
+    "docker compose restart cortex-grafana && log ok 'Grafana restarted successfully'"
+  ]
+}
+
+# -------------------------
+# 🚀 Restart Cortex API
+# -------------------------
+task "Restart API" {
+  run: [
+    "cd ~/brainswarm",
+    "docker compose restart cortex-api && log ok 'Cortex API restarted successfully'"
+  ]
+}
+
+# -------------------------
+# 🧹 Clean Rebuild
+# -------------------------
+task "Rebuild Everything (Clean)" {
+  run: [
+    "log warn 'Performing full rebuild of Cortex stack...'",
+    "cd ~/brainswarm",
+    "docker compose down -v --remove-orphans >> $log_dir/stack.log 2>&1 && log ok 'Old containers and volumes removed'",
+    "docker compose up -d --build >> $log_dir/stack.log 2>&1 && log ok 'Fresh build started successfully'",
+    "log ok 'Rebuild complete — use Check Cortex Status to verify health'"
+  ]
+}
+
+# -------------------------
+# 💾 Tail Logs (Live)
+# -------------------------
+task "Follow Logs" {
+  run: [
+    "log warn 'Tailing Cortex logs — press Ctrl+C to stop...'",
+    "docker compose logs -f"
+  ]
+}

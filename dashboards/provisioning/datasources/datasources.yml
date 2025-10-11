@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://cortex-prometheus:9090
+    isDefault: true
+
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis://cortex-redis:6379
+    jsonData:
+      client: standalone

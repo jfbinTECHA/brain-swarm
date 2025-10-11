@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  cortex-api:
+    image: python:3.12-slim
+    container_name: cortex-api
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - ./data/duckdb:/data
+    command: bash -c "pip install fastapi uvicorn redis duckdb prometheus-fastapi-instrumentator && uvicorn main:app --host 0.0.0.0 --port 8001"
+    ports:
+      - "8001:8001"
+    depends_on:
+      - cortex-redis
+      - cortex-duckdb
+
+  cortex-redis:
+    image: redis:7.4
+    container_name: cortex-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+
+  cortex-duckdb:
+    image: ubuntu:24.04
+    container_name: cortex-duckdb
+    command: bash -c "apt update && apt install -y duckdb && tail -f /dev/null"
+    volumes:
+      - ./data/duckdb:/duckdb
+
+  cortex-prometheus:
+    image: prom/prometheus:latest
+    container_name: cortex-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./dashboards/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  cortex-grafana:
+    image: grafana/grafana:10.2.0
+    container_name: cortex-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    volumes:
+      - ./dashboards:/var/lib/grafana
+      - ./dashboards/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - cortex-prometheus
+

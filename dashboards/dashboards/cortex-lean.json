@@ -1,0 +1,13 @@
+{
+  "title": "Cortex Mission Control (Lean)",
+  "panels": [
+    {
+      "type": "text",
+      "title": "Welcome",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 4 },
+      "options": { "content": "🚀 Cortex Mission Control Active" }
+    }
+  ],
+  "schemaVersion": 38,
+  "version": 1
+}

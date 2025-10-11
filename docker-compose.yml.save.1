@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  cortex-api:
+    image: python:3.12-slim
+    container_name: cortex-api
+    command: bash -c "pip install fastapi uvicorn && uvicorn backend.main:app --host 0.0.0.0 --port 8001"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8001:8001"
+
+  c
+
+  cortex-duckdb:
+    image: duckdb/duckdb:latest
+    container_name: cortex-duckdb
+    command: ["sleep", "infinity"]
+    volumes:
+      - ./data/duckdb:/data
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: cortex-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=brainswarm
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./dashboards:/var/lib/grafana
+    restart: always
+
