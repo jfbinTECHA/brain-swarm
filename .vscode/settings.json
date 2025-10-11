@@ -1,5 +1,6 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.analysis.extraPaths": ["backend","bridge","cortex_v3","federation","dashboard"],
-  "python.analysis.typeCheckingMode": "basic"
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticMode": "workspace"
 }
