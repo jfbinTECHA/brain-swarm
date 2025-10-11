@@ -6,6 +6,21 @@ import time
 import uuid
 from prometheus_fastapi_instrumentator import Instrumentator
 
+# Import federation bridge
+try:
+    from bridge import (
+        register_peer,
+        broadcast_heartbeat,
+        sync_summary,
+        get_peer_list,
+        initialize_federation,
+        shutdown_federation
+    )
+    federation_available = True
+except ImportError:
+    federation_available = False
+    print("Warning: Federation bridge not available")
+
 app = FastAPI(title="Brain-Swarm API", version="0.2.0")
 
 # Agent registry
@@ -127,5 +142,77 @@ def orchestrate_workflow(workflow: Dict[str, Any]):
         results.append(result)
 
     return {"workflow_id": str(uuid.uuid4()), "tasks_dispatched": results}
+
+# Federation endpoints
+@app.post("/federation/register-peer")
+async def api_register_peer(node_id: str, address: str):
+    """Register a peer node in the federation"""
+    if not federation_available:
+        raise HTTPException(status_code=503, detail="Federation not available")
+
+    success = await register_peer(node_id, address)
+    if success:
+        return {"status": "registered", "node_id": node_id, "address": address}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to register peer")
+
+@app.post("/federation/heartbeat")
+async def api_broadcast_heartbeat():
+    """Broadcast heartbeat to federation"""
+    if not federation_available:
+        raise HTTPException(status_code=503, detail="Federation not available")
+
+    await broadcast_heartbeat()
+    return {"status": "heartbeat_sent"}
+
+@app.post("/federation/sync-summary/{peer_id}")
+async def api_sync_summary(peer_id: str):
+    """Sync cortex summary with a peer node"""
+    if not federation_available:
+        raise HTTPException(status_code=503, detail="Federation not available")
+
+    summary = await sync_summary(peer_id)
+    if summary:
+        return summary
+    else:
+        raise HTTPException(status_code=404, detail="Peer not found or sync failed")
+
+@app.get("/federation/peers")
+async def api_get_peers():
+    """Get list of all known federation peers"""
+    if not federation_available:
+        raise HTTPException(status_code=503, detail="Federation not available")
+
+    peers = await get_peer_list()
+    return {"peers": peers}
+
+# Federation initialization
+federation_bridge = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize federation bridge on startup"""
+    global federation_bridge
+    if federation_available:
+        try:
+            # Get node ID from environment or generate one
+            import os
+            node_id = os.getenv("NODE__NODE_NAME", f"brain_swarm_{uuid.uuid4().hex[:8]}")
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+
+            await initialize_federation(node_id, redis_url)
+            print(f"✅ Federation bridge initialized for node: {node_id}")
+        except Exception as e:
+            print(f"⚠️  Federation initialization failed: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown federation bridge on shutdown"""
+    if federation_available:
+        try:
+            await shutdown_federation()
+            print("✅ Federation bridge shutdown")
+        except Exception as e:
+            print(f"⚠️  Federation shutdown failed: {e}")
 
 Instrumentator().instrument(app).expose(app)
