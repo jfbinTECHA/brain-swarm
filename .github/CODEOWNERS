@@ -1,0 +1,31 @@
+# Code owners for Cortex AI
+# This file defines who owns and reviews different parts of the codebase
+
+# Global owners (must review all changes)
+* @jfbinTECHA
+
+# Backend code
+/backend/ @jfbinTECHA
+
+# Infrastructure and deployment
+/infra/ @jfbinTECHA
+/docker-compose.yml @jfbinTECHA
+/helm/ @jfbinTECHA
+
+# Documentation
+/docs/ @jfbinTECHA
+README.md @jfbinTECHA
+CHANGELOG.md @jfbinTECHA
+
+# CI/CD and DevOps
+/.github/ @jfbinTECHA
+Makefile @jfbinTECHA
+
+# Tests
+/tests/ @jfbinTECHA
+
+# Configuration files
+*.yml @jfbinTECHA
+*.yaml @jfbin_Technology
+.gitignore @jfbinTECHA
+.pre-commit-config.yaml @jfbinTECHA
