@@ -110,6 +110,8 @@ Use the included Kilo scripts for stack management:
 
 - **[Architecture](/docs/ARCHITECTURE.md)** - System design and data flow
 - **[Roadmap](/docs/ROADMAP.md)** - Development milestones and features
+- **[Demo Script](/docs/demo.sh)** - Interactive demo of the system
+- **[Changelog](/CHANGELOG.md)** - Version history and changes
 - **[API Docs](http://localhost:8001/docs)** - Interactive API documentation
 
 ## Development
