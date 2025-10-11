@@ -1,13 +1,10 @@
-from typing import Dict, List, Any, Optional, Tuple, Set
-from core.base import logger, metrics
+from typing import Dict, List, Any, Optional, Set
+from core.base import logger
 import time
-import json
 import threading
-import socket
 import uuid
 from collections import defaultdict
-from dataclasses import dataclass, asdict
-import hashlib
+from dataclasses import dataclass, field
 
 @dataclass
 class SwarmNode:
@@ -17,7 +14,7 @@ class SwarmNode:
     port: int
     status: str = "unknown"  # unknown, online, offline, degraded
     last_heartbeat: float = 0
-    capabilities: List[str] = None
+    capabilities: List[str] = field(default_factory=list)
     agent_count: int = 0
     load_factor: float = 0.0
     memory_usage: float = 0.0
@@ -25,7 +22,7 @@ class SwarmNode:
     network_latency: float = 0.0
     region: str = "default"
     zone: str = "default"
-    tags: Dict[str, str] = None
+    tags: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.capabilities is None:
@@ -73,14 +70,14 @@ class DistributedTask:
     assigned_node: Optional[str] = None
     status: str = "pending"  # pending, assigned, running, completed, failed
     priority: int = 1
-    requirements: Dict[str, Any] = None
+    requirements: Dict[str, Any] = field(default_factory=dict)
     result: Any = None
     created_at: float = 0
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
     retry_count: int = 0
     max_retries: int = 3
-    tags: Dict[str, str] = None
+    tags: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.requirements is None:
@@ -105,16 +102,16 @@ class ClusterConfig:
     """Configuration for a swarm cluster"""
     cluster_id: str
     name: str
-    nodes: List[str] = None  # Node IDs in this cluster
+    nodes: List[str] = field(default_factory=list)  # Node IDs in this cluster
     primary_node: Optional[str] = None
-    backup_nodes: List[str] = None
+    backup_nodes: List[str] = field(default_factory=list)
     load_balancing_strategy: str = "round_robin"  # round_robin, least_loaded, capability_based
     failover_enabled: bool = True
     auto_scaling_enabled: bool = False
     min_nodes: int = 1
     max_nodes: int = 10
     region: str = "default"
-    tags: Dict[str, str] = None
+    tags: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.nodes is None:
@@ -127,7 +124,7 @@ class ClusterConfig:
 class DistributedCoordinator:
     """Central coordinator for multi-node swarm deployment"""
 
-    def __init__(self, coordinator_id: str = None):
+    def __init__(self, coordinator_id: Optional[str] = None):
         self.coordinator_id = coordinator_id or f"coordinator_{uuid.uuid4().hex[:8]}"
         self.nodes: Dict[str, SwarmNode] = {}
         self.clusters: Dict[str, ClusterConfig] = {}
@@ -231,7 +228,7 @@ class DistributedCoordinator:
 
             logger.log("INFO", "DistributedCoordinator", f"Unregistered node {node_id}")
 
-    def create_cluster(self, cluster_id: str, name: str, config: Dict[str, Any] = None) -> str:
+    def create_cluster(self, cluster_id: str, name: str, config: Optional[Dict[str, Any]] = None) -> str:
         """Create a new cluster"""
         if cluster_id in self.clusters:
             raise ValueError(f"Cluster {cluster_id} already exists")
@@ -381,10 +378,12 @@ class DistributedCoordinator:
         # Task metrics
         completed_tasks = len([t for t in self.tasks.values() if t.status == 'completed'])
         failed_tasks = len([t for t in self.tasks.values() if t.status == 'failed'])
-        avg_execution_time = sum(
-            t.execution_time() for t in self.tasks.values()
-            if t.execution_time() is not None
-        ) / max(1, completed_tasks)
+        execution_times: List[float] = []
+        for t in self.tasks.values():
+            exec_time = t.execution_time()
+            if exec_time is not None:
+                execution_times.append(exec_time)
+        avg_execution_time = sum(execution_times) / max(1, len(execution_times))
 
         return {
             'node_metrics': {
@@ -550,9 +549,14 @@ class DistributedCoordinator:
 
     def _handle_task_complete(self, node_id: str, message: Dict[str, Any]):
         """Handle task completion message from node"""
-        task_id = message.get('task_id')
+        task_id_raw = message.get('task_id')
         result = message.get('result')
 
+        if not isinstance(task_id_raw, str):
+            return
+
+        task_id = str(task_id_raw)
+        assert isinstance(task_id, str)
         task = self.tasks.get(task_id)
         if task:
             task.status = 'completed'
@@ -560,15 +564,20 @@ class DistributedCoordinator:
             task.result = result
 
             # Remove from node's task list
-            self.node_tasks[node_id].discard(task_id)
+            self.node_tasks[node_id].discard(task_id)  # type: ignore
 
             logger.log("INFO", "DistributedCoordinator", f"Task {task_id} completed on node {node_id}")
 
     def _handle_task_failed(self, node_id: str, message: Dict[str, Any]):
         """Handle task failure message from node"""
-        task_id = message.get('task_id')
+        task_id_raw = message.get('task_id')
         error = message.get('error', 'Unknown error')
 
+        if not isinstance(task_id_raw, str):
+            return
+
+        task_id = str(task_id_raw)
+        assert isinstance(task_id, str)
         task = self.tasks.get(task_id)
         if task:
             # Try to retry if under max retries
@@ -583,7 +592,7 @@ class DistributedCoordinator:
                 logger.log("ERROR", "DistributedCoordinator", f"Task {task_id} failed permanently on node {node_id}: {error}")
 
             # Remove from node's task list
-            self.node_tasks[node_id].discard(task_id)
+            self.node_tasks[node_id].discard(task_id)  # type: ignore
 
     def _handle_node_status(self, node_id: str, message: Dict[str, Any]):
         """Handle node status update"""
@@ -781,7 +790,7 @@ class AutoScaler:
 distributed_coordinator = DistributedCoordinator()
 
 # Integration functions
-def initialize_distributed_swarm(coordinator_id: str = None) -> DistributedCoordinator:
+def initialize_distributed_swarm(coordinator_id: Optional[str] = None) -> DistributedCoordinator:
     """Initialize the distributed swarm coordinator"""
     global distributed_coordinator
     distributed_coordinator = DistributedCoordinator(coordinator_id)

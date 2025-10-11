@@ -3,17 +3,11 @@ Mission Control Dashboard for Brain Swarm
 Real-time incident monitoring and AI triage visualization
 """
 
-import asyncio
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from fastapi import WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
 
-from observability.metrics import prometheus_metrics
-from cortex.incident_broadcast import broadcast_to_kilo
 from schemas.incident import IncidentStatus, IncidentResponse
-from config import settings
 
 
 class MissionControlDashboard:
@@ -34,7 +28,7 @@ class MissionControlDashboard:
             alerts=incident_data.get("alerts", []),
             tickets=[],
             ai_responses=[],
-            last_updated=datetime.now().timestamp(),
+            last_updated=datetime.now(),
             resolution_time=None
         )
 
@@ -53,9 +47,9 @@ class MissionControlDashboard:
         """Update incident status"""
         if incident_id in self.active_incidents:
             self.active_incidents[incident_id].status = status
-            self.active_incidents[incident_id].last_updated = datetime.now().timestamp()
+            self.active_incidents[incident_id].last_updated = datetime.now()
             if resolution_time:
-                self.active_incidents[incident_id].resolution_time = resolution_time
+                self.active_incidents[incident_id].resolution_time = int(resolution_time)
 
             await self._broadcast_update({
                 "type": "incident_updated",
@@ -86,13 +80,13 @@ class MissionControlDashboard:
         avg_resolution_time = 0
         resolved_incidents = [i for i in self.active_incidents.values() if i.resolution_time]
         if resolved_incidents:
-            avg_resolution_time = sum(i.resolution_time for i in resolved_incidents) / len(resolved_incidents)
+            avg_resolution_time = sum(i.resolution_time for i in resolved_incidents if i.resolution_time is not None) / len(resolved_incidents)
 
         # Severity breakdown
         severity_counts = {"critical": 0, "warning": 0, "info": 0}
         for incident in self.active_incidents.values():
             if incident.alerts:
-                severity = incident.alerts[0].get("labels", {}).get("severity", "info")
+                severity = incident.alerts[0].labels.get("severity", "info")
                 severity_counts[severity] = severity_counts.get(severity, 0) + 1
 
         return {
@@ -106,8 +100,8 @@ class MissionControlDashboard:
                 {
                     "id": incident.incident_id,
                     "status": incident.status,
-                    "severity": incident.alerts[0].get("labels", {}).get("severity", "unknown") if incident.alerts else "unknown",
-                    "source": incident.alerts[0].get("labels", {}).get("source", "unknown") if incident.alerts else "unknown",
+                    "severity": incident.alerts[0].labels.get("severity", "unknown") if incident.alerts else "unknown",
+                    "source": incident.alerts[0].labels.get("source", "unknown") if incident.alerts else "unknown",
                     "last_updated": incident.last_updated,
                     "resolution_time": incident.resolution_time,
                     "ai_responses_count": len(self.ai_responses.get(incident.incident_id, []))
@@ -132,8 +126,8 @@ class MissionControlDashboard:
             # Keep connection alive
             while True:
                 # Could handle client messages here
-                data = await websocket.receive_text()
                 # Process any client commands if needed
+                pass
 
         except WebSocketDisconnect:
             if websocket in self.websocket_clients:
