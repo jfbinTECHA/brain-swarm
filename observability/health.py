@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
 
-from ..core.base import logger
+from core.base import logger
 
 
 class HealthStatus(Enum):

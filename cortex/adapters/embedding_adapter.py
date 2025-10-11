@@ -8,8 +8,8 @@ import os
 import json
 import hashlib
 import numpy as np
-from ..config import settings
-from ...core.base import logger
+from config import settings
+from core.base import logger
 
 try:
     import openai

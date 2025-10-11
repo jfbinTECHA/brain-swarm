@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
-from ..core.base import BaseAgent, AgentRole, Message, MessageType, Task, logger, metrics
-from ..observability.metrics import prometheus_metrics
+from core.base import BaseAgent, AgentRole, Message, MessageType, Task, logger, metrics
+from observability.metrics import prometheus_metrics
 from .agent_profiles import AgentBehaviorProfile, apply_behavior_modifier, get_behavior_description
 import time
 import os

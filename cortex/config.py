@@ -6,7 +6,7 @@ class CortexSettings(BaseSettings):
     redis_url: AnyUrl = Field(default="redis://redis:6379/0")
 
     # Vector (Chroma server)
-    chroma_host: str = Field(default="chroma")
+    chroma_host: str = Field(default="localhost")
     chroma_port: int = Field(default=8000)
     chroma_collection: str = Field(default="brainswarm")
 
@@ -15,7 +15,7 @@ class CortexSettings(BaseSettings):
     faiss_index_path: str = Field(default="/data/faiss.index")
 
     # Graph (DuckDB + NetworkX)
-    duckdb_path: str = Field(default="/data/cortex.duckdb")
+    duckdb_path: str = Field(default="data/cortex.duckdb")
 
     # Long-term (S3 + DuckDB catalog)
     s3_endpoint_url: str | None = None           # e.g., https://s3.amazonaws.com or http://minio:9000
@@ -33,5 +33,6 @@ class CortexSettings(BaseSettings):
     class Config:
         env_prefix = "CORTEX_"
         env_file = ".env"
+        extra = "allow"  # Allow extra fields from environment
 
 settings = CortexSettings()

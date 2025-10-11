@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, List, ContextManager
 from contextlib import contextmanager
 import json
 
-from ..core.base import logger
+from core.base import logger
 
 
 # Context variables for distributed tracing

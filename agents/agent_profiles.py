@@ -1,5 +1,5 @@
 from typing import Dict, List, Any, Optional
-from ..core.base import logger
+from core.base import logger
 import time
 import json
 import os

@@ -1,5 +1,5 @@
 from typing import Dict, List, Any, Optional, Tuple, Set
-from ..core.base import logger, metrics
+from core.base import logger, metrics
 import time
 import json
 import uuid

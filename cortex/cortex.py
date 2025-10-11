@@ -31,7 +31,7 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
 
 class KnowledgeCortex:
     def __init__(self):
-        self.cache = CacheRedis(settings.redis_url)
+        self.cache = CacheRedis(str(settings.redis_url))
         self.vector = VectorStore(
             host=settings.chroma_host,
             port=settings.chroma_port,

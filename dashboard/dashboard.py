@@ -1,13 +1,13 @@
 from typing import Dict, List, Any, Optional
-from ..core.base import metrics, logger
-from ..federation.federation import swarm_manager, federation_manager
-from .recursive_improvement import recursive_improvement
+from core.base import metrics, logger
+from federation.federation import swarm_manager, federation_manager
+from dashboard.recursive_improvement import recursive_improvement
 import time
 import json
 
 # Optional import for SwarmCoordinator
 try:
-    from ..coordinator import SwarmCoordinator
+    from coordination.coordinator import SwarmCoordinator
 except ImportError:
     SwarmCoordinator = None
 

@@ -13,7 +13,7 @@ import json
 import random
 from enum import Enum
 
-from ..core.base import logger
+from core.base import logger
 
 try:
     import torch
@@ -23,6 +23,181 @@ try:
     from stable_baselines3.common.vec_env import DummyVecEnv
     from sklearn.linear_model import LogisticRegression
     import numpy as np
+
+    class TaskRoutingEnv(gym.Env):
+        """Gym environment for task routing with PPO"""
+
+        def __init__(self, agent_ids: List[str], task_types: List[str]):
+            super().__init__()
+
+            self.agent_ids = agent_ids
+            self.task_types = task_types
+            self.num_agents = len(agent_ids)
+            self.num_task_types = len(task_types)
+
+            # Action space: choose agent for task
+            self.action_space = spaces.Discrete(self.num_agents)
+
+            # Observation space: task type (one-hot) + agent performance features
+            obs_dim = self.num_task_types + self.num_agents * 3  # task_type + (success_rate, avg_latency, reward_score per agent)
+            self.observation_space = spaces.Box(low=0, high=1, shape=(obs_dim,), dtype=np.float32)
+
+            self.current_task_type = None
+            self.agent_performance = {}
+
+        def reset(self, seed=None, options=None):
+            """Reset environment"""
+            super().reset(seed=seed)
+            return self._get_observation(), {}
+
+        def step(self, action):
+            """Execute action and return reward"""
+            agent_id = self.agent_ids[action]
+
+            # Get reward based on agent performance
+            reward = self._calculate_reward(agent_id)
+
+            # Create observation
+            observation = self._get_observation()
+
+            # Episode never ends in this continuous learning setup
+            terminated = False
+            truncated = False
+
+            return observation, reward, terminated, truncated, {}
+
+        def _get_observation(self):
+            """Get current observation vector"""
+            obs = []
+
+            # Task type one-hot encoding
+            for task_type in self.task_types:
+                obs.append(1.0 if task_type == self.current_task_type else 0.0)
+
+            # Agent performance features
+            for agent_id in self.agent_ids:
+                perf = self.agent_performance.get(agent_id, {
+                    'success_rate': 0.5,
+                    'avg_latency': 0.5,
+                    'reward_score': 0.5
+                })
+                obs.extend([
+                    perf['success_rate'],
+                    min(perf['avg_latency'] / 60.0, 1.0),  # Normalize latency
+                    perf['reward_score']
+                ])
+
+            return np.array(obs, dtype=np.float32)
+
+        def _calculate_reward(self, agent_id):
+            """Calculate reward for agent selection"""
+            perf = self.agent_performance.get(agent_id, {
+                'success_rate': 0.5,
+                'avg_latency': 0.5,
+                'reward_score': 0.5
+            })
+
+            # Reward based on success rate and efficiency
+            reward = (perf['success_rate'] * 2.0) - 1.0  # Scale to [-1, 1]
+            reward -= min(perf['avg_latency'] / 30.0, 0.5)  # Penalty for high latency
+            reward += perf['reward_score']  # Bonus for good historical performance
+
+            return reward
+
+        def update_performance(self, agent_performance: Dict[str, Dict[str, float]]):
+            """Update agent performance data"""
+            self.agent_performance = agent_performance
+
+    class ContextualBanditRouter:
+        """Contextual bandit for task routing decisions"""
+
+        def __init__(self, agent_ids: List[str], task_types: List[str], alpha: float = 0.1):
+            self.agent_ids = agent_ids
+            self.task_types = task_types
+            self.alpha = alpha
+            self.num_agents = len(agent_ids)
+
+            # Models for each task type
+            self.models: Dict[str, LogisticRegression] = {}
+            self.training_data: Dict[str, List[Tuple[np.ndarray, int]]] = defaultdict(list)
+
+            # Initialize models
+            for task_type in task_types:
+                self.models[task_type] = LogisticRegression(random_state=42, max_iter=1000)
+
+        def select_agent(self, task_type: str, context_features: np.ndarray) -> str:
+            """Select best agent using contextual bandit"""
+            if task_type not in self.models or len(self.training_data[task_type]) < 5:
+                # Not enough data, use random selection
+                return random.choice(self.agent_ids)
+
+            model = self.models[task_type]
+
+            # Get probabilities for each agent
+            agent_features = []
+            for agent_id in self.agent_ids:
+                # Create feature vector for this agent
+                agent_context = np.concatenate([context_features, self._get_agent_features(agent_id)])
+                agent_features.append(agent_context)
+
+            agent_features = np.array(agent_features)
+
+            try:
+                # Get prediction probabilities
+                probs = model.predict_proba(agent_features)[:, 1]  # Probability of success
+
+                # Select agent with highest probability
+                best_agent_idx = np.argmax(probs)
+                return self.agent_ids[best_agent_idx]
+
+            except Exception as e:
+                logger.log("WARNING", "ContextualBanditRouter", f"Model prediction failed: {e}")
+                return random.choice(self.agent_ids)
+
+        def update(self, task_type: str, agent_id: str, context_features: np.ndarray, reward: float):
+            """Update model with new experience"""
+            agent_idx = self.agent_ids.index(agent_id)
+
+            # Create feature vector
+            agent_features = self._get_agent_features(agent_id)
+            full_features = np.concatenate([context_features, agent_features])
+
+            # Convert reward to binary outcome (success/failure)
+            outcome = 1 if reward > 0 else 0
+
+            # Store training data
+            self.training_data[task_type].append((full_features, outcome))
+
+            # Retrain model if we have enough data
+            if len(self.training_data[task_type]) >= 10:
+                self._retrain_model(task_type)
+
+        def _get_agent_features(self, agent_id: str) -> np.ndarray:
+            """Get agent-specific features (placeholder)"""
+            # In real implementation, this would include agent performance metrics
+            # For now, return random features
+            return np.array([random.random() for _ in range(5)])
+
+        def _retrain_model(self, task_type: str):
+            """Retrain the logistic regression model"""
+            if len(self.training_data[task_type]) < 2:
+                return
+
+            X = []
+            y = []
+
+            for features, outcome in self.training_data[task_type][-100:]:  # Use last 100 samples
+                X.append(features)
+                y.append(outcome)
+
+            X = np.array(X)
+            y = np.array(y)
+
+            try:
+                self.models[task_type].fit(X, y)
+            except Exception as e:
+                logger.log("WARNING", "ContextualBanditRouter", f"Model training failed: {e}")
+
     RL_AVAILABLE = True
 except ImportError:
     RL_AVAILABLE = False
@@ -34,182 +209,6 @@ class RLMethod(Enum):
     MOVING_AVERAGE = "moving_average"
     CONTEXTUAL_BANDIT = "contextual_bandit"
     PPO = "ppo"
-
-
-class TaskRoutingEnv(gym.Env):
-    """Gym environment for task routing with PPO"""
-
-    def __init__(self, agent_ids: List[str], task_types: List[str]):
-        super().__init__()
-
-        self.agent_ids = agent_ids
-        self.task_types = task_types
-        self.num_agents = len(agent_ids)
-        self.num_task_types = len(task_types)
-
-        # Action space: choose agent for task
-        self.action_space = spaces.Discrete(self.num_agents)
-
-        # Observation space: task type (one-hot) + agent performance features
-        obs_dim = self.num_task_types + self.num_agents * 3  # task_type + (success_rate, avg_latency, reward_score per agent)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(obs_dim,), dtype=np.float32)
-
-        self.current_task_type = None
-        self.agent_performance = {}
-
-    def reset(self, seed=None, options=None):
-        """Reset environment"""
-        super().reset(seed=seed)
-        return self._get_observation(), {}
-
-    def step(self, action):
-        """Execute action and return reward"""
-        agent_id = self.agent_ids[action]
-
-        # Get reward based on agent performance
-        reward = self._calculate_reward(agent_id)
-
-        # Create observation
-        observation = self._get_observation()
-
-        # Episode never ends in this continuous learning setup
-        terminated = False
-        truncated = False
-
-        return observation, reward, terminated, truncated, {}
-
-    def _get_observation(self):
-        """Get current observation vector"""
-        obs = []
-
-        # Task type one-hot encoding
-        for task_type in self.task_types:
-            obs.append(1.0 if task_type == self.current_task_type else 0.0)
-
-        # Agent performance features
-        for agent_id in self.agent_ids:
-            perf = self.agent_performance.get(agent_id, {
-                'success_rate': 0.5,
-                'avg_latency': 0.5,
-                'reward_score': 0.5
-            })
-            obs.extend([
-                perf['success_rate'],
-                min(perf['avg_latency'] / 60.0, 1.0),  # Normalize latency
-                perf['reward_score']
-            ])
-
-        return np.array(obs, dtype=np.float32)
-
-    def _calculate_reward(self, agent_id):
-        """Calculate reward for agent selection"""
-        perf = self.agent_performance.get(agent_id, {
-            'success_rate': 0.5,
-            'avg_latency': 0.5,
-            'reward_score': 0.5
-        })
-
-        # Reward based on success rate and efficiency
-        reward = (perf['success_rate'] * 2.0) - 1.0  # Scale to [-1, 1]
-        reward -= min(perf['avg_latency'] / 30.0, 0.5)  # Penalty for high latency
-        reward += perf['reward_score']  # Bonus for good historical performance
-
-        return reward
-
-    def update_performance(self, agent_performance: Dict[str, Dict[str, float]]):
-        """Update agent performance data"""
-        self.agent_performance = agent_performance
-
-
-class ContextualBanditRouter:
-    """Contextual bandit for task routing decisions"""
-
-    def __init__(self, agent_ids: List[str], task_types: List[str], alpha: float = 0.1):
-        self.agent_ids = agent_ids
-        self.task_types = task_types
-        self.alpha = alpha
-        self.num_agents = len(agent_ids)
-
-        # Models for each task type
-        self.models: Dict[str, LogisticRegression] = {}
-        self.training_data: Dict[str, List[Tuple[np.ndarray, int]]] = defaultdict(list)
-
-        # Initialize models
-        for task_type in task_types:
-            self.models[task_type] = LogisticRegression(random_state=42, max_iter=1000)
-
-    def select_agent(self, task_type: str, context_features: np.ndarray) -> str:
-        """Select best agent using contextual bandit"""
-        if task_type not in self.models or len(self.training_data[task_type]) < 5:
-            # Not enough data, use random selection
-            return random.choice(self.agent_ids)
-
-        model = self.models[task_type]
-
-        # Get probabilities for each agent
-        agent_features = []
-        for agent_id in self.agent_ids:
-            # Create feature vector for this agent
-            agent_context = np.concatenate([context_features, self._get_agent_features(agent_id)])
-            agent_features.append(agent_context)
-
-        agent_features = np.array(agent_features)
-
-        try:
-            # Get prediction probabilities
-            probs = model.predict_proba(agent_features)[:, 1]  # Probability of success
-
-            # Select agent with highest probability
-            best_agent_idx = np.argmax(probs)
-            return self.agent_ids[best_agent_idx]
-
-        except Exception as e:
-            logger.log("WARNING", "ContextualBanditRouter", f"Model prediction failed: {e}")
-            return random.choice(self.agent_ids)
-
-    def update(self, task_type: str, agent_id: str, context_features: np.ndarray, reward: float):
-        """Update model with new experience"""
-        agent_idx = self.agent_ids.index(agent_id)
-
-        # Create feature vector
-        agent_features = self._get_agent_features(agent_id)
-        full_features = np.concatenate([context_features, agent_features])
-
-        # Convert reward to binary outcome (success/failure)
-        outcome = 1 if reward > 0 else 0
-
-        # Store training data
-        self.training_data[task_type].append((full_features, outcome))
-
-        # Retrain model if we have enough data
-        if len(self.training_data[task_type]) >= 10:
-            self._retrain_model(task_type)
-
-    def _get_agent_features(self, agent_id: str) -> np.ndarray:
-        """Get agent-specific features (placeholder)"""
-        # In real implementation, this would include agent performance metrics
-        # For now, return random features
-        return np.array([random.random() for _ in range(5)])
-
-    def _retrain_model(self, task_type: str):
-        """Retrain the logistic regression model"""
-        if len(self.training_data[task_type]) < 2:
-            return
-
-        X = []
-        y = []
-
-        for features, outcome in self.training_data[task_type][-100:]:  # Use last 100 samples
-            X.append(features)
-            y.append(outcome)
-
-        X = np.array(X)
-        y = np.array(y)
-
-        try:
-            self.models[task_type].fit(X, y)
-        except Exception as e:
-            logger.log("WARNING", "ContextualBanditRouter", f"Model training failed: {e}")
 
 
 @dataclass
@@ -496,7 +495,7 @@ class AdaptiveTaskBroker:
             logger.log("WARNING", "AdaptiveTaskBroker", f"Contextual bandit assignment failed: {e}, falling back to moving average")
             return self._assign_task_moving_average(task_id, task_description, available_agents, task_type)
 
-    def _extract_task_features(self, task_description: str) -> np.ndarray:
+    def _extract_task_features(self, task_description: str):
         """Extract features from task description for contextual bandit"""
         desc_lower = task_description.lower()
 
@@ -509,7 +508,10 @@ class AdaptiveTaskBroker:
             1.0 if 'computation' in desc_lower else 0.0,  # Computation task
         ]
 
-        return np.array(features)
+        if RL_AVAILABLE:
+            return np.array(features)
+        else:
+            return features
 
     def complete_task(self, task_id: str, success: bool, latency: float = None,
                      resource_cost: float = None):

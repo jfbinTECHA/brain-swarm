@@ -41,7 +41,7 @@ except ImportError:
 
     CONTENT_TYPE_LATEST = "text/plain; charset=utf-8"
 
-from ..core.base import logger
+from core.base import logger
 
 
 class MetricsCollector:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 import re
 
-from ..core.base import logger
+from core.base import logger
 
 
 class ComplianceLevel(Enum):

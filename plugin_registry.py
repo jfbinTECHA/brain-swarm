@@ -11,8 +11,8 @@ from abc import ABC, abstractmethod
 import importlib
 import inspect
 from dataclasses import dataclass
-from ..core.base import BaseAgent, AgentRole
-from ..security.auth import verify_api_key
+from core.base import BaseAgent, AgentRole
+from security.auth import verify_api_key
 
 
 @dataclass
@@ -266,7 +266,7 @@ def discover_plugins_in_package(package_name: str) -> None:
 # Auto-register built-in agents
 def _register_builtin_agents():
     """Register the built-in agents that come with the system"""
-    from .agents.agents import VisionAgent, LanguageAgent, MathReasoningAgent, SimulationAgent
+    from agents.agents import VisionAgent, LanguageAgent, MathReasoningAgent, SimulationAgent
 
     # Vision Agent
     agent_registry.register_class(

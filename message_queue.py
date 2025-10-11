@@ -9,8 +9,8 @@ import asyncio
 import json
 from typing import Dict, List, Any, Optional, Callable, Awaitable
 import redis.asyncio as redis
-from ..core.base import Message, MessageType, logger
-from ..config import settings
+from core.base import Message, MessageType, logger
+from config import settings
 
 
 class MessageQueue:
@@ -82,7 +82,7 @@ class MessageQueue:
         message_id = await self.redis.xadd(stream_name, message_dict)
 
         # Record message publishing metric
-        from ..observability.metrics import prometheus_metrics
+        from observability.metrics import prometheus_metrics
         prometheus_metrics.record_message("webhook_event", "webhook_service", "redis")
 
         logger.log("DEBUG", "MessageQueue", f"Published to topic {topic}: {message_id}")

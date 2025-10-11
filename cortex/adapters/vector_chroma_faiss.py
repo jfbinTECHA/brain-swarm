@@ -23,7 +23,14 @@ class VectorStore:
         if chromadb is None:
             raise RuntimeError("chromadb is not installed")
 
-        self.client = chromadb.HttpClient(host=host, port=port, settings=ChromaSettings())
+        if host == "localhost" or host == "127.0.0.1" or not host:
+            # Use local persistent client
+            import tempfile
+            persist_dir = os.path.join(tempfile.gettempdir(), "chroma_db")
+            os.makedirs(persist_dir, exist_ok=True)
+            self.client = chromadb.PersistentClient(path=persist_dir)
+        else:
+            self.client = chromadb.HttpClient(host=host, port=port, settings=ChromaSettings())
         try:
             self.collection = self.client.get_collection(collection)
         except Exception:
