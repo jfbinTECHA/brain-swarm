@@ -1,40 +1,39 @@
-name: Release
+name: Generate Changelog on Release
 
 on:
   push:
-    tags: [ 'v*.*.*' ]
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  changelog:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        body: |
-          ## Changes
-          See [CHANGELOG.md](CHANGELOG.md) for details.
-
-          ## Installation
-          ```bash
-          git clone https://github.com/${{ github.repository }}.git
-          cd ${{ github.event.repository.name }}
-          make up
-          ```
-
-          ## Docker Images
-          - `ghcr.io/${{ github.repository }}:latest`
-          - `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
-        draft: false
-        prerelease: false
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate Changelog
+        uses: orhun/git-cliff-action@v2
+        id: git-cliff
+        with:
+          configuration: cliff.toml
+          args: --verbose --latest --strip header
+        env:
+          OUTPUT: CHANGELOG.md
+      - name: Update Changelog
+        run: |
+          echo "# Changelog" > temp_changelog.md
+          echo "" >> temp_changelog.md
+          cat CHANGELOG.md >> temp_changelog.md
+          mv temp_changelog.md CHANGELOG.md
+      - name: Commit Changelog
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog for ${GITHUB_REF#refs/tags/}" || echo "No changes to commit"
+          git push
