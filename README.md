@@ -4,6 +4,7 @@
 [![Test](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/test.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/test.yml)
 [![Build](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/build.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/build.yml)
 [![Version](https://img.shields.io/github/v/tag/jfbinTECHA/brain-swarm)](https://github.com/jfbinTECHA/brain-swarm/releases)
+[![v3 in Development](https://img.shields.io/badge/v3-in%20development-orange)](https://github.com/jfbinTECHA/brain-swarm/pull/123)
 
 A lean, self-healing Docker-based AI prototype stack featuring FastAPI, Redis, DuckDB, Prometheus, and Grafana for monitoring and visualization.
 

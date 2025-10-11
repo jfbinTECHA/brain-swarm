@@ -1,4 +1,4 @@
-.PHONY: help up down status logs clean test build restart lint sbom metrics
+.PHONY: help up down status logs clean test build restart lint sbom metrics train federate
 
 # Default target
 help:  ## Show this help message
@@ -69,3 +69,13 @@ metrics:  ## Show aggregated developer metrics
 	@echo ""
 	@echo "=== Prometheus Targets ==="
 	@curl -s http://localhost:9090/api/v1/targets 2>/dev/null | jq -r '.data.activeTargets[] | select(.health == "up") | "\(.labels.job): \(.health)"' 2>/dev/null | sort | uniq || echo "Prometheus not accessible"
+
+# Train agents (v3.0.0)
+train:  ## Train agent evolution models
+	@echo "🚀 Starting agent training pipeline..."
+	@python3 -c "from backend.agent_evolve.trainer import train_agents; train_agents()" 2>/dev/null || echo "Training pipeline not yet implemented - see ROADMAP_V3.md"
+
+# Federate swarms (v3.0.0)
+federate:  ## Initialize federation bridge
+	@echo "🌐 Starting federation bridge..."
+	@python3 -c "from bridge.federation_manager import start_federation; start_federation()" 2>/dev/null || echo "Federation bridge not yet implemented - see ROADMAP_V3.md"
