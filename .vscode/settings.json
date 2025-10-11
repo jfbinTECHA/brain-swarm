@@ -1,11 +1,5 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  "python.analysis.extraPaths": [
-    "backend",
-    "bridge",
-    "cortex_v3",
-    "backend/agent_evolve"
-  ],
-  "python.analysis.typeCheckingMode": "basic",
-  "python.analysis.diagnosticMode": "workspace"
+  "python.analysis.extraPaths": ["backend","bridge","cortex_v3","federation","dashboard"],
+  "python.analysis.typeCheckingMode": "basic"
 }
