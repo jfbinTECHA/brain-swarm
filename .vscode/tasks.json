@@ -27,13 +27,31 @@
       "command": "curl -s https://api.github.com/repos/jfbinTECHA/brain-swarm/actions/runs?per_page=1 | grep -E 'status|conclusion' || echo 'Unable to fetch workflow status'"
     },
     {
+      "label": "🏗️ Run Full Build",
+      "type": "shell",
+      "command": "make up && pytest && make down || echo 'Build test failed'"
+    },
+    {
+      "label": "🔒 Generate SBOM & Scan",
+      "type": "shell",
+      "command": "make sbom || trivy fs . || echo 'SBOM/Scan not available'"
+    },
+    {
+      "label": "📖 Docs Preview",
+      "type": "shell",
+      "command": "mkdocs serve || python -m http.server 8000 docs/ || echo 'Docs preview not available'"
+    },
+    {
       "label": "🧰 Full Cleanup Routine",
       "dependsOn": [
         "🧹 Clean cache & backup files",
         "🧱 Reorganize repository structure",
         "🧩 Set up CI & test scaffold",
         "🚀 Push & Tag v0.2-prep",
-        "🔍 Verify GitHub Actions pipeline status"
+        "🔍 Verify GitHub Actions pipeline status",
+        "🏗️ Run Full Build",
+        "🔒 Generate SBOM & Scan",
+        "📖 Docs Preview"
       ],
       "dependsOrder": "sequence"
     }
