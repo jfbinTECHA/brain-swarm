@@ -7,5 +7,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Ensure no build artifacts are committed
         run: |
-          ! git ls-files | grep -E '^(venv/|__pycache__/)' || \
+          ! git ls-files | grep -E '^(venv/|__pycache__/|.pytest_cache/)' || \
           (echo "Build artifacts are tracked; fix .gitignore." && exit 1)
