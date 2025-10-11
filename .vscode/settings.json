@@ -3,7 +3,8 @@
   "python.analysis.extraPaths": [
     "backend",
     "bridge",
-    "cortex_v3"
+    "cortex_v3",
+    "backend/agent_evolve"
   ],
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "workspace"
