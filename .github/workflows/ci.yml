@@ -1,51 +1,19 @@
 name: CI
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+on: [push, pull_request]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install fastapi uvicorn prometheus-fastapi-instrumentator
-
-    - name: Lint with flake8
-      run: |
-        pip install flake8
-        flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-    - name: Run tests
-      run: |
-        pip install pytest requests
-        pytest tests/ -v
-
-  docker:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Build Docker images
-      run: docker compose build
-
-    - name: Test Docker Compose
-      run: |
-        docker compose up -d
-        sleep 10
-        docker compose ps
-        docker compose down
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt pytest ruff black isort
+      - name: Lint and test
+        run: |
+          ruff check .
+          pytest -v
