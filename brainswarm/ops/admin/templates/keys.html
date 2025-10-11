@@ -1,0 +1,11 @@
+<!doctype html><html><body>
+<h3>SSH Public Key Fingerprints</h3>
+<a href="/">Home</a>
+<table border="1" cellpadding="4">
+<tr><th>User</th><th>authorized_keys line</th><th>Fingerprint</th></tr>
+{% for fp in fps %}
+<tr><td>{{fp.user}}</td><td>{{fp.line}}</td><td>{{fp.fingerprint}}</td></tr>
+{% endfor %}
+</table>
+<p><small>Note: shows fingerprints only. Never expose private keys.</small></p>
+</body></html>

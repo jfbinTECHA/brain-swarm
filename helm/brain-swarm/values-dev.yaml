@@ -1,0 +1,60 @@
+global:
+  imagePullPolicy: IfNotPresent
+
+redis:
+  url: "redis://redis:6379/0"
+
+chroma:
+  host: "chroma"
+  port: 8000
+
+secrets:
+  name: cortex-secrets
+  keys:
+    webhookSecret: webhook_secret
+    githubToken: github_token
+    openaiApiKey: openai_api_key
+    s3Bucket: s3_bucket
+
+bridge:
+  enabled: true
+  image: jfbintecha/swarmops-hook:dev
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+  ingress:
+    enabled: false
+
+cortex:
+  enabled: true
+  image: jfbintecha/knowledge-cortex:dev
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 300m, memory: 256Mi }
+  env:
+    graphDbPath: "/data/graph.duckdb"
+    archiveDbPath: "/data/archive.duckdb"
+  pvc:
+    enabled: true
+    name: cortex-pvc
+    size: 5Gi
+    storageClassName: ""
+
+serviceMonitor:
+  enabled: false
+
+monitoring:
+  loki:
+    enabled: false  # Disable in dev to save resources
+  promtail:
+    enabled: false  # Disable in dev to save resources
+  prometheus:
+    enabled: false
+  alertmanager:
+    enabled: false
+  grafana:
+    enabled: false
+    loginBackground:
+      enabled: false

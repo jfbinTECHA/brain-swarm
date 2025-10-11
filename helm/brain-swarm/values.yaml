@@ -1,0 +1,833 @@
+# Default values for brain-swarm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Brain Swarm API settings
+api:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: brain-swarm
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  config:
+    environment: production
+    node:
+      swarmId: "default-swarm"
+      host: "0.0.0.0"
+      port: 8000
+      maxAgents: 10
+      maxAgentLoad: 3
+    database:
+      url: "sqlite:///data/brain_swarm.db"
+    logging:
+      level: INFO
+    federation:
+      enabled: false
+    scalability:
+      enabled: false
+      messageQueueMode: "single_node"
+      redisUrls: ["redis://redis:6379"]
+      partitions: 8
+      asyncAgentsEnabled: false
+      agentPoolMin: 1
+      agentPoolMax: 10
+      loadBalancingStrategy: "least_loaded"
+      multiClusterEnabled: false
+      clusterId: "default-cluster"
+      clusterRole: "primary"
+      autoScalingEnabled: false
+    security:
+      jwtSecret: "change-this-in-production"
+      jwtAlgorithm: "HS256"
+      jwtExpirationHours: 24
+
+# Operations Server settings
+operations:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: brain-swarm
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8001
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Bridge Service (Webhook Processing)
+bridge:
+  enabled: true
+  image: jfbintecha/swarmops-hook
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+  ingress:
+    enabled: false
+    className: nginx   # or "traefik"
+    host: bridge.brainswarm.local
+    tlsSecretName: bridge-tls
+    security:
+      rateRPM: 30
+      burstMultiplier: 2
+      rateRPS: 5       # used by Traefik
+      burst: 10        # used by Traefik
+      allowCidrs:
+        - 192.30.252.0/22       # GitHub
+        - 185.199.108.0/22      # GitHub
+        - 140.82.112.0/20       # GitHub
+        - 104.192.136.0/21      # Atlassian
+        - 18.205.93.0/25        # GitHub
+
+# Redis settings
+redis:
+  enabled: true
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 6379
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  persistence:
+    enabled: true
+    size: 8Gi
+
+# Redis Exporter settings
+redisExporter:
+  enabled: true
+
+  image:
+    repository: oliver006/redis_exporter
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 9121
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Ingress settings
+ingress:
+   enabled: false
+   traefikEnabled: false  # Set to true to use Traefik IngressRoute instead of NGINX
+   className: "nginx"  # NGINX ingress class
+   certResolver: "letsencrypt"  # Traefik cert resolver
+   host: "api.brain-swarm.local"  # Main API host
+   certManagerIssuer: "letsencrypt-prod"  # Certificate issuer for NGINX
+
+   # TLS configuration
+   tls:
+     enabled: true
+     secretName: ""  # Auto-generated if empty
+
+   # Security settings
+   security:
+     # Rate limiting
+     rateLimit:
+       average: 10  # Requests per second average
+       burst: 20    # Burst capacity
+     metricsRateLimit:
+       average: 2   # Stricter limits for metrics endpoints
+       burst: 5
+
+     # IP whitelisting (CIDR ranges)
+     ipWhitelist: []  # e.g., ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+     metricsIPWhitelist: []  # Separate whitelist for metrics endpoints
+     ipWhitelistRejectStatus: 403  # HTTP status for rejected requests
+
+   # Custom annotations
+   annotations: {}
+     # nginx.ingress.kubernetes.io/rate-limit: "100"
+     # nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+     # nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8"
+     # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+# Webhook Bridge Ingress settings
+webhookBridge:
+  ingress:
+    enabled: false
+    traefikEnabled: false  # Set to true to use Traefik IngressRoute instead of NGINX
+    className: "nginx"  # NGINX ingress class
+    host: "webhooks.brain-swarm.local"  # Webhook bridge host
+    certManagerIssuer: "letsencrypt-prod"  # Certificate issuer for NGINX
+
+    # TLS configuration
+    tls:
+      enabled: true
+      secretName: ""  # Auto-generated if empty
+
+    # Security settings
+    security:
+      # Rate limiting for webhook endpoints
+      rateLimit:
+        average: 50  # Requests per second average for webhooks
+        burst: 100    # Burst capacity
+      webhookRateLimit:
+        average: 10   # Stricter limits for individual webhook endpoints
+        burst: 20
+
+      # IP whitelisting (CIDR ranges) - GitHub, Jira, ServiceNow IPs
+      ipWhitelist:
+        - "192.30.252.0/22"   # GitHub
+        - "185.199.108.0/22"  # GitHub
+        - "140.82.112.0/20"   # GitHub
+        - "104.192.136.0/21"  # GitHub
+        - "18.205.93.0/25"    # Atlassian (Jira)
+        - "18.234.32.128/25"  # Atlassian (Jira)
+        - "18.234.32.0/25"    # Atlassian (Jira)
+      ipWhitelistRejectStatus: 403  # HTTP status for rejected requests
+
+    # Custom annotations
+    annotations: {}
+      # nginx.ingress.kubernetes.io/rate-limit: "50"
+      # nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+      # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+# Service account settings
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext: {}
+
+# Security context
+securityContext: {}
+
+# Additional volumes
+extraVolumes: []
+extraVolumeMounts: []
+
+# Environment variables
+extraEnvVars: []
+
+# Knowledge Cortex settings
+cortex:
+  enabled: false
+  summarizer:
+    enabled: true
+    schedule: "*/15 * * * *"  # Every 15 minutes
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 2
+  chroma:
+    enabled: true
+    image:
+      repository: chromadb/chroma
+      tag: "0.4.18"
+      pullPolicy: IfNotPresent
+    service:
+      port: 8000
+    persistence:
+      enabled: true
+      size: 10Gi
+  s3:
+    enabled: false
+    bucket: "brain-swarm-cortex"
+    region: "us-east-1"
+    endpointUrl: ""
+  persistence:
+    enabled: true
+    size: 20Gi
+
+# Swarm View Dashboard settings
+swarmview:
+  enabled: false
+  replicas: 1
+  image:
+    repository: brain-swarm-swarmview
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: ""
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# SwarmOps Bi-Directional Sync settings
+swarmops:
+bidirectionalSync:
+enabled: false
+replicas: 1
+
+image:
+ repository: brain-swarm-swarmops-bidirectional-sync
+ tag: "latest"
+ pullPolicy: IfNotPresent
+
+# Sync configuration
+maxRetries: 3
+retryDelay: 60  # seconds
+pollInterval: 300  # 5 minutes
+conflictResolution: "ticket_wins"  # or "incident_wins"
+
+# GitHub integration
+github:
+ enabled: false
+ owner: ""  # GitHub organization/user
+ repo: ""   # Repository name
+
+# Jira integration
+jira:
+ enabled: false
+ url: ""  # Jira base URL
+ projectKey: "ALERT"
+
+# ServiceNow integration
+servicenow:
+ enabled: false
+ instanceUrl: ""  # ServiceNow instance URL
+ assignmentGroup: ""
+
+# Resources
+resources:
+ limits:
+   cpu: 200m
+   memory: 256Mi
+ requests:
+   cpu: 100m
+   memory: 128Mi
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Monitoring configuration
+monitoring:
+  prometheus:
+    enabled: true
+    replicas: 1
+
+    image:
+      repository: prom/prometheus
+      tag: "v2.45.0"
+      pullPolicy: IfNotPresent
+
+    # Service
+    service:
+      type: ClusterIP
+      port: 9090
+
+    # Persistence
+    persistence:
+      enabled: true
+      size: "50Gi"
+      storageClass: ""
+
+    # Resources
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+    # Security context
+    podSecurityContext: {}
+    securityContext: {}
+
+    # Node selection
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+    # Configuration
+    config:
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      rule_files:
+        - "/etc/prometheus/alertmanager-rules.yaml"
+      alerting:
+        alertmanagers:
+          - static_configs:
+              - targets:
+                - alertmanager:9093
+      scrape_configs: |
+        - job_name: 'brain-swarm-api'
+          static_configs:
+            - targets: ['brain-swarm-api:8000']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+        - job_name: 'brain-swarm-operations'
+          static_configs:
+            - targets: ['brain-swarm-operations:8001']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+        - job_name: 'webhook-bridge'
+          static_configs:
+            - targets: ['webhook-bridge:8080']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+        - job_name: 'knowledge-cortex'
+          static_configs:
+            - targets: ['knowledge-cortex:8002']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+        - job_name: 'redis'
+          static_configs:
+            - targets: ['redis-exporter:9121']
+          scrape_interval: 30s
+        - job_name: 'chromadb'
+          static_configs:
+            - targets: ['chromadb:8000']
+          metrics_path: '/api/v1/heartbeat'
+          scrape_interval: 30s
+        - job_name: 'knowledge-cortex-ai'
+          static_configs:
+            - targets: ['knowledge-cortex:8002']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+        - job_name: 'ai-insights'
+          static_configs:
+            - targets: ['brain-swarm-api:8000']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+          # AI-specific metrics
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: 'ai_.*'
+              action: keep
+
+  alertmanager:
+    enabled: true
+    replicas: 1
+
+    image:
+      repository: prom/alertmanager
+      tag: "v0.26.0"
+      pullPolicy: IfNotPresent
+
+    # Service
+    service:
+      type: ClusterIP
+      port: 9093
+
+    # Configuration
+    config:
+      global:
+        smtp_smarthost: 'smtp.gmail.com:587'
+        smtp_from: 'alerts@brain-swarm.local'
+      route:
+        group_by: ['alertname']
+        group_wait: 10s
+        group_interval: 10s
+        repeat_interval: 1h
+        receiver: 'email'
+      receivers:
+        - name: 'email'
+          email_configs:
+            - to: 'admin@brain-swarm.local'
+              send_resolved: true
+
+    # Resources
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+    # Security context
+    podSecurityContext: {}
+    securityContext: {}
+
+    # Node selection
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  loki:
+    enabled: true
+    replicas: 1
+
+    image:
+      repository: grafana/loki
+      tag: "2.9.0"
+      pullPolicy: IfNotPresent
+
+    # Service
+    service:
+      type: ClusterIP
+      port: 3100
+
+    # Persistence
+    persistence:
+      enabled: true
+      size: "50Gi"
+      storageClass: ""
+
+    # Resources
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    # Configuration
+    config:
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+      ingester:
+        lifecycler:
+          address: 127.0.0.1
+          ring:
+            kvstore:
+              store: inmemory
+            replication_factor: 1
+        chunk_idle_period: 5m
+        chunk_retain_period: 30s
+      schema_config:
+        configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+      storage_config:
+        boltdb_shipper:
+          active_index_directory: /tmp/loki/boltdb-shipper-active
+          cache_location: /tmp/loki/boltdb-shipper-cache
+          cache_ttl: 24h
+          shared_store: filesystem
+        filesystem:
+          directory: /tmp/loki/chunks
+      chunk_store_config:
+        max_look_back_period: 0s
+      table_manager:
+        retention_deletes_enabled: false
+        retention_period: 0s
+      compactor:
+        working_directory: /tmp/loki/boltdb-shipper-compactor
+        shared_store: filesystem
+
+    # Security context
+    podSecurityContext: {}
+    securityContext: {}
+
+    # Node selection
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  promtail:
+    enabled: true
+
+    image:
+      repository: grafana/promtail
+      tag: "2.9.0"
+      pullPolicy: IfNotPresent
+
+    # Resources
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+    # Configuration
+    config:
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: kubernetes-pods
+          kubernetes_sd_configs:
+            - role: pod
+          pipeline_stages:
+            - docker: {}
+            - json:
+                expressions:
+                  level: level
+                  timestamp: timestamp
+                  message: message
+                  service: service
+                  component: component
+            - labels:
+                level: level
+                service: service
+                component: component
+          relabel_configs:
+            - source_labels:
+                - __meta_kubernetes_pod_node_name
+              target_label: __host__
+            - action: labelmap
+              regex: __meta_kubernetes_pod_label_(.+)
+            - action: replace
+              replacement: $1
+              separator: /
+              source_labels:
+                - __meta_kubernetes_namespace
+                - __meta_kubernetes_pod_name
+              target_label: job
+            - action: replace
+              source_labels:
+                - __meta_kubernetes_pod_container_name
+              target_label: container
+            - action: replace
+              source_labels:
+                - __meta_kubernetes_namespace
+              target_label: namespace
+            - replacement: /var/log/pods/*$1/*.log
+              separator: /
+              source_labels:
+                - __meta_kubernetes_pod_uid
+                - __meta_kubernetes_pod_container_name
+              target_label: __path__
+
+    # Security context
+    podSecurityContext: {}
+    securityContext: {}
+
+    # Node selection
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  grafana:
+    enabled: true
+    replicas: 1
+
+    image:
+      repository: grafana/grafana
+      tag: "10.2.0"
+      pullPolicy: IfNotPresent
+
+    # Authentication
+    adminUser: "admin"
+    adminPassword: "admin"  # Change in production!
+    secretKey: "SW2YcwTIb9zpOOhoPsMm"  # Change in production!
+
+    # User management
+    allowSignUp: false
+    defaultRole: "Viewer"
+
+    # Anonymous access
+    anonymous:
+      enabled: true
+      orgName: "Main Org."
+      orgRole: "Viewer"
+
+    # Logging
+    logLevel: "info"
+
+    # Persistence
+    persistence:
+      enabled: true
+      size: "10Gi"
+      storageClass: ""
+
+    # Service
+    service:
+      type: ClusterIP
+      port: 80
+
+    # Resources
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    # Security context
+    podSecurityContext: {}
+    securityContext: {}
+
+    # Node selection
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+ 
+    # External Secrets Operator configuration
+    externalSecrets:
+      enabled: true
+      installCRDs: true
+ 
+      # AWS Secrets Manager configuration
+      aws:
+        enabled: true
+        region: us-east-1
+        secretsManager:
+          rotationInterval: 30d  # Rotate secrets every 30 days
+ 
+      # HashiCorp Vault configuration (alternative)
+      vault:
+        enabled: false
+        server: "https://vault.example.com:8200"
+        path: "secret"
+        auth:
+          kubernetes:
+            mountPath: "kubernetes"
+            role: "brain-swarm"
+ 
+      # Secret rotation policies
+      secrets:
+        webhookSecret:
+          rotationEnabled: true
+          rotationInterval: 30d
+          awsSecretName: "brain-swarm/webhook-secret"
+        githubToken:
+          rotationEnabled: true
+          rotationInterval: 7d
+          awsSecretName: "brain-swarm/github-token"
+        openaiApiKey:
+          rotationEnabled: true
+          rotationInterval: 90d
+          awsSecretName: "brain-swarm/openai-api-key"
+        s3Bucket:
+          rotationEnabled: false  # Static configuration
+          awsSecretName: "brain-swarm/s3-config"
+ 
+    # Dashboard configuration
+    dashboards:
+      brain-swarm-incident-board:
+        json: |
+          {
+            "dashboard": {
+              "title": "Brain Swarm - Incident Response Dashboard",
+              "panels": [
+                {
+                  "title": "Active Incidents",
+                  "type": "stat",
+                  "targets": [{"expr": "sum(cortex_incidents_created_total) - sum(cortex_incidents_resolved_total)"}]
+                }
+              ]
+            }
+          }
+    smtp:
+      enabled: false
+      smarthost: "smtp.gmail.com:587"
+      from: "alerts@brainswarm.ai"
+      username: "alerts@brainswarm.ai"
+    slack:
+      enabled: false
+      webhookUrl: ""
+      channel: "#brainswarm-alerts"
+    webhook:
+      enabled: false
+      url: "https://brainswarm.ai/alert-hook"
+      image:
+        repository: brain-swarm-swarmops-hook
+        tag: "latest"
+        pullPolicy: IfNotPresent
+      service:
+        type: ClusterIP
+        port: 8080
+        nodePort: ""
+      replicas: 1
+      defaultSystem: "jira"  # Default ticket system
+      criticalSystem: "jira"  # System for critical alerts
+      jira:
+        enabled: false
+        projectKey: "ALERT"
+      github:
+        enabled: false
+        repo: "brain-swarm"  # Repository for GitHub Actions integration
+      servicenow:
+        enabled: false
+        assignmentGroup: ""
+      brainSwarmApiUrl: "http://brain-swarm-api.brainswarm.svc.cluster.local:8000"
+      kilo:
+        image: "jfbintecha/swarmops-hook:latest"
+        manifest: "kilo/manifest.json"
+        jwtAudience: "kilo-agents"
+        jwtScope: "incident:read,incident:write"
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      extraEnvVars:
+        - name: JWT_AUDIENCE
+          value: "kilo-agents"
+        - name: JWT_SCOPE
+          value: "incident:read,incident:write"
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}

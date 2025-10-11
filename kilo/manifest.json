@@ -1,0 +1,12 @@
+{
+  "plugins": [
+    {
+      "name": "BrainSwarmOps",
+      "endpoint": "http://swarmops-hook-kilo.brainswarm.svc.cluster.local/api",
+      "auth": {
+        "jwt_token": "<KILO_AGENT_JWT>"
+      }
+    }
+  ],
+  "subscribe": ["incident_created", "incident_resolved"]
+}

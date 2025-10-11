@@ -1,0 +1,98 @@
+groups:
+  - name: cortex-alerts
+    rules:
+      - alert: CortexHighLatency
+        expr: histogram_quantile(0.95, sum(rate(cortex_query_seconds_bucket[5m])) by (le, layer)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: cortex
+          component: query
+        annotations:
+          summary: "High Cortex query latency detected"
+          description: "Layer {{ $labels.layer }} query latency above 2s for 5m"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/cortex-latency"
+
+      - alert: CortexIngestStalled
+        expr: rate(cortex_ingest_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: critical
+          service: cortex
+          component: ingest
+        annotations:
+          summary: "Cortex ingestion stalled"
+          description: "No Cortex ingest activity detected in 10 minutes"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/cortex-ingest"
+
+      - alert: RedisConnectionHigh
+        expr: redis_connected_clients > 200
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          component: connections
+        annotations:
+          summary: "Redis client connections unusually high"
+          description: "Number of Redis clients exceeds 200 for 5 minutes"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/redis-connections"
+
+      - alert: S3ArchiveErrors
+        expr: increase(cortex_archive_error_total[10m]) > 0
+        for: 10m
+        labels:
+          severity: critical
+          service: cortex
+          component: archive
+        annotations:
+          summary: "S3 archive write errors"
+          description: "Errors detected writing Cortex archives to S3 in last 10m"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/s3-archive"
+
+      - alert: CortexMemoryHigh
+        expr: (1 - (redis_memory_used_bytes / redis_memory_max_bytes)) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          component: memory
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis memory usage above 90% for 5 minutes"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/redis-memory"
+
+      - alert: ChromaDBUnavailable
+        expr: up{job="chromadb"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: chromadb
+          component: vector-db
+        annotations:
+          summary: "ChromaDB vector database unavailable"
+          description: "ChromaDB service is down for 5 minutes"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/chromadb"
+
+      - alert: CortexQueryErrorRate
+        expr: rate(cortex_query_error_total[5m]) / rate(cortex_queries_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: cortex
+          component: query
+        annotations:
+          summary: "High Cortex query error rate"
+          description: "Cortex query error rate above 5% for 5 minutes"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/cortex-errors"
+
+      - alert: SwarmViewUnavailable
+        expr: up{job="swarmview"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: swarmview
+          component: dashboard
+        annotations:
+          summary: "Swarm View dashboard unavailable"
+          description: "Swarm View visualization service is down for 5 minutes"
+          runbook_url: "https://brain-swarm.local/docs/troubleshooting/swarmview"

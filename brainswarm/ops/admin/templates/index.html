@@ -1,0 +1,14 @@
+<!doctype html><html><body>
+<h2>Local Admin Panel</h2>
+<p>Signed in as {{user.username}} ({{user.role}})</p>
+<ul>
+  <li><a href="http://localhost:3000" class="hover:text-teal-300 underline">Brain-Swarm Dashboard</a></li>
+  <li><a href="/console">Unified Console Dashboard</a></li>
+  <li><a href="/attempts">Login Attempts</a></li>
+  <li><a href="/keys">SSH Key Fingerprints</a></li>
+  {% if user.role == "admin" %}
+  <li><a href="/users">Users & Registrations</a></li>
+  {% endif %}
+  <li><a href="/logout">Logout</a></li>
+</ul>
+</body></html>

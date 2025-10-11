@@ -1,0 +1,9 @@
+{{- if and .Values.grafana.loginBackground.enabled .Values.grafana.loginBackground.sourceAsset }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-grafana-assets
+data:
+  brain-swarm-architecture.png: |
+{{ (.Files.Get .Values.grafana.loginBackground.sourceAsset) | indent 4 }}
+{{- end }}

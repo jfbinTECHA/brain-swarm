@@ -1,0 +1,102 @@
+{{- if .Values.webhookBridge.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-webhook-bridge
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webhook-bridge
+  annotations:
+    {{- with .Values.webhookBridge.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if not .Values.webhookBridge.ingress.traefikEnabled }}
+    # NGINX Ingress Controller
+    kubernetes.io/ingress.class: {{ .Values.webhookBridge.ingress.className | default "nginx" }}
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+
+    # 🔒 Security Annotations
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit-burst: "20"
+    {{- if .Values.webhookBridge.ingress.security.ipWhitelist }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ join "," .Values.webhookBridge.ingress.security.ipWhitelist | quote }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Enhanced security headers
+      add_header X-Frame-Options "DENY" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
+
+      # Block common attack patterns
+      if ($request_uri ~* "(?:<|%3C).*script.*(?:>|%3E)") { return 403; }
+      if ($request_uri ~* "(?:union.*select.*\\(|eval\\(|base64_decode\\(|phpinfo\\()") { return 403; }
+
+      # Rate limiting by endpoint
+      location ~* ^/gh-webhook {
+        limit_req zone=webhook burst=10 nodelay;
+      }
+      location ~* ^/jira-webhook {
+        limit_req zone=webhook burst=10 nodelay;
+      }
+      location ~* ^/servicenow-webhook {
+        limit_req zone=webhook burst=10 nodelay;
+      }
+
+    # Certificate management
+    {{- if .Values.webhookBridge.ingress.certManagerIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.webhookBridge.ingress.certManagerIssuer }}
+    {{- end }}
+
+    # Monitoring
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "80"
+    prometheus.io/path: "/metrics"
+
+    {{- else }}
+    # Traefik IngressRoute (when traefikEnabled=true)
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-brain-swarm-webhook-security@kubernetescrd
+    {{- end }}
+spec:
+  {{- if .Values.webhookBridge.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.webhookBridge.ingress.host }}
+      secretName: {{ .Values.webhookBridge.ingress.tls.secretName | default (printf "%s-webhook-bridge-tls" (include "brain-swarm.fullname" .)) }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.webhookBridge.ingress.host }}
+      http:
+        paths:
+          # Webhook endpoints
+          - path: /gh-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-api
+                port:
+                  number: 80
+          - path: /jira-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-api
+                port:
+                  number: 80
+          - path: /servicenow-webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "brain-swarm.fullname" . }}-api
+                port:
+                  number: 80
+{{- end }}

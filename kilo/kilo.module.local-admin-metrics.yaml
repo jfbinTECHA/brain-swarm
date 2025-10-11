@@ -1,0 +1,23 @@
+apiVersion: kilo.ai/v1
+kind: Module
+metadata:
+  name: local-admin-metrics
+  description: Prometheus endpoint for Local Admin metrics
+spec:
+  containers:
+    - name: metrics
+      image: prom/prometheus
+      args:
+        - "--web.listen-address=:9090"
+        - "--config.file=/etc/prometheus/prometheus.yml"
+      volumeMounts:
+        - name: prom-config
+          mountPath: /etc/prometheus/prometheus.yml
+          subPath: prometheus.yml
+  volumes:
+    - name: prom-config
+      configMap:
+        name: prom-config
+  service:
+    port: 9090
+    targetPort: 9090

@@ -1,0 +1,85 @@
+global:
+  imagePullPolicy: Always
+
+redis:
+  url: "redis://redis-headless.brainswarm:6379/0"
+
+chroma:
+  host: "chroma.brainswarm"
+  port: 8000
+
+secrets:
+  name: cortex-secrets
+  keys:
+    webhookSecret: webhook_secret
+    githubToken: github_token
+    openaiApiKey: openai_api_key
+    s3Bucket: s3_bucket
+
+bridge:
+  enabled: true
+  image: jfbintecha/swarmops-hook:latest
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  ingress:
+    enabled: true
+    className: nginx
+    host: bridge.brainswarm.ai
+    tlsSecretName: swarmops-bridge-tls
+    security:
+      rateRPM: 30
+      burstMultiplier: 2
+      allowCidrs:
+        - "192.30.252.0/22"   # GitHub
+        - "185.199.108.0/22"  # GitHub
+        - "140.82.112.0/20"   # GitHub
+        - "104.192.136.0/21"  # GitHub
+        - "18.205.93.0/25"    # Atlassian (Jira)
+
+cortex:
+  enabled: true
+  image: jfbintecha/knowledge-cortex:latest
+  replicas: 2
+  resources:
+    requests: { cpu: 300m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: "1Gi" }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  env:
+    graphDbPath: "/data/graph.duckdb"
+    archiveDbPath: "/data/archive.duckdb"
+  pvc:
+    enabled: true
+    name: cortex-pvc
+    size: 50Gi
+    storageClassName: "fast-ssd"
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+monitoring:
+  loki:
+    enabled: true
+  promtail:
+    enabled: true
+  prometheus:
+    enabled: true
+  alertmanager:
+    enabled: true
+  grafana:
+    enabled: true
+    loginBackground:
+      enabled: true
+      targetPath: /public/img/brain-swarm-architecture.png
+      sourceAsset: "docs/assets/BRA.png"
+  externalSecrets:
+    enabled: true
+    aws:
+      enabled: true
+      region: us-east-1

@@ -1,0 +1,181 @@
+groups:
+  - name: brain-swarm-alerts
+    rules:
+      # Incident Management Alerts
+      - alert: HighIncidentRate
+        expr: rate(cortex_incidents_created_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: critical
+          category: incidents
+        annotations:
+          summary: "High incident creation rate detected"
+          description: "Incident creation rate is {{ $value }} incidents per second, which is above the threshold of 10."
+
+      - alert: IncidentResolutionDelay
+        expr: (sum(cortex_incidents_created_total) - sum(cortex_incidents_resolved_total)) > 50
+        for: 10m
+        labels:
+          severity: warning
+          category: incidents
+        annotations:
+          summary: "High number of unresolved incidents"
+          description: "There are {{ $value }} unresolved incidents, which may indicate processing delays."
+
+      # Webhook Service Alerts
+      - alert: WebhookProcessingErrors
+        expr: rate(cortex_webhook_error_total[5m]) / rate(cortex_webhook_processed_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: webhooks
+        annotations:
+          summary: "High webhook processing error rate"
+          description: "Webhook error rate is {{ $value | printf \"%.2f\" }}%, which exceeds the 10% threshold."
+
+      - alert: WebhookSignatureValidationFailures
+        expr: rate(cortex_webhook_error_total{error_type="invalid_signature"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Webhook signature validation failures"
+          description: "There have been {{ $value }} signature validation failures in the last 5 minutes."
+
+      # API Performance Alerts
+      - alert: HighAPIErrorRate
+        expr: rate(brain_swarm_api_requests_total{status_code=~"5.."}[5m]) / rate(brain_swarm_api_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: api
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is {{ $value | printf \"%.2f\" }}%, which exceeds the 5% threshold."
+
+      - alert: SlowAPIResponse
+        expr: histogram_quantile(0.95, rate(brain_swarm_api_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Slow API response times"
+          description: "95th percentile API response time is {{ $value }}s, which exceeds the 5s threshold."
+
+      # Agent Performance Alerts
+      - alert: AgentOverload
+        expr: brain_swarm_agent_load > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          category: agents
+        annotations:
+          summary: "Agent overload detected"
+          description: "Agent {{ $labels.agent_id }} has a load of {{ $value }}, which exceeds the 90% threshold."
+
+      - alert: AgentTaskFailures
+        expr: rate(brain_swarm_task_failures_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: agents
+        annotations:
+          summary: "High agent task failure rate"
+          description: "Agent task failure rate is {{ $value }} failures per second."
+
+      # Knowledge Cortex Alerts
+      - alert: CortexQueryLatency
+        expr: histogram_quantile(0.95, rate(cortex_query_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: cortex
+        annotations:
+          summary: "Slow Knowledge Cortex queries"
+          description: "95th percentile cortex query latency is {{ $value }}s, which exceeds the 2s threshold."
+
+      - alert: LowAIConfidence
+        expr: cortex_ai_confidence_score < 0.7
+        for: 10m
+        labels:
+          severity: info
+          category: ai
+        annotations:
+          summary: "Low AI confidence score"
+          description: "AI confidence score for {{ $labels.operation }} is {{ $value }}, which is below the 0.7 threshold."
+
+      # System Resource Alerts
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%, which exceeds the 90% threshold."
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}%, which exceeds the 90% threshold."
+
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Low disk space"
+          description: "Available disk space is {{ $value }}%, which is below the 10% threshold."
+
+      # Redis Alerts
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Redis is down"
+          description: "Redis has been down for more than 1 minute."
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | printf \"%.2f\" }}%, which exceeds the 90% threshold."
+
+      # Ticket Sync Alerts
+      - alert: TicketSyncFailures
+        expr: rate(cortex_ticket_sync_resolved_total[5m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+          category: integration
+        annotations:
+          summary: "Ticket sync not resolving incidents"
+          description: "No tickets have been resolved in the last 15 minutes, which may indicate sync issues."
+
+      # Federation Alerts
+      - alert: FederationCommunicationFailure
+        expr: rate(brain_swarm_federation_operations_total{operation_type="error"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: federation
+        annotations:
+          summary: "Federation communication failures"
+          description: "There have been {{ $value }} federation communication failures in the last 5 minutes."

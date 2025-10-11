@@ -1,0 +1,88 @@
+# =====================================================================
+# 🧠  BrainSwarm Cortex Summarizer — Automated Health Workflow
+# ---------------------------------------------------------------------
+# This Kilo workflow verifies the summarizer service health every cycle.
+# Checks performed:
+#   • Service active in systemd
+#   • Prometheus shows zero recent summarization failures
+#   • Uptime > 0 (service has run successfully)
+# =====================================================================
+
+name: brainswarm_summarizer_healthcheck
+description: "Automated health check for BrainSwarm Cortex Summarizer"
+interval: "5m"
+
+steps:
+  - name: Check Systemd Service
+    run: |
+      if ! sudo systemctl is-active --quiet brainswarm-summarizer.service; then
+        echo "❌ Summarizer service inactive"
+        exit 1
+      fi
+      echo "✅ Summarizer systemd service active"
+
+  - name: Query Prometheus for Failures
+    run: |
+      FAIL_COUNT=$(curl -s "http://localhost:9090/api/v1/query?query=increase(brainswarm_summarizer_failures_total[10m])" | jq -r '.data.result[0].value[1]' 2>/dev/null)
+      if [[ -z "$FAIL_COUNT" ]]; then
+        echo "⚠️  No metrics found for summarizer failures, check scrape config"
+        exit 1
+      fi
+
+      if (( $(echo "$FAIL_COUNT > 0" | bc -l) )); then
+        echo "❌ Summarizer failures detected in last 10 minutes: $FAIL_COUNT"
+        echo "🔄 Auto-recovery triggered — restarting brainswarm-summarizer.service"
+        sudo systemctl restart brainswarm-summarizer.service
+        sleep 20
+        echo "🧠 Re-checking summarizer status after restart..."
+        sudo systemctl is-active --quiet brainswarm-summarizer.service && echo "✅ Summarizer restarted successfully" || (echo "❌ Restart failed"; exit 1)
+        echo "✅ Auto-recovery complete, continuing health validation"
+      else
+        echo "✅ No summarizer failures detected in last 10 minutes"
+      fi
+
+  - name: Check Summarizer Uptime
+    run: |
+      UPTIME=$(curl -s "http://localhost:9090/api/v1/query?query=time()-process_start_time_seconds{job=\"brainswarm-summarizer\"}" | jq -r '.data.result[0].value[1]' 2>/dev/null)
+      if [[ -z "$UPTIME" ]]; then
+        echo "⚠️  No uptime metric available; Prometheus may not have scraped yet."
+        exit 1
+      fi
+
+      echo "🧠 Summarizer uptime: ${UPTIME}s"
+      if (( $(echo "$UPTIME < 60" | bc -l) )); then
+        echo "⚠️  Summarizer recently restarted (<60s uptime)"
+      else
+        echo "✅ Summarizer uptime stable"
+      fi
+
+  - name: Verify After Auto-Recovery
+    run: |
+      echo "🧩 Verifying summarizer health post-recovery..."
+      if ! sudo systemctl is-active --quiet brainswarm-summarizer.service; then
+        echo "❌ Summarizer still inactive after attempted recovery"
+        exit 1
+      fi
+
+      FAIL_COUNT=$(curl -s "http://localhost:9090/api/v1/query?query=increase(brainswarm_summarizer_failures_total[5m])" | jq -r '.data.result[0].value[1]' 2>/dev/null)
+      if [[ -n "$FAIL_COUNT" && $(echo "$FAIL_COUNT > 0" | bc -l) ]]; then
+        echo "❌ Continued summarizer failures post-recovery"
+        exit 1
+      fi
+
+      echo "✅ Summarizer verified healthy after auto-recovery"
+
+  - name: Log Recovery Summary
+    run: |
+      echo "📋 Self-healing workflow executed successfully at $(date '+%Y-%m-%d %H:%M:%S')"
+
+  - name: Success Summary
+    run: |
+      echo "🎯 BrainSwarm Cortex Summarizer is healthy and operational."
+
+# =====================================================================
+# Integration Notes:
+#   • Kilo can trigger this workflow automatically after deployments
+#   • A non-zero exit code on any step marks summarizer health as failed
+#   • To enable alerts, wire this into your BrainSwarmOps alert rules
+# =====================================================================

@@ -1,0 +1,142 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+metadata:
+  name: brain-swarm-prod
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./helm/brain-swarm
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: brain-swarm-prod
+  targetNamespace: brainswarm-prod
+  timeout: 5m
+  validation: client
+  patchesStrategicMerge:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      metadata:
+        name: brain-swarm-prod
+      spec:
+        values:
+          bridge:
+            image: jfbintecha/swarmops-hook:latest
+          cortex:
+            image: jfbintecha/knowledge-cortex:latest
+        valuesFrom:
+          - kind: ConfigMap
+            name: brain-swarm-prod-values
+            valuesKey: values.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: brain-swarm-prod-values
+  namespace: flux-system
+data:
+  values.yaml: |
+    # Production values embedded in ConfigMap
+    global:
+      imagePullPolicy: Always
+
+    redis:
+      url: "redis://redis-headless.brainswarm:6379/0"
+
+    chroma:
+      host: "chroma.brainswarm"
+      port: 8000
+
+    secrets:
+      name: cortex-secrets
+      keys:
+        webhookSecret: webhook_secret
+        githubToken: github_token
+        openaiApiKey: openai_api_key
+        s3Bucket: s3_bucket
+
+    bridge:
+      enabled: true
+      image: jfbintecha/swarmops-hook:latest
+      replicas: 2
+      resources:
+        requests: { cpu: 100m, memory: 128Mi }
+        limits:   { cpu: 500m, memory: 512Mi }
+      ingress:
+        enabled: true
+        className: nginx
+        host: bridge.brainswarm.ai
+        tlsSecretName: swarmops-bridge-tls
+        security:
+          rateRPM: 30
+          burstMultiplier: 2
+          allowCidrs:
+            - "192.30.252.0/22"   # GitHub
+            - "185.199.108.0/22"  # GitHub
+            - "140.82.112.0/20"   # GitHub
+            - "104.192.136.0/21"  # GitHub
+            - "18.205.93.0/25"    # Atlassian (Jira)
+
+    cortex:
+      enabled: true
+      image: jfbintecha/knowledge-cortex:latest
+      replicas: 2
+      resources:
+        requests: { cpu: 300m, memory: 512Mi }
+        limits:   { cpu: "1",  memory: "1Gi" }
+      hpa:
+        enabled: true
+        minReplicas: 2
+        maxReplicas: 6
+        targetCPUUtilizationPercentage: 70
+      env:
+        graphDbPath: "/data/graph.duckdb"
+        archiveDbPath: "/data/archive.duckdb"
+      pvc:
+        enabled: true
+        name: cortex-pvc
+        size: 50Gi
+        storageClassName: "fast-ssd"
+
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+
+    grafana:
+      loginBackground:
+        enabled: true
+        targetPath: /public/img/brain-swarm-architecture.png
+        sourceAsset: "docs/assets/BRA.png"
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: brain-swarm-prod
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/jfbinTECHA/brain-swarm
+  ref:
+    branch: main
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: brain-swarm-prod
+  namespace: flux-system
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: helm/brain-swarm
+      sourceRef:
+        kind: GitRepository
+        name: brain-swarm-prod
+  targetNamespace: brainswarm-prod
+  install:
+    createNamespace: true
+  upgrade:
+    force: false
+  valuesFrom:
+    - kind: ConfigMap
+      name: brain-swarm-prod-values

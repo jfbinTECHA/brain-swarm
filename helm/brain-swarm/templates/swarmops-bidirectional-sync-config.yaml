@@ -1,0 +1,57 @@
+{{- if .Values.swarmops.bidirectionalSync.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmops-bidirectional-sync-config
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-bidirectional-sync
+data:
+  # Configuration for bidirectional sync service
+  config.json: |
+    {
+      "service_name": "swarmops-bidirectional-sync",
+      "version": "{{ .Chart.AppVersion }}",
+      "sync": {
+        "max_retries": {{ .Values.swarmops.bidirectionalSync.maxRetries | default 3 }},
+        "retry_delay": {{ .Values.swarmops.bidirectionalSync.retryDelay | default 60 }},
+        "poll_interval": {{ .Values.swarmops.bidirectionalSync.pollInterval | default 300 }},
+        "conflict_resolution": "{{ .Values.swarmops.bidirectionalSync.conflictResolution | default "ticket_wins" }}"
+      },
+      "ticket_systems": {
+        "github": {
+          "enabled": {{ .Values.swarmops.bidirectionalSync.github.enabled | default false }},
+          "owner": "{{ .Values.swarmops.bidirectionalSync.github.owner }}",
+          "repo": "{{ .Values.swarmops.bidirectionalSync.github.repo }}",
+          "webhook_path": "/webhooks/github"
+        },
+        "jira": {
+          "enabled": {{ .Values.swarmops.bidirectionalSync.jira.enabled | default false }},
+          "url": "{{ .Values.swarmops.bidirectionalSync.jira.url }}",
+          "project_key": "{{ .Values.swarmops.bidirectionalSync.jira.projectKey }}",
+          "webhook_path": "/webhooks/jira"
+        },
+        "servicenow": {
+          "enabled": {{ .Values.swarmops.bidirectionalSync.servicenow.enabled | default false }},
+          "instance_url": "{{ .Values.swarmops.bidirectionalSync.servicenow.instanceUrl }}",
+          "assignment_group": "{{ .Values.swarmops.bidirectionalSync.servicenow.assignmentGroup }}",
+          "webhook_path": "/webhooks/servicenow"
+        }
+      },
+      "redis": {
+        "url": "redis://{{ include "brain-swarm.fullname" . }}-redis:6379/0",
+        "sync_key_prefix": "sync_record",
+        "ticket_sync_prefix": "ticket_sync",
+        "events_stream": "cortex:sync_events"
+      },
+      "api": {
+        "brain_swarm_url": "http://{{ include "brain-swarm.fullname" . }}-api:8000",
+        "health_endpoint": "/health",
+        "sync_status_endpoint": "/sync/status"
+      },
+      "monitoring": {
+        "metrics_port": 9090,
+        "health_port": 8080
+      }
+    }
+{{- end }}

@@ -1,0 +1,437 @@
+version: '3.8'
+
+# Scalable Brain Swarm with Redis-backed message bus and multi-cluster federation
+# This demonstrates horizontal scaling and multi-cluster capabilities
+
+services:
+  # Redis Cluster for scalable message queuing (3-node cluster)
+  redis-cluster-1:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    volumes:
+      - redis-cluster-1-data:/data
+    networks:
+      - brain-swarm-scalable
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis-cluster-2:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    command: redis-server --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    volumes:
+      - redis-cluster-2-data:/data
+    networks:
+      - brain-swarm-scalable
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis-cluster-3:
+    image: redis:7-alpine
+    ports:
+      - "6381:6379"
+    command: redis-server --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    volumes:
+      - redis-cluster-3-data:/data
+    networks:
+      - brain-swarm-scalable
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Primary Cluster - API Gateway and Coordination Hub
+  brain-swarm-primary:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - NODE__NODE_NAME=primary_cluster_node
+      - NODE__SWARM_ID=primary_cluster
+      - NODE__HOST=0.0.0.0
+      - NODE__PORT=8000
+      - REDIS_URL=redis://redis-cluster-1:6379,redis://redis-cluster-2:6379,redis://redis-cluster-3:6379
+      - MESSAGE_QUEUE_MODE=cluster
+      - FEDERATION_ENABLED=true
+      - FEDERATION_AUTH_TOKEN=secure-federation-token-2024
+      - SCALABLE_AGENTS_ENABLED=true
+      - AGENT_POOL_MIN=5
+      - AGENT_POOL_MAX=20
+      - LOAD_BALANCING_STRATEGY=least_loaded
+      - CLUSTER_ROLE=primary
+      - SPECIALIZED_CAPABILITIES=task_processing,memory_sync,analytics_sharing
+    volumes:
+      - .:/app
+      - primary-data:/app/data
+    depends_on:
+      redis-cluster-1:
+        condition: service_healthy
+      redis-cluster-2:
+        condition: service_healthy
+      redis-cluster-3:
+        condition: service_healthy
+    command: >
+      python -c "
+      import asyncio
+      from scalability.async_agents import initialize_async_agents
+      from scalability.scalable_message_queue import initialize_scalable_message_queue, QueueMode
+      from scalability.multi_cluster_federation import initialize_multi_cluster_federation
+      from api.main import app
+      import uvicorn
+
+      async def main():
+          print('🚀 Starting Primary Cluster...')
+
+          # Initialize Redis-backed scalable message queue
+          await initialize_scalable_message_queue(
+              redis_urls=[
+                  'redis://redis-cluster-1:6379',
+                  'redis://redis-cluster-2:6379',
+                  'redis://redis-cluster-3:6379'
+              ],
+              mode=QueueMode.CLUSTER,
+              partitions=32  # High partition count for scalability
+          )
+
+          # Initialize async agent pool with auto-scaling
+          await initialize_async_agents(min_agents=5, max_agents=20)
+
+          # Initialize multi-cluster federation
+          await initialize_multi_cluster_federation(
+              local_cluster_id='primary_cluster',
+              local_node_id='primary_node_1'
+          )
+
+          print('✅ Primary cluster initialized, starting API server...')
+          uvicorn.run(app, host='0.0.0.0', port=8000)
+
+      asyncio.run(main())
+      "
+    networks:
+      - brain-swarm-scalable
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Secondary Cluster 1 - Specialized Math/Computation Processing
+  brain-swarm-compute-1:
+    build: .
+    ports:
+      - "8001:8000"
+    environment:
+      - ENVIRONMENT=production
+      - NODE__NODE_NAME=compute_cluster_1_node
+      - NODE__SWARM_ID=compute_cluster_1
+      - REDIS_URL=redis://redis-cluster-1:6379,redis://redis-cluster-2:6379,redis://redis-cluster-3:6379
+      - MESSAGE_QUEUE_MODE=cluster
+      - FEDERATION_ENABLED=true
+      - FEDERATION_AUTH_TOKEN=secure-federation-token-2024
+      - SCALABLE_AGENTS_ENABLED=true
+      - AGENT_POOL_MIN=8
+      - AGENT_POOL_MAX=25
+      - LOAD_BALANCING_STRATEGY=weighted
+      - CLUSTER_ROLE=secondary
+      - SPECIALIZED_CAPABILITIES=math_processing,computation,simulation
+    volumes:
+      - .:/app
+      - compute-1-data:/app/data
+    depends_on:
+      - brain-swarm-primary
+    command: >
+      python -c "
+      import asyncio
+      from scalability.async_agents import initialize_async_agents
+      from scalability.scalable_message_queue import initialize_scalable_message_queue, QueueMode
+      from scalability.multi_cluster_federation import initialize_multi_cluster_federation
+      from api.main import app
+      import uvicorn
+
+      async def main():
+          print('🚀 Starting Compute Cluster 1...')
+
+          await initialize_scalable_message_queue(
+              redis_urls=[
+                  'redis://redis-cluster-1:6379',
+                  'redis://redis-cluster-2:6379',
+                  'redis://redis-cluster-3:6379'
+              ],
+              mode=QueueMode.CLUSTER,
+              partitions=32
+          )
+
+          await initialize_async_agents(min_agents=8, max_agents=25)
+
+          await initialize_multi_cluster_federation(
+              local_cluster_id='compute_cluster_1',
+              local_node_id='compute_node_1'
+          )
+
+          print('✅ Compute cluster 1 initialized, starting API server...')
+          uvicorn.run(app, host='0.0.0.0', port=8000)
+
+      asyncio.run(main())
+      "
+    networks:
+      - brain-swarm-scalable
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+
+  # Secondary Cluster 2 - AI/ML Processing with GPU support
+  brain-swarm-ai-1:
+    build: .
+    ports:
+      - "8002:8000"
+    environment:
+      - ENVIRONMENT=production
+      - NODE__NODE_NAME=ai_cluster_1_node
+      - NODE__SWARM_ID=ai_cluster_1
+      - REDIS_URL=redis://redis-cluster-1:6379,redis://redis-cluster-2:6379,redis://redis-cluster-3:6379
+      - MESSAGE_QUEUE_MODE=cluster
+      - FEDERATION_ENABLED=true
+      - FEDERATION_AUTH_TOKEN=secure-federation-token-2024
+      - SCALABLE_AGENTS_ENABLED=true
+      - AGENT_POOL_MIN=6
+      - AGENT_POOL_MAX=15
+      - LOAD_BALANCING_STRATEGY=least_loaded
+      - CLUSTER_ROLE=secondary
+      - SPECIALIZED_CAPABILITIES=ai_processing,ml_inference,gpu_accelerated
+    volumes:
+      - .:/app
+      - ai-1-data:/app/data
+    depends_on:
+      - brain-swarm-primary
+    command: >
+      python -c "
+      import asyncio
+      from scalability.async_agents import initialize_async_agents
+      from scalability.scalable_message_queue import initialize_scalable_message_queue, QueueMode
+      from scalability.multi_cluster_federation import initialize_multi_cluster_federation
+      from api.main import app
+      import uvicorn
+
+      async def main():
+          print('🚀 Starting AI Cluster 1...')
+
+          await initialize_scalable_message_queue(
+              redis_urls=[
+                  'redis://redis-cluster-1:6379',
+                  'redis://redis-cluster-2:6379',
+                  'redis://redis-cluster-3:6379'
+              ],
+              mode=QueueMode.CLUSTER,
+              partitions=32
+          )
+
+          await initialize_async_agents(min_agents=6, max_agents=15)
+
+          await initialize_multi_cluster_federation(
+              local_cluster_id='ai_cluster_1',
+              local_node_id='ai_node_1'
+          )
+
+          print('✅ AI cluster 1 initialized, starting API server...')
+          uvicorn.run(app, host='0.0.0.0', port=8000)
+
+      asyncio.run(main())
+      "
+    networks:
+      - brain-swarm-scalable
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '3.0'
+          memory: 12G
+        reservations:
+          cpus: '1.5'
+          memory: 6G
+
+  # Edge Cluster - Low Latency Real-time Processing
+  brain-swarm-edge-1:
+    build: .
+    ports:
+      - "8003:8000"
+    environment:
+      - ENVIRONMENT=production
+      - NODE__NODE_NAME=edge_cluster_1_node
+      - NODE__SWARM_ID=edge_cluster_1
+      - REDIS_URL=redis://redis-cluster-1:6379,redis://redis-cluster-2:6379,redis://redis-cluster-3:6379
+      - MESSAGE_QUEUE_MODE=cluster
+      - FEDERATION_ENABLED=true
+      - FEDERATION_AUTH_TOKEN=secure-federation-token-2024
+      - SCALABLE_AGENTS_ENABLED=true
+      - AGENT_POOL_MIN=2
+      - AGENT_POOL_MAX=8
+      - LOAD_BALANCING_STRATEGY=geographic
+      - CLUSTER_ROLE=edge
+      - SPECIALIZED_CAPABILITIES=real_time,low_latency,streaming
+    volumes:
+      - .:/app
+      - edge-1-data:/app/data
+    depends_on:
+      - brain-swarm-primary
+    command: >
+      python -c "
+      import asyncio
+      from scalability.async_agents import initialize_async_agents
+      from scalability.scalable_message_queue import initialize_scalable_message_queue, QueueMode
+      from scalability.multi_cluster_federation import initialize_multi_cluster_federation
+      from api.main import app
+      import uvicorn
+
+      async def main():
+          print('🚀 Starting Edge Cluster 1...')
+
+          await initialize_scalable_message_queue(
+              redis_urls=[
+                  'redis://redis-cluster-1:6379',
+                  'redis://redis-cluster-2:6379',
+                  'redis://redis-cluster-3:6379'
+              ],
+              mode=QueueMode.CLUSTER,
+              partitions=32
+          )
+
+          await initialize_async_agents(min_agents=2, max_agents=8)
+
+          await initialize_multi_cluster_federation(
+              local_cluster_id='edge_cluster_1',
+              local_node_id='edge_node_1'
+          )
+
+          print('✅ Edge cluster 1 initialized, starting API server...')
+          uvicorn.run(app, host='0.0.0.0', port=8000)
+
+      asyncio.run(main())
+      "
+    networks:
+      - brain-swarm-scalable
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # Monitoring Stack - Prometheus & Grafana
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/scalable.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-scalable-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - brain-swarm-scalable
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-scalable-data:/var/lib/grafana
+      - ./monitoring/grafana/scalable/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/scalable/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - brain-swarm-scalable
+    restart: unless-stopped
+
+  # Load Balancer & API Gateway
+  traefik:
+    image: traefik:v2.10
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/scalable.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - brain-swarm-scalable
+    restart: unless-stopped
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+  # Redis Cluster Setup Service
+  redis-cluster-setup:
+    image: redis:7-alpine
+    depends_on:
+      - redis-cluster-1
+      - redis-cluster-2
+      - redis-cluster-3
+    command: >
+      sh -c "
+      echo 'Waiting for Redis nodes to be ready...'
+      sleep 10
+      echo 'Creating Redis cluster...'
+      redis-cli --cluster create \
+        redis-cluster-1:6379 \
+        redis-cluster-2:6379 \
+        redis-cluster-3:6379 \
+        --cluster-replicas 0 \
+        --cluster-yes
+      echo 'Redis cluster created successfully'
+      "
+    networks:
+      - brain-swarm-scalable
+
+volumes:
+  redis-cluster-1-data:
+  redis-cluster-2-data:
+  redis-cluster-3-data:
+  primary-data:
+  compute-1-data:
+  ai-1-data:
+  edge-1-data:
+  prometheus-scalable-data:
+  grafana-scalable-data:
+
+networks:
+  brain-swarm-scalable:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

@@ -1,0 +1,127 @@
+{{- if .Values.swarmops.bidirectionalSync.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-swarmops-bidirectional-sync
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: swarmops-bidirectional-sync
+spec:
+  replicas: {{ .Values.swarmops.bidirectionalSync.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "brain-swarm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: swarmops-bidirectional-sync
+  template:
+    metadata:
+      labels:
+        {{- include "brain-swarm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: swarmops-bidirectional-sync
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/swarmops-bidirectional-sync-config.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "brain-swarm.serviceAccountName" . }}
+      containers:
+        - name: swarmops-bidirectional-sync
+          image: {{ .Values.swarmops.bidirectionalSync.image.repository }}:{{ .Values.swarmops.bidirectionalSync.image.tag | default .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.swarmops.bidirectionalSync.image.pullPolicy }}
+          command: ["python", "-m", "swarmops_bidirectional_sync"]
+          env:
+            - name: REDIS_URL
+              value: "redis://{{ include "brain-swarm.fullname" . }}-redis:6379/0"
+
+            # GitHub configuration
+            - name: GITHUB_ENABLED
+              value: {{ .Values.swarmops.bidirectionalSync.github.enabled | quote }}
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-swarmops-secrets
+                  key: github-token
+                  optional: true
+            - name: GITHUB_OWNER
+              value: {{ .Values.swarmops.bidirectionalSync.github.owner | quote }}
+            - name: GITHUB_REPO
+              value: {{ .Values.swarmops.bidirectionalSync.github.repo | quote }}
+            - name: GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-swarmops-secrets
+                  key: github-webhook-secret
+                  optional: true
+
+            # Jira configuration
+            - name: JIRA_ENABLED
+              value: {{ .Values.swarmops.bidirectionalSync.jira.enabled | quote }}
+            - name: JIRA_BASE_URL
+              value: {{ .Values.swarmops.bidirectionalSync.jira.url | quote }}
+            - name: JIRA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-swarmops-secrets
+                  key: jira-username
+                  optional: true
+            - name: JIRA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-swarmops-secrets
+                  key: jira-api-token
+                  optional: true
+            - name: JIRA_PROJECT_KEY
+              value: {{ .Values.swarmops.bidirectionalSync.jira.projectKey | quote }}
+
+            # ServiceNow configuration
+            - name: SERVICENOW_ENABLED
+              value: {{ .Values.swarmops.bidirectionalSync.servicenow.enabled | quote }}
+            - name: SERVICENOW_INSTANCE_URL
+              value: {{ .Values.swarmops.bidirectionalSync.servicenow.instanceUrl | quote }}
+            - name: SERVICENOW_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "brain-swarm.fullname" . }}-swarmops-secrets
+                  key: servicenow-access-token
+                  optional: true
+            - name: SERVICENOW_ASSIGNMENT_GROUP
+              value: {{ .Values.swarmops.bidirectionalSync.servicenow.assignmentGroup | quote }}
+
+            # Sync configuration
+            - name: SYNC_MAX_RETRIES
+              value: {{ .Values.swarmops.bidirectionalSync.maxRetries | quote }}
+            - name: SYNC_RETRY_DELAY
+              value: {{ .Values.swarmops.bidirectionalSync.retryDelay | quote }}
+            - name: SYNC_POLL_INTERVAL
+              value: {{ .Values.swarmops.bidirectionalSync.pollInterval | quote }}
+            - name: SYNC_CONFLICT_RESOLUTION
+              value: {{ .Values.swarmops.bidirectionalSync.conflictResolution | quote }}
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.swarmops.bidirectionalSync.resources | nindent 12 }}
+      {{- with .Values.swarmops.bidirectionalSync.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.swarmops.bidirectionalSync.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.swarmops.bidirectionalSync.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

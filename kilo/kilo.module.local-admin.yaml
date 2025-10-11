@@ -1,0 +1,41 @@
+# Kilo module: local-admin
+apiVersion: kilo.ai/v1
+kind: Module
+metadata:
+  name: local-admin
+  description: Local system admin and unified console panel for Brain-Swarm
+  labels:
+    tier: ops
+    service: admin-panel
+spec:
+  containers:
+    - name: admin
+      image: python:3.12-slim
+      command: ["uvicorn", "local_admin_app:app", "--host", "0.0.0.0", "--port", "8060"]
+      ports:
+        - containerPort: 8060
+      env:
+        - name: ADMIN_PANEL_PORT
+          value: "8060"
+        - name: ADMIN_PANEL_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: admin-panel-secret
+              key: jwt_secret
+        - name: ALLOW_REGISTRATION
+          value: "false"
+      volumeMounts:
+        - name: dashboards
+          mountPath: /app/dashboards.json
+          subPath: dashboards.json
+  volumes:
+    - name: dashboards
+      configMap:
+        name: dashboards-config
+  service:
+    type: ClusterIP
+    port: 8060
+    targetPort: 8060
+  ingress:
+    enabled: true
+    host: admin.local.brainswarm.ai

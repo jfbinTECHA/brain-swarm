@@ -1,0 +1,366 @@
+name: Compliance & Security
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly on Mondays at 2 AM UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Generate Software Bill of Materials (SBOM)
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    outputs:
+      sbom-path: ${{ steps.sbom.outputs.path }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Generate SBOM with Syft
+      id: sbom
+      uses: anchore/sbom-action@v0
+      with:
+        path: .
+        format: spdx-json
+        output-file: sbom.spdx.json
+        upload-release-assets: false
+
+    - name: Upload SBOM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom-${{ github.sha }}
+        path: sbom.spdx.json
+        retention-days: 30
+
+  # Security scanning with Trivy
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: sbom
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download SBOM
+      uses: actions/download-artifact@v4
+      with:
+        name: sbom-${{ github.sha }}
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        exit-code: 1
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Generate compliance report
+      run: |
+        echo "## Security Scan Report" > compliance-report.md
+        echo "- **Date:** $(date -u)" >> compliance-report.md
+        echo "- **Commit:** ${{ github.sha }}" >> compliance-report.md
+        echo "- **Branch:** ${{ github.ref_name }}" >> compliance-report.md
+        echo "" >> compliance-report.md
+
+        if [ -f trivy-results.sarif ]; then
+          echo "### Vulnerabilities Found" >> compliance-report.md
+          # Extract vulnerability count from SARIF
+          vuln_count=$(jq '.runs[0].results | length' trivy-results.sarif 2>/dev/null || echo "0")
+          echo "- Total vulnerabilities: $vuln_count" >> compliance-report.md
+
+          # Count by severity
+          critical=$(jq '[.runs[0].results[] | select(.level == "error") | select(.properties.severity == "CRITICAL")] | length' trivy-results.sarif 2>/dev/null || echo "0")
+          high=$(jq '[.runs[0].results[] | select(.level == "error") | select(.properties.severity == "HIGH")] | length' trivy-results.sarif 2>/dev/null || echo "0")
+
+          echo "- Critical: $critical" >> compliance-report.md
+          echo "- High: $high" >> compliance-report.md
+        else
+          echo "### No vulnerabilities found" >> compliance-report.md
+        fi
+
+    - name: Upload compliance report
+      uses: actions/upload-artifact@v4
+      with:
+        name: compliance-report-${{ github.sha }}
+        path: compliance-report.md
+        retention-days: 30
+
+  # Container image scanning
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Scan container image
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'image'
+        scan-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        format: 'sarif'
+        output: 'container-scan.sarif'
+        exit-code: 1
+        ignore-unfixed: true
+
+    - name: Upload container scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'container-scan.sarif'
+
+  # Publish to Security Portal
+  publish-compliance:
+    name: Publish to Security Portal
+    runs-on: ubuntu-latest
+    needs: [sbom, security-scan, container-scan]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare compliance package
+      run: |
+        mkdir -p compliance-package
+
+        # Copy SBOM
+        cp artifacts/sbom-${{ github.sha }}/sbom.spdx.json compliance-package/
+
+        # Copy compliance report
+        cp artifacts/compliance-report-${{ github.sha }}/compliance-report.md compliance-package/
+
+        # Create metadata file
+        cat > compliance-package/metadata.json << EOF
+        {
+          "repository": "${{ github.repository }}",
+          "commit": "${{ github.sha }}",
+          "branch": "${{ github.ref_name }}",
+          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "workflow_run": "${{ github.run_id }}",
+          "actor": "${{ github.actor }}",
+          "compliance_version": "1.0"
+        }
+        EOF
+
+        # Create summary
+        cat > compliance-package/README.md << EOF
+        # Brain Swarm Compliance Package
+
+        This package contains compliance artifacts for commit ${{ github.sha }}.
+
+        ## Contents
+        - \`sbom.spdx.json\` - Software Bill of Materials (SPDX format)
+        - \`compliance-report.md\` - Security scan results and compliance status
+        - \`metadata.json\` - Build and compliance metadata
+
+        ## Generated
+        - Date: $(date -u)
+        - Repository: ${{ github.repository }}
+        - Branch: ${{ github.ref_name }}
+        - Commit: ${{ github.sha }}
+
+        ## Compliance Status
+        $(cat artifacts/compliance-report-${{ github.sha }}/compliance-report.md | grep -A 10 "## Security Scan Report")
+        EOF
+
+    - name: Upload compliance package to security portal
+      run: |
+        # This would be replaced with actual security portal upload logic
+        # Examples:
+        # - Upload to S3 bucket
+        # - Send to security API endpoint
+        # - Push to compliance database
+
+        echo "Compliance package prepared for upload to security portal"
+        echo "Package contents:"
+        ls -la compliance-package/
+
+        # Example: Upload to S3 (uncomment and configure as needed)
+        # aws s3 cp compliance-package/ s3://your-security-portal-bucket/${{ github.sha }}/ --recursive
+
+        # Example: Send to API endpoint
+        # curl -X POST \
+        #   -H "Authorization: Bearer ${{ secrets.SECURITY_PORTAL_TOKEN }}" \
+        #   -F "repository=${{ github.repository }}" \
+        #   -F "commit=${{ github.sha }}" \
+        #   -F "sbom=@compliance-package/sbom.spdx.json" \
+        #   -F "report=@compliance-package/compliance-report.md" \
+        #   https://your-security-portal.com/api/compliance/upload
+
+    - name: Create compliance summary comment
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('artifacts/compliance-report-${{ github.sha }}/compliance-report.md', 'utf8');
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 🔒 Compliance Check Results
+
+          ${report}
+
+          **SBOM Generated:** ✅ Available in artifacts
+          **Security Scan:** ✅ Completed
+          **Container Scan:** ✅ Completed
+
+          📦 Compliance package prepared for security portal upload.`
+          });
+
+  # Dependency vulnerability check
+  dependency-check:
+    name: Dependency Vulnerability Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-audit safety
+
+    - name: Audit Python dependencies
+      run: |
+        echo "## Python Dependency Audit" > python-audit.md
+
+        echo "### Safety Check" >> python-audit.md
+        safety check --output text >> python-audit.md 2>&1 || true
+
+        echo "" >> python-audit.md
+        echo "### Pip Audit" >> python-audit.md
+        pip-audit --format markdown >> python-audit.md 2>&1 || true
+
+    - name: Upload dependency audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-audit-${{ github.sha }}
+        path: python-audit.md
+        retention-days: 30
+
+  # License compliance check
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install licensee
+      run: |
+        gem install licensee
+
+    - name: Check licenses
+      run: |
+        licensee detect . --format txt > license-detection.txt
+
+    - name: Generate license report
+      run: |
+        echo "## License Compliance Report" > license-report.md
+        echo "- **Date:** $(date -u)" >> license-report.md
+        echo "- **Repository:** ${{ github.repository }}" >> license-report.md
+        echo "- **Commit:** ${{ github.sha }}" >> license-report.md
+        echo "" >> license-report.md
+
+        echo "### Detected Licenses" >> license-report.md
+        echo "\`\`\`" >> license-report.md
+        cat license-detection.txt >> license-report.md 2>/dev/null || echo "License detection output not found" >> license-report.md
+        echo "\`\`\`" >> license-report.md
+
+        echo "" >> license-report.md
+        echo "### Compliance Status" >> license-report.md
+        # Add custom license compliance logic here
+        echo "- ✅ OSI Approved Licenses: Check manually" >> license-report.md
+        echo "- ✅ No Copyleft Licenses: Check manually" >> license-report.md
+
+    - name: Upload license report
+      uses: actions/upload-artifact@v4
+      with:
+        name: license-report-${{ github.sha }}
+        path: license-report.md
+        retention-days: 30

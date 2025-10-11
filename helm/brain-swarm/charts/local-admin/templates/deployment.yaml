@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "local-admin.fullname" . }}
+  labels: {{- include "local-admin.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "local-admin.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "local-admin.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: admin
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            ["uvicorn", "local_admin_app:app", "--host", "0.0.0.0", "--port", "{{ .Values.service.port }}"]
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+            - name: ADMIN_PANEL_PORT
+              value: "{{ .Values.env.ADMIN_PANEL_PORT }}"
+            - name: ADMIN_PANEL_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "local-admin.fullname" . }}
+                  key: jwt_secret
+            - name: ALLOW_REGISTRATION
+              value: "{{ .Values.env.ALLOW_REGISTRATION }}"
+          volumeMounts:
+            - name: dashboards
+              mountPath: /app/dashboards.json
+              subPath: dashboards.json
+      volumes:
+        - name: dashboards
+          configMap:
+            name: {{ include "local-admin.fullname" . }}-dashboards

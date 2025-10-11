@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+networkx
+redis
+pydantic
+typing-extensions
+duckdb

@@ -1,0 +1,201 @@
+# Example deployment configuration for Brain Swarm
+# This file demonstrates a complete production deployment
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brain-swarm
+  labels:
+    name: brain-swarm
+---
+# Service Account for Brain Swarm
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brain-swarm-sa
+  namespace: brain-swarm
+  labels:
+    app.kubernetes.io/name: brain-swarm
+    app.kubernetes.io/component: service-account
+---
+# ConfigMap for additional configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: brain-swarm-config
+  namespace: brain-swarm
+  labels:
+    app.kubernetes.io/name: brain-swarm
+data:
+  # Additional environment-specific configuration
+  EXTRA_CONFIG: |
+    federation:
+      discovery_timeout: 30
+      heartbeat_interval: 10
+    monitoring:
+      metrics_retention: 30d
+      alert_retention: 90d
+---
+# Secret for sensitive configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: brain-swarm-secrets
+  namespace: brain-swarm
+  labels:
+    app.kubernetes.io/name: brain-swarm
+type: Opaque
+data:
+  # Base64 encoded values
+  JWT_SECRET: "Y2hhbmdlLXRoaXMtaW4tcHJvZHVjdGlvbg=="  # change-this-in-production
+  REDIS_PASSWORD: ""  # Set if Redis authentication is enabled
+  DATABASE_URL: "c3FsaXRlOi8vL2RhdGEvYnJhaW5fc3dhcm0uZGI="  # sqlite:///data/brain_swarm.db
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: brain-swarm-ingress
+  namespace: brain-swarm
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  labels:
+    app.kubernetes.io/name: brain-swarm
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - brain-swarm.example.com
+    secretName: brain-swarm-tls
+  rules:
+  - host: brain-swarm.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: brain-swarm-api
+            port:
+              number: 8000
+---
+# HorizontalPodAutoscaler for API
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: brain-swarm-api-hpa
+  namespace: brain-swarm
+  labels:
+    app.kubernetes.io/name: brain-swarm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: brain-swarm-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: brain-swarm-network-policy
+  namespace: brain-swarm
+  labels:
+    app.kubernetes.io/name: brain-swarm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: brain-swarm
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: brain-swarm
+    ports:
+    - protocol: TCP
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: brain-swarm
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+---
+# PrometheusRule for custom alerts
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: brain-swarm-alerts
+  namespace: brain-swarm
+  labels:
+    app.kubernetes.io/name: brain-swarm
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: brain-swarm
+    rules:
+    - alert: BrainSwarmApiDown
+      expr: up{job="brain-swarm-api"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Brain Swarm API is down"
+        description: "Brain Swarm API has been down for more than 5 minutes."
+    - alert: BrainSwarmHighLatency
+      expr: histogram_quantile(0.95, rate(brain_swarm_api_request_duration_seconds_bucket[5m])) > 2
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High API latency detected"
+        description: "95th percentile API response time is above 2 seconds."
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: brain-swarm-api-pdb
+  namespace: brain-swarm
+  labels:
+    app.kubernetes.io/name: brain-swarm
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: brain-swarm
+      app.kubernetes.io/component: api

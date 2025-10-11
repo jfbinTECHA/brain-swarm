@@ -1,0 +1,82 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+metadata:
+  name: brain-swarm-dev
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: ./helm/brain-swarm
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: brain-swarm
+  targetNamespace: brainswarm
+  timeout: 5m
+  validation: client
+  patchesStrategicMerge:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      metadata:
+        name: brain-swarm
+      spec:
+        values:
+          bridge:
+            image: jfbintecha/swarmops-hook:latest
+          cortex:
+            image: jfbintecha/knowledge-cortex:latest
+        valuesFrom:
+          - kind: ConfigMap
+            name: brain-swarm-dev-values
+            valuesKey: values.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: brain-swarm-dev-values
+  namespace: flux-system
+data:
+  values.yaml: |
+    # Development values embedded in ConfigMap
+    bridge:
+      ingress:
+        enabled: false
+    cortex:
+      enabled: true
+      hpa:
+        enabled: false
+    monitoring:
+      grafana:
+        adminPassword: "dev-password"
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: brain-swarm
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/jfbinTECHA/brain-swarm
+  ref:
+    branch: main
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: brain-swarm
+  namespace: flux-system
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: helm/brain-swarm
+      sourceRef:
+        kind: GitRepository
+        name: brain-swarm
+  targetNamespace: brainswarm
+  install:
+    createNamespace: true
+  upgrade:
+    force: false
+  valuesFrom:
+    - kind: ConfigMap
+      name: brain-swarm-dev-values

@@ -1,0 +1,12 @@
+{{- if .Values.monitoring.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-cortex-incident-board
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  cortex-incident-board.json: |
+{{ .Files.Get "dashboards/cortex-incident-board.json" | indent 4 }}
+{{- end }}

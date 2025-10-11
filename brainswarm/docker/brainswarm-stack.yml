@@ -1,0 +1,23 @@
+version: "3.8"
+services:
+  redis:
+    image: redis:7.2
+    container_name: brainswarm-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: brainswarm-chroma
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma
+
+volumes:
+  redis-data:
+  chroma-data:

@@ -1,0 +1,15 @@
+{{- if .Values.ticketBridge.ingress.traefikEnabled }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: swarmops-ticket-bridge-security
+spec:
+  rateLimit:
+    average: 30        # requests per second
+    burst: 10
+  ipWhiteList:
+    sourceRange:
+      {{- range .Values.ticketBridge.ingress.allowedCIDRs }}
+      - {{ . | quote }}
+      {{- end }}
+{{- end }}

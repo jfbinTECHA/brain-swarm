@@ -1,0 +1,19 @@
+{{- if .Values.monitoring.grafana.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "brain-swarm.fullname" . }}-grafana
+  labels:
+    {{- include "brain-swarm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  type: {{ .Values.monitoring.grafana.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.monitoring.grafana.service.port | default 80 }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "brain-swarm.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+{{- end }}

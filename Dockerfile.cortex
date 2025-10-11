@@ -1,0 +1,48 @@
+# ---- Build stage ----
+FROM python:3.11-slim AS builder
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements-cortex.txt ./requirements-cortex.txt
+RUN python -m pip install --upgrade pip wheel setuptools && \
+    pip wheel --wheel-dir=/wheels -r requirements-cortex.txt
+
+# ---- Runtime stage ----
+FROM python:3.11-slim AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8001
+
+# Non-root
+RUN addgroup --system app && adduser --system --ingroup app app
+
+# Minimal OS deps; add libduckdb if needed (python package usually bundles)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl tzdata ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install wheels
+COPY --from=builder /wheels /wheels
+RUN python -m pip install --no-cache-dir /wheels/*
+
+# App code (Cortex API + layers)
+COPY cortex ./cortex
+
+# Data dir for DuckDB etc.
+RUN mkdir -p /data && chown -R app:app /data
+VOLUME ["/data"]
+
+USER app
+EXPOSE 8001
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD \
+  curl -fsS http://127.0.0.1:${PORT}/metrics || exit 1
+
+CMD ["python", "-m", "uvicorn", "cortex.cortex_api:app", "--host", "0.0.0.0", "--port", "8001"]

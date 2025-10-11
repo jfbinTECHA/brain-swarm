@@ -1,0 +1,17 @@
+[Unit]
+Description=BrainSwarm Coder Space (backend + ngrok + code-server)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sysop/brainswarm
+Environment="PYTHONPATH=/home/sysop/brainswarm:/home/sysop"
+Environment="PATH=/home/sysop/brainswarm/venv/bin:/usr/bin:/bin"
+ExecStart=/home/sysop/brainswarm/ops/scripts/start-brainswarm.sh
+Restart=always
+User=sysop
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

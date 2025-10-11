@@ -1,0 +1,209 @@
+name: Close Resolved Incidents
+
+on:
+  workflow_dispatch:
+    inputs:
+      alert_name:
+        description: 'Alert name that was resolved'
+        required: true
+        type: string
+      ticket_system:
+        description: 'Ticket system (jira/github/servicenow)'
+        required: true
+        type: choice
+        options:
+          - jira
+          - github
+          - servicenow
+      ticket_id:
+        description: 'Ticket ID to close'
+        required: true
+        type: string
+      resolution_reason:
+        description: 'Reason for resolution'
+        required: false
+        default: 'Alert resolved by monitoring system'
+        type: string
+
+  repository_dispatch:
+    types: [alert_resolved]
+
+jobs:
+  close-incident:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pyyaml
+
+      - name: Close Jira Incident
+        if: inputs.ticket_system == 'jira' || github.event.client_payload.ticket_system == 'jira'
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          TICKET_ID: ${{ inputs.ticket_id || github.event.client_payload.ticket_id }}
+          RESOLUTION_REASON: ${{ inputs.resolution_reason || github.event.client_payload.resolution_reason || 'Alert resolved by monitoring system' }}
+        run: |
+          python -c "
+          import os
+          import requests
+          from requests.auth import HTTPBasicAuth
+          import json
+
+          jira_url = os.environ['JIRA_BASE_URL']
+          auth = HTTPBasicAuth(os.environ['JIRA_USERNAME'], os.environ['JIRA_API_TOKEN'])
+          ticket_id = os.environ['TICKET_ID']
+          resolution_reason = os.environ['RESOLUTION_REASON']
+
+          # First, get the available transitions
+          transitions_url = f'{jira_url}/rest/api/3/issue/{ticket_id}/transitions'
+          response = requests.get(transitions_url, auth=auth)
+          response.raise_for_status()
+
+          transitions = response.json()['transitions']
+          done_transition = next((t for t in transitions if t['name'].lower() in ['done', 'resolved', 'closed']), None)
+
+          if done_transition:
+              # Transition to Done/Resolved
+              transition_url = f'{jira_url}/rest/api/3/issue/{ticket_id}/transitions'
+              payload = {
+                  'transition': {'id': done_transition['id']},
+                  'fields': {
+                      'resolution': {'name': 'Done'},
+                      'comment': {
+                          'type': 'doc',
+                          'version': 1,
+                          'content': [{
+                              'type': 'paragraph',
+                              'content': [{
+                                  'text': f'Issue resolved automatically: {resolution_reason}',
+                                  'type': 'text'
+                              }]
+                          }]
+                      }
+                  }
+              }
+              response = requests.post(transition_url, json=payload, auth=auth)
+              response.raise_for_status()
+              print(f'✅ Jira ticket {ticket_id} closed successfully')
+          else:
+              print(f'⚠️  No suitable transition found for Jira ticket {ticket_id}')
+          "
+
+      - name: Close GitHub Issue
+        if: inputs.ticket_system == 'github' || github.event.client_payload.ticket_system == 'github'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_OWNER: ${{ secrets.GITHUB_OWNER }}
+          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
+          ISSUE_NUMBER: ${{ inputs.ticket_id || github.event.client_payload.ticket_id }}
+          RESOLUTION_COMMENT: ${{ inputs.resolution_reason || github.event.client_payload.resolution_reason || 'Alert resolved by monitoring system' }}
+        run: |
+          gh issue close $ISSUE_NUMBER \
+            --repo $GITHUB_OWNER/$GITHUB_REPO \
+            --comment "$RESOLUTION_COMMENT" \
+            --reason "completed"
+
+          echo "✅ GitHub issue #$ISSUE_NUMBER closed successfully"
+
+      - name: Close ServiceNow Incident
+        if: inputs.ticket_system == 'servicenow' || github.event.client_payload.ticket_system == 'servicenow'
+        env:
+          SERVICENOW_INSTANCE_URL: ${{ secrets.SERVICENOW_INSTANCE_URL }}
+          SERVICENOW_ACCESS_TOKEN: ${{ secrets.SERVICENOW_ACCESS_TOKEN }}
+          INCIDENT_NUMBER: ${{ inputs.ticket_id || github.event.client_payload.ticket_id }}
+          RESOLUTION_NOTES: ${{ inputs.resolution_reason || github.event.client_payload.resolution_reason || 'Alert resolved by monitoring system' }}
+        run: |
+          python -c "
+          import os
+          import requests
+          import json
+
+          instance_url = os.environ['SERVICENOW_INSTANCE_URL']
+          access_token = os.environ['SERVICENOW_ACCESS_TOKEN']
+          incident_number = os.environ['INCIDENT_NUMBER']
+          resolution_notes = os.environ['RESOLUTION_NOTES']
+
+          headers = {
+              'Authorization': f'Bearer {access_token}',
+              'Content-Type': 'application/json'
+          }
+
+          # Update incident to Resolved state
+          update_url = f'{instance_url}/api/now/table/incident'
+          query_params = {'sysparm_query': f'number={incident_number}'}
+
+          # First get the sys_id
+          response = requests.get(update_url, headers=headers, params=query_params)
+          response.raise_for_status()
+
+          incidents = response.json()['result']
+          if incidents:
+              sys_id = incidents[0]['sys_id']
+
+              # Update the incident
+              update_payload = {
+                  'state': '6',  # Resolved
+                  'close_code': 'Resolved by Monitoring',
+                  'close_notes': resolution_notes,
+                  'work_notes': f'Incident automatically resolved: {resolution_notes}'
+              }
+
+              update_response = requests.put(f'{update_url}/{sys_id}', json=update_payload, headers=headers)
+              update_response.raise_for_status()
+
+              print(f'✅ ServiceNow incident {incident_number} closed successfully')
+          else:
+              print(f'❌ ServiceNow incident {incident_number} not found')
+          "
+
+      - name: Notify Resolution
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ALERT_NAME: ${{ inputs.alert_name || github.event.client_payload.alert_name }}
+          TICKET_SYSTEM: ${{ inputs.ticket_system || github.event.client_payload.ticket_system }}
+          TICKET_ID: ${{ inputs.ticket_id || github.event.client_payload.ticket_id }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"✅ Alert '$ALERT_NAME' resolved - $TICKET_SYSTEM ticket $TICKET_ID closed\"}" \
+              $SLACK_WEBHOOK_URL
+          fi
+
+  # Optional: Update monitoring dashboard
+  update-dashboard:
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name == 'repository_dispatch'
+    needs: close-incident
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update Resolution Metrics
+        env:
+          API_ENDPOINT: ${{ secrets.BRAIN_SWARM_API_URL }}
+          API_KEY: ${{ secrets.BRAIN_SWARM_API_KEY }}
+          ALERT_NAME: ${{ github.event.client_payload.alert_name }}
+          RESOLUTION_TIME: ${{ github.event.client_payload.resolution_time }}
+        run: |
+          if [ -n "$API_ENDPOINT" ]; then
+            curl -X POST "$API_ENDPOINT/api/v1/monitoring/incident-resolution" \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"alert_name\": \"$ALERT_NAME\", \"resolution_time\": \"$RESOLUTION_TIME\"}"
+          fi

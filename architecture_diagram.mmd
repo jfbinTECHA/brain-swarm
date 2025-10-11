@@ -1,0 +1,292 @@
+graph TB
+    %% Main Title
+    subgraph "Brain Swarm Federation Architecture"
+        TITLE[Brain Swarm Federation:<br/>LAN + Global Discovery Architecture]
+
+        %% Three Main Scenarios
+        subgraph "🌐 INTERNET-WIDE DISCOVERY"
+            INT_TITLE[Internet-Wide Federation]
+
+            subgraph "Network A"
+                SWARM_A1[Swarm Instance<br/>Network A]
+                DISC_A1[Discovery Layer<br/>Hybrid Mode]
+                FED_A1[Federation Manager<br/>WebSocket]
+                REG_CLIENT_A[Registry Client<br/>TLS/HTTPS]
+            end
+
+            subgraph "Network B"
+                SWARM_B1[Swarm Instance<br/>Network B]
+                DISC_B1[Discovery Layer<br/>Hybrid Mode]
+                FED_B1[Federation Manager<br/>WebSocket]
+                REG_CLIENT_B[Registry Client<br/>TLS/HTTPS]
+            end
+
+            subgraph "🌍 CENTRAL REGISTRY SERVICE"
+                REGISTRY[(Central Registry<br/>Secure API)]
+                API_AUTH[API Key Auth<br/>X-API-Key Header]
+                SWARM_DB[(Swarm Registry<br/>Database)]
+                RATE_LIMIT[Rate Limiting<br/>per key/minute]
+                HEALTH_MON[Health Monitoring<br/>& Auto Cleanup]
+                AUDIT_LOG[Audit Logging<br/>All Operations]
+            end
+        end
+
+        subgraph "🏠 LAN-ONLY DISCOVERY"
+            LAN_TITLE[LAN-Only Federation]
+
+            subgraph "Same LAN Network"
+                SWARM_LAN1[Swarm Instance<br/>LAN]
+                DISC_LAN1[Discovery Layer<br/>UDP Mode]
+                FED_LAN1[Federation Manager<br/>WebSocket]
+                UDP_LAN1[UDP Broadcast<br/>Port 9999]
+
+                SWARM_LAN2[Swarm Instance<br/>LAN]
+                DISC_LAN2[Discovery Layer<br/>UDP Mode]
+                FED_LAN2[Federation Manager<br/>WebSocket]
+                UDP_LAN2[UDP Broadcast<br/>Port 9999]
+            end
+        end
+
+        subgraph "🔄 HYBRID DISCOVERY MODE"
+            HYBRID_TITLE[Hybrid Federation]
+
+            subgraph "Enterprise Environment"
+                SWARM_HYB[Swarm Instance<br/>Enterprise LAN]
+                DISC_HYB[Discovery Layer<br/>Hybrid Mode]
+                FED_HYB[Federation Manager<br/>WebSocket]
+
+                subgraph "LAN Discovery"
+                    UDP_HYB[UDP Broadcast<br/>Port 9999]
+                end
+
+                subgraph "Global Discovery"
+                    REG_HYB[Registry Client<br/>TLS/HTTPS]
+                end
+            end
+
+            PRIORITY[Discovery Priority Logic<br/>1. LAN First (fast)<br/>2. Registry Query<br/>3. Merge Results<br/>4. Fallback Available<br/>5. Auto-retry Failed]
+        end
+    end
+
+    %% Security Architecture
+    subgraph "🔐 SECURITY LAYERS"
+        SEC_TITLE[Security Architecture]
+
+        subgraph "Transport Security"
+            TLS[TLS/HTTPS<br/>Encryption]
+            CERT[Certificate<br/>Validation]
+            HEADERS[Secure<br/>Headers]
+        end
+
+        subgraph "Authentication"
+            API_KEYS[API Key<br/>Generation]
+            HASH_STORE[Secure Hash<br/>Storage]
+            KEY_ROTATE[Key<br/>Rotation]
+            PERMS[Permission<br/>Levels]
+        end
+
+        subgraph "Authorization"
+            READ_WRITE[Read/Write/Admin<br/>Permissions]
+            OWNERSHIP[Resource<br/>Ownership]
+            ACL[Access Control<br/>Lists]
+        end
+
+        subgraph "Operational Security"
+            RATE_LIM[Rate<br/>Limiting]
+            VALIDATION[Input<br/>Validation]
+            AUDIT[Audit<br/>Logging]
+            IDS[Intrusion<br/>Detection]
+        end
+    end
+
+    %% Data Flow
+    subgraph "📊 DATA FLOW ARCHITECTURE"
+        FLOW_TITLE[Discovery Flow]
+
+        subgraph "LAN Path"
+            LAN_BROADCAST[Swarm A UDP<br/>Broadcast]
+            LAN_RECEIVE[Swarm B Receives<br/>Broadcast]
+            LAN_EXTRACT[Extract<br/>Metadata]
+            LAN_WS[WebSocket<br/>Connection]
+            LAN_ESTABLISHED[Federation<br/>Established]
+        end
+
+        subgraph "Global Path"
+            REG_REGISTER[Swarm A Registers<br/>with Registry]
+            REG_QUERY[Swarm B Queries<br/>Registry]
+            REG_RETURN[Registry Returns<br/>Metadata]
+            REG_WS[WebSocket<br/>Connection]
+            REG_ESTABLISHED[Federation<br/>Established]
+        end
+
+        subgraph "Hybrid Path"
+            HYB_LAN[Try LAN<br/>Discovery First]
+            HYB_REGISTRY[Query Global<br/>Registry]
+            HYB_MERGE[Merge Results<br/>from Both]
+            HYB_PRIORITIZE[Prioritize LAN<br/>Discoveries]
+            HYB_FALLBACK[Fallback to<br/>Available]
+            HYB_ESTABLISH[Establish All<br/>Federations]
+        end
+    end
+
+    %% Performance Comparison
+    subgraph "⚡ PERFORMANCE CHARACTERISTICS"
+        PERF_TITLE[Discovery Method Comparison]
+
+        subgraph "UDP Broadcast (LAN)"
+            UDP_LAT[Latency: < 1 second]
+            UDP_SCALE[Scalability: 100-1000 nodes]
+            UDP_SEC[Security: Network isolation]
+            UDP_REL[Reliability: High (local)]
+            UDP_COST[Cost: Zero external deps]
+        end
+
+        subgraph "Registry-Based (Internet)"
+            REG_LAT[Latency: 1-5 seconds]
+            REG_SCALE[Scalability: 1000+ nodes]
+            REG_SEC[Security: TLS + API keys]
+            REG_REL[Reliability: Registry dependent]
+            REG_COST[Cost: Registry maintenance]
+        end
+
+        subgraph "Hybrid Mode"
+            HYB_LAT[Latency: < 1s / 1-5s]
+            HYB_SCALE[Scalability: Unlimited]
+            HYB_SEC[Security: LAN + Internet]
+            HYB_REL[Reliability: High (fallback)]
+            HYB_COST[Cost: Minimal (registry optional)]
+        end
+    end
+
+    %% Deployment Scenarios
+    subgraph "🚀 DEPLOYMENT SCENARIOS"
+        DEPLOY_TITLE[Deployment Options]
+
+        subgraph "Single Network"
+            SINGLE_LAN[All swarms on same<br/>broadcast domain]
+            SINGLE_UDP[UDP discovery<br/>sufficient]
+            SINGLE_NO_INET[No internet<br/>connectivity needed]
+            SINGLE_FAST[Fastest discovery<br/>method]
+        end
+
+        subgraph "Enterprise Multi-Site"
+            ENTERPRISE_MULTI[Swarms across<br/>multiple LANs]
+            ENTERPRISE_VPN[VPN connectivity<br/>between sites]
+            ENTERPRISE_HYBRID[Hybrid LAN + Registry<br/>discovery]
+            ENTERPRISE_CENTRAL[Centralized<br/>management]
+        end
+
+        subgraph "Global Internet"
+            GLOBAL_INET[Swarms on public<br/>internet]
+            GLOBAL_REGISTRY[Registry service<br/>required]
+            GLOBAL_TLS[Full TLS/HTTPS<br/>security]
+            GLOBAL_API[API key auth<br/>mandatory]
+        end
+
+        subgraph "Hybrid Enterprise + Cloud"
+            HYB_ENT_CLOUD[On-premises + Cloud<br/>swarms]
+            HYB_AUTO_CROSS[Automatic cross-environment<br/>discovery]
+            HYB_UNIFIED[Unified federation<br/>management]
+        end
+    end
+
+    %% Connections and Flow
+    %% Internet-wide connections
+    REG_CLIENT_A --> REGISTRY
+    REG_CLIENT_B --> REGISTRY
+    REGISTRY --> API_AUTH
+    API_AUTH --> SWARM_DB
+    SWARM_DB --> RATE_LIMIT
+    SWARM_DB --> HEALTH_MON
+    SWARM_DB --> AUDIT_LOG
+
+    %% LAN connections
+    UDP_LAN1 --> UDP_LAN2
+    DISC_LAN1 --> FED_LAN1
+    DISC_LAN2 --> FED_LAN2
+    FED_LAN1 --> FED_LAN2
+
+    %% Hybrid connections
+    DISC_HYB --> UDP_HYB
+    DISC_HYB --> REG_HYB
+    REG_HYB --> REGISTRY
+    DISC_HYB --> FED_HYB
+    PRIORITY --> DISC_HYB
+
+    %% Security connections
+    TLS --> CERT
+    TLS --> HEADERS
+    API_KEYS --> HASH_STORE
+    API_KEYS --> KEY_ROTATE
+    API_KEYS --> PERMS
+    READ_WRITE --> OWNERSHIP
+    READ_WRITE --> ACL
+    RATE_LIM --> VALIDATION
+    RATE_LIM --> AUDIT
+    RATE_LIM --> IDS
+
+    %% Data flow connections
+    LAN_BROADCAST --> LAN_RECEIVE
+    LAN_RECEIVE --> LAN_EXTRACT
+    LAN_EXTRACT --> LAN_WS
+    LAN_WS --> LAN_ESTABLISHED
+
+    REG_REGISTER --> REG_QUERY
+    REG_QUERY --> REG_RETURN
+    REG_RETURN --> REG_WS
+    REG_WS --> REG_ESTABLISHED
+
+    HYB_LAN --> HYB_REGISTRY
+    HYB_REGISTRY --> HYB_MERGE
+    HYB_MERGE --> HYB_PRIORITIZE
+    HYB_PRIORITIZE --> HYB_FALLBACK
+    HYB_FALLBACK --> HYB_ESTABLISH
+
+    %% Performance connections
+    UDP_LAT --> UDP_SCALE
+    UDP_SCALE --> UDP_SEC
+    UDP_SEC --> UDP_REL
+    UDP_REL --> UDP_COST
+
+    REG_LAT --> REG_SCALE
+    REG_SCALE --> REG_SEC
+    REG_SEC --> REG_REL
+    REG_REL --> REG_COST
+
+    HYB_LAT --> HYB_SCALE
+    HYB_SCALE --> HYB_SEC
+    HYB_SEC --> HYB_REL
+    HYB_REL --> HYB_COST
+
+    %% Deployment connections
+    SINGLE_LAN --> SINGLE_UDP
+    SINGLE_UDP --> SINGLE_NO_INET
+    SINGLE_NO_INET --> SINGLE_FAST
+
+    ENTERPRISE_MULTI --> ENTERPRISE_VPN
+    ENTERPRISE_VPN --> ENTERPRISE_HYBRID
+    ENTERPRISE_HYBRID --> ENTERPRISE_CENTRAL
+
+    GLOBAL_INET --> GLOBAL_REGISTRY
+    GLOBAL_REGISTRY --> GLOBAL_TLS
+    GLOBAL_TLS --> GLOBAL_API
+
+    HYB_ENT_CLOUD --> HYB_AUTO_CROSS
+    HYB_AUTO_CROSS --> HYB_UNIFIED
+
+    %% Styling
+    classDef titleClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef scenarioClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef componentClass fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef securityClass fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    classDef flowClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef perfClass fill:#f9fbe7,stroke:#827717,stroke-width:2px
+    classDef deployClass fill:#eceff1,stroke:#263238,stroke-width:2px
+
+    class TITLE titleClass
+    class INT_TITLE,LAN_TITLE,HYBRID_TITLE scenarioClass
+    class SWARM_A1,SWARM_B1,SWARM_LAN1,SWARM_LAN2,SWARM_HYB,DISC_A1,DISC_B1,DISC_LAN1,DISC_LAN2,DISC_HYB,FED_A1,FED_B1,FED_LAN1,FED_LAN2,FED_HYB,REG_CLIENT_A,REG_CLIENT_B,REG_HYB,REGISTRY,API_AUTH,SWARM_DB,RATE_LIMIT,HEALTH_MON,AUDIT_LOG,UDP_LAN1,UDP_LAN2,UDP_HYB,PRIORITY componentClass
+    class SEC_TITLE,API_KEYS,HASH_STORE,KEY_ROTATE,PERMS,READ_WRITE,OWNERSHIP,ACL,RATE_LIM,VALIDATION,AUDIT,IDS,TLS,CERT,HEADERS securityClass
+    class FLOW_TITLE,LAN_BROADCAST,LAN_RECEIVE,LAN_EXTRACT,LAN_WS,LAN_ESTABLISHED,REG_REGISTER,REG_QUERY,REG_RETURN,REG_WS,REG_ESTABLISHED,HYB_LAN,HYB_REGISTRY,HYB_MERGE,HYB_PRIORITIZE,HYB_FALLBACK,HYB_ESTABLISH flowClass
+    class PERF_TITLE,UDP_LAT,UDP_SCALE,UDP_SEC,UDP_REL,UDP_COST,REG_LAT,REG_SCALE,REG_SEC,REG_REL,REG_COST,HYB_LAT,HYB_SCALE,HYB_SEC,HYB_REL,HYB_COST perfClass
+    class DEPLOY_TITLE,SINGLE_LAN,SINGLE_UDP,SINGLE_NO_INET,SINGLE_FAST,ENTERPRISE_MULTI,ENTERPRISE_VPN,ENTERPRISE_HYBRID,ENTERPRISE_CENTRAL,GLOBAL_INET,GLOBAL_REGISTRY,GLOBAL_TLS,GLOBAL_API,HYB_ENT_CLOUD,HYB_AUTO_CROSS,HYB_UNIFIED deployClass
