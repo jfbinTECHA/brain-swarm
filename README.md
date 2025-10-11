@@ -1,14 +1,11 @@
-# Cortex AI Prototype
+# 🧠 Cortex AI Prototype
+
+[![CI](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/ci.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions)
+[![Version](https://img.shields.io/github/v/tag/jfbinTECHA/brain-swarm)](https://github.com/jfbinTECHA/brain-swarm/releases)
 
 A lean, self-healing Docker-based AI prototype stack featuring FastAPI, Redis, DuckDB, Prometheus, and Grafana for monitoring and visualization.
 
-## Architecture
-
-- **FastAPI Backend**: REST API with Prometheus metrics instrumentation
-- **Redis**: In-memory data store for caching and session management
-- **DuckDB**: Embedded analytical database for data processing
-- **Prometheus**: Metrics collection and monitoring
-- **Grafana**: Dashboard visualization with pre-configured datasources
+**🚀 Quick Start**: `make up` | **📊 Dashboard**: http://localhost:3000 | **📖 Docs**: [/docs/](/docs/)
 
 ## Quick Start
 
@@ -16,38 +13,26 @@ A lean, self-healing Docker-based AI prototype stack featuring FastAPI, Redis, D
 - Docker and Docker Compose
 - Git
 
-### Configuration
-Copy `.env.example` to `.env` and configure your environment variables:
-
+### Run Locally
 ```bash
+git clone https://github.com/jfbinTECHA/brain-swarm.git
+cd brain-swarm
+
+# Configure environment (optional)
 cp .env.example .env
-# Edit .env with your actual values
-```
 
-### Run the Stack
-
-```bash
-# Clone the repository
-git clone https://github.com/jfbinTECHA/ai-prototype-laptop-.git
-cd ai-prototype-laptop-
-
-# Start all services
-docker compose up -d
+# Start stack
+make up
 
 # Check status
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+make status
 ```
 
 ### Access Services
 - **Grafana**: http://localhost:3000 (admin/admin)
+- **API**: http://localhost:8001/docs
 - **Prometheus**: http://localhost:9090
-- **API**: http://localhost:8001/ping
-- **Redis**: localhost:6379
-
-### Stop the Stack
-```bash
-docker compose down
-```
+- **Stop**: `make down`
 
 ## Development
 
@@ -119,13 +104,43 @@ Use the included Kilo scripts for stack management:
 - Follow Logs
 ```
 
+## Documentation
+
+- **[Architecture](/docs/ARCHITECTURE.md)** - System design and data flow
+- **[Roadmap](/docs/ROADMAP.md)** - Development milestones and features
+- **[API Docs](http://localhost:8001/docs)** - Interactive API documentation
+
+## Development
+
+### Available Commands
+```bash
+make help          # Show all commands
+make up            # Start services
+make down          # Stop services
+make status        # Check health
+make logs          # Follow logs
+make test          # Run tests
+make clean         # Rebuild everything
+```
+
+### Testing
+```bash
+# Run all tests
+make test
+
+# Run specific test
+pytest tests/test_api.py
+```
+
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make changes
-4. Test with `docker compose up`
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make changes and add tests
+4. Run `make test` to ensure everything works
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ## License
 
