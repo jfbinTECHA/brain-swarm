@@ -1,4 +1,4 @@
-.PHONY: help up down status logs clean test build restart lint sbom
+.PHONY: help up down status logs clean test build restart lint sbom metrics
 
 # Default target
 help:  ## Show this help message
@@ -58,3 +58,14 @@ sbom:  ## Generate SBOM and security scan
 # Fix code style
 fix:  ## Auto-fix code style issues
 	ruff check . --fix && black . && isort .
+
+# Developer metrics
+metrics:  ## Show aggregated developer metrics
+	@echo "=== Redis Stats ==="
+	@docker exec brain-swarm-redis redis-cli info stats 2>/dev/null | grep -E "(total_connections_received|total_commands_processed|used_memory|keyspace_hits|keyspace_misses)" || echo "Redis not running"
+	@echo ""
+	@echo "=== FastAPI Metrics ==="
+	@curl -s http://localhost:8001/metrics 2>/dev/null | grep -E "(http_requests_total|fastapi_requests_total)" | head -5 || echo "FastAPI metrics not available"
+	@echo ""
+	@echo "=== Prometheus Targets ==="
+	@curl -s http://localhost:9090/api/v1/targets 2>/dev/null | jq -r '.data.activeTargets[] | select(.health == "up") | "\(.labels.job): \(.health)"' 2>/dev/null | sort | uniq || echo "Prometheus not accessible"

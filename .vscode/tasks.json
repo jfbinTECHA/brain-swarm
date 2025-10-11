@@ -34,7 +34,7 @@
     {
       "label": "🔒 Generate SBOM & Scan",
       "type": "shell",
-      "command": "make sbom || trivy fs . || echo 'SBOM/Scan not available'"
+      "command": "mkdir -p reports && (make sbom > reports/sbom.txt 2>&1 || trivy fs . --format table -o reports/security.txt) || echo 'SBOM/Scan not available'"
     },
     {
       "label": "📖 Docs Preview",
