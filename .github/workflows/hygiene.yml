@@ -1,0 +1,11 @@
+name: Hygiene
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure no build artifacts are committed
+        run: |
+          ! git ls-files | grep -E '^(venv/|__pycache__/)' || \
+          (echo "Build artifacts are tracked; fix .gitignore." && exit 1)
