@@ -118,10 +118,55 @@ class EventSummarizer:
         return events
 
     async def _get_recent_events_from_queue(self) -> List[Dict[str, Any]]:
-        """Get recent events from message queue (simplified)"""
-        # In a real implementation, this would query the message queue
-        # for events within the compaction window
-        return []
+        """Get recent events from message queue using Redis streams"""
+        try:
+            # Get recent messages from the message queue stream
+            # Use the global message_queue instance
+            from ..message_queue import message_queue
+
+            # Get stream info to see recent activity
+            stream_info = await message_queue.get_stream_info()
+            if not stream_info:
+                return []
+
+            # Get recent messages from the stream
+            # Read last N messages from the stream
+            messages = await message_queue.redis.xrevrange(
+                message_queue.stream_name, "+", "-", count=500
+            )
+
+            events = []
+            cutoff_time = time.time() - (self.config["compaction_interval_hours"] * 3600)
+
+            for message_id, message_data in messages:
+                # Convert to event format
+                try:
+                    event = {
+                        "id": message_id,
+                        "timestamp": float(message_data.get("timestamp", time.time())),
+                        "type": message_data.get("message_type", "unknown"),
+                        "content": message_data.get("content", ""),
+                        "sender": message_data.get("sender", "unknown"),
+                        "receiver": message_data.get("receiver", "unknown"),
+                        "metadata": message_data.get("metadata", {})
+                    }
+
+                    # Only include events within the compaction window
+                    if event["timestamp"] >= cutoff_time:
+                        events.append(event)
+                    else:
+                        break  # Since we're going backwards in time, we can stop
+
+                except (ValueError, KeyError) as e:
+                    logger.log("WARNING", "EventSummarizer", f"Failed to parse message {message_id}: {e}")
+                    continue
+
+            logger.log("INFO", "EventSummarizer", f"Retrieved {len(events)} events from message queue")
+            return events
+
+        except Exception as e:
+            logger.log("ERROR", "EventSummarizer", f"Failed to get events from message queue: {e}")
+            return []
 
     def _group_events_by_topic(self, events: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """Group events by topic/type for summarization"""
