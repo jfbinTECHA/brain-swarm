@@ -8,7 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 # Import federation bridge
 try:
-    from bridge import (
+    from bridge import (  # pyright: ignore[reportMissingImports]
         register_peer,
         broadcast_heartbeat,
         sync_summary,
@@ -23,7 +23,7 @@ except ImportError:
 
 # Import agent evolution engine
 try:
-    from backend.agent_evolve import (
+    from backend.agent_evolve import (  # pyright: ignore[reportMissingImports]
         AgentGenome,
         EvolutionaryAlgorithm,
         EvolutionConfig,
