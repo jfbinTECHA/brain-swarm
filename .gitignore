@@ -1,5 +1,19 @@
+# Data and logs
 data/
 *.log
+*.db
+*.duckdb
+
+# Python
 __pycache__/
 *.pyc
+.pytest_cache/
+.mypy_cache/
+
+# IDEs
+.idea/
+.vscode/
+.ipynb_checkpoints/
+
+# Environment
 .env

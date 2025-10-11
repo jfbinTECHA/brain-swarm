@@ -61,16 +61,19 @@ uvicorn main:app --reload
 .
 ├── backend/                 # FastAPI application
 │   └── main.py
-├── dashboards/              # Grafana configuration and dashboards
-│   ├── provisioning/
-│   │   ├── datasources/     # Datasource configurations
-│   │   └── dashboards/      # Dashboard configurations
-│   └── *.json               # Dashboard JSON files
+├── infra/                   # Infrastructure and deployment
+│   ├── docker-compose.yml   # Service definitions
+│   ├── .cortex-control.kilo # Automation scripts
+│   └── dashboards/          # Grafana configuration and dashboards
+│       ├── provisioning/
+│       │   ├── datasources/ # Datasource configurations
+│       │   └── dashboards/  # Dashboard configurations
+│       └── *.json           # Dashboard JSON files
 ├── data/                    # Persistent data (gitignored)
 │   ├── redis/
 │   └── duckdb/
-├── docker-compose.yml       # Service definitions
-├── .cortex-control.kilo     # Automation scripts
+├── .github/workflows/       # CI/CD pipelines
+├── Makefile                 # Build and management scripts
 └── README.md
 ```
 
