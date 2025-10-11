@@ -16,6 +16,14 @@ A lean, self-healing Docker-based AI prototype stack featuring FastAPI, Redis, D
 - Docker and Docker Compose
 - Git
 
+### Configuration
+Copy `.env.example` to `.env` and configure your environment variables:
+
+```bash
+cp .env.example .env
+# Edit .env with your actual values
+```
+
 ### Run the Stack
 
 ```bash
