@@ -1,58 +1,57 @@
-.PHONY: up down status logs clean test build restart
+.PHONY: help up down status logs clean test build restart lint sbom
 
 # Default target
-help:
+help:  ## Show this help message
 	@echo "Available targets:"
-	@echo "  up       - Start all services"
-	@echo "  down     - Stop all services"
-	@echo "  status   - Show service status"
-	@echo "  logs     - Follow service logs"
-	@echo "  clean    - Remove containers and volumes"
-	@echo "  build    - Rebuild all services"
-	@echo "  restart  - Restart all services"
-	@echo "  test     - Run basic health checks"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 
 # Start services
-up:
+up:  ## Start docker stack
 	docker compose up -d
 	@echo "Services started. Access:"
 	@echo "  Grafana: http://localhost:3000"
-	@echo "  API: http://localhost:8001/ping"
+	@echo "  API: http://localhost:8001/docs"
 	@echo "  Prometheus: http://localhost:9090"
 
 # Stop services
-down:
+down:  ## Stop stack
 	docker compose down
 
 # Show status
-status:
+status:  ## Check service health
 	docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 	@echo ""
 	@echo "Health checks:"
 	@curl -s http://localhost:8001/ping | grep -q 'redis' && echo "✅ API healthy" || echo "❌ API not responding"
-	@curl -s -I http://localhost:9090 | grep -q '200 OK' && echo "✅ Prometheus up" || echo "❌ Prometheus down"
-	@curl -s -I http://localhost:3000 | grep -q '302 Found' && echo "✅ Grafana responding" || echo "❌ Grafana down"
+	@curl -s -I http://localhost:9090 | grep -q '200 OK' && echo "✅ Prometheus up" || echo "❌ Prometheus unreachable"
+	@curl -s -I http://localhost:3000 | grep -q '302 Found' && echo "✅ Grafana responding" || echo "❌ Grafana down or blocked"
 
 # Follow logs
-logs:
+logs:  ## Follow service logs
 	docker compose logs -f
 
 # Clean rebuild
-clean:
+clean:  ## Remove containers and volumes, rebuild
 	docker compose down -v --remove-orphans
 	docker compose up -d --build
 
 # Build services
-build:
+build:  ## Build docker images
 	docker compose build
 
 # Restart services
-restart:
+restart:  ## Restart all services
 	docker compose restart
 
-# Basic tests
-test:
-	@echo "Running health checks..."
-	@curl -s http://localhost:8001/ping > /dev/null && echo "✅ API reachable" || echo "❌ API unreachable"
-	@curl -s http://localhost:9090/-/healthy > /dev/null && echo "✅ Prometheus healthy" || echo "❌ Prometheus unhealthy"
-	@curl -s -I http://localhost:3000 | grep -q 'HTTP' && echo "✅ Grafana reachable" || echo "❌ Grafana unreachable"
+# Run tests
+test:  ## Run test suite
+	pytest tests/ -v
+
+# Lint code
+lint:  ## Lint Python code
+	ruff check backend/
+	ruff format --check backend/
+
+# Security scan
+sbom:  ## Generate SBOM and security scan
+	trivy fs --format table --output trivy-report.md .

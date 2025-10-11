@@ -1,6 +1,8 @@
 # 🧠 Cortex AI Prototype
 
-[![CI](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/ci.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions)
+[![Lint](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/lint.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/lint.yml)
+[![Test](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/test.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/test.yml)
+[![Build](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/build.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/build.yml)
 [![Version](https://img.shields.io/github/v/tag/jfbinTECHA/brain-swarm)](https://github.com/jfbinTECHA/brain-swarm/releases)
 
 A lean, self-healing Docker-based AI prototype stack featuring FastAPI, Redis, DuckDB, Prometheus, and Grafana for monitoring and visualization.
