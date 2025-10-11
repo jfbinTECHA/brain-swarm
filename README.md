@@ -59,22 +59,19 @@ uvicorn main:app --reload
 
 ```
 .
-├── backend/                 # FastAPI application
+├── backend/                 # FastAPI application and core swarm logic
 │   └── main.py
-├── infra/                   # Infrastructure and deployment
-│   ├── docker-compose.yml   # Service definitions
+├── cortex/                  # Memory and vector modules (future)
+├── helm/                    # Helm charts for Kubernetes deployment
+├── infra/                   # Infrastructure: Docker, K8s, Prometheus, Grafana
 │   ├── .cortex-control.kilo # Automation scripts
 │   └── dashboards/          # Grafana configuration and dashboards
-│       ├── provisioning/
-│       │   ├── datasources/ # Datasource configurations
-│       │   └── dashboards/  # Dashboard configurations
-│       └── *.json           # Dashboard JSON files
-├── data/                    # Persistent data (gitignored)
-│   ├── redis/
-│   └── duckdb/
-├── .github/workflows/       # CI/CD pipelines
+├── docs/                    # Design docs, ROADMAP, diagrams
+├── tests/                   # Unit and integration tests
+├── docker-compose.yml       # Local development stack
 ├── Makefile                 # Build and management scripts
-└── README.md
+├── README.md
+└── .github/workflows/       # CI/CD pipelines
 ```
 
 ## Current Status

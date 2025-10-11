@@ -14,7 +14,7 @@ help:
 
 # Start services
 up:
-	cd infra && docker compose up -d
+	docker compose up -d
 	@echo "Services started. Access:"
 	@echo "  Grafana: http://localhost:3000"
 	@echo "  API: http://localhost:8001/ping"
@@ -22,7 +22,7 @@ up:
 
 # Stop services
 down:
-	cd infra && docker compose down
+	docker compose down
 
 # Show status
 status:
@@ -35,20 +35,20 @@ status:
 
 # Follow logs
 logs:
-	cd infra && docker compose logs -f
+	docker compose logs -f
 
 # Clean rebuild
 clean:
-	cd infra && docker compose down -v --remove-orphans
-	cd infra && docker compose up -d --build
+	docker compose down -v --remove-orphans
+	docker compose up -d --build
 
 # Build services
 build:
-	cd infra && docker compose build
+	docker compose build
 
 # Restart services
 restart:
-	cd infra && docker compose restart
+	docker compose restart
 
 # Basic tests
 test:
