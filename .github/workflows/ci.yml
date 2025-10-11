@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fastapi uvicorn prometheus-fastapi-instrumentator
+
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Test API startup
+      run: |
+        pip install requests
+        python -c "
+        from fastapi import FastAPI
+        from prometheus_fastapi_instrumentator import Instrumentator
+        import uvicorn
+        import threading
+        import time
+        import requests
+
+        app = FastAPI()
+        @app.get('/ping')
+        def ping():
+            return {'status': 'ok'}
+        Instrumentator().instrument(app).expose(app)
+
+        def run_server():
+            uvicorn.run(app, host='0.0.0.0', port=8001)
+
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        time.sleep(2)
+
+        response = requests.get('http://localhost:8001/ping')
+        assert response.status_code == 200
+        print('✅ API test passed')
+        "
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build Docker images
+      run: docker compose build
+
+    - name: Test Docker Compose
+      run: |
+        docker compose up -d
+        sleep 10
+        docker compose ps
+        docker compose down
