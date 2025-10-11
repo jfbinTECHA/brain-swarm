@@ -1,260 +1,306 @@
+#!/usr/bin/env python3
 """
-Fitness Evaluation System for Agent Evolution
-Defines fitness functions and evaluation mechanisms for evolved agents.
+Performance Measurement Definitions for Agent Evolution
+Defines how agent performance is measured and evaluated.
 """
 
-import time
-import asyncio
-from typing import Callable, Dict, Any, List, Optional, Awaitable
-from dataclasses import dataclass
+from typing import Dict, Any, List, Callable
 from .genome import AgentGenome
 
 
-@dataclass
-class FitnessResult:
-    """Result of a fitness evaluation"""
-    score: float
-    metrics: Dict[str, Any]
-    duration: float
-    success: bool
-    error_message: Optional[str] = None
+def task_completion_rate(genome: AgentGenome, task_results: List[Dict[str, Any]]) -> float:
+    """
+    Measure task completion performance.
+
+    Args:
+        genome: The agent genome being evaluated
+        task_results: List of task execution results
+
+    Returns:
+        Completion rate (0.0 to 1.0)
+    """
+    if not task_results:
+        return 0.0
+
+    completed_tasks = sum(1 for result in task_results if result.get("success", False))
+    return completed_tasks / len(task_results)
 
 
-class FitnessEvaluator:
-    """Evaluates fitness of agent genomes"""
+def execution_efficiency(genome: AgentGenome, task_results: List[Dict[str, Any]]) -> float:
+    """
+    Measure execution efficiency (speed vs quality tradeoff).
 
-    def __init__(self):
-        self.evaluation_cache: Dict[str, FitnessResult] = {}
-        self.max_cache_size = 1000
+    Args:
+        genome: The agent genome being evaluated
+        task_results: List of task execution results
 
-    def evaluate_sync(self, genome: AgentGenome, fitness_function: Callable[[AgentGenome], float]) -> FitnessResult:
-        """Synchronously evaluate genome fitness"""
-        start_time = time.time()
+    Returns:
+        Efficiency score (higher is better)
+    """
+    if not task_results:
+        return 0.0
 
-        try:
-            score = fitness_function(genome)
-            duration = time.time() - start_time
+    total_score = 0.0
+    for result in task_results:
+        execution_time = result.get("execution_time", 1.0)
+        success = result.get("success", False)
+        quality = result.get("quality_score", 0.5)
 
-            result = FitnessResult(
-                score=score,
-                metrics={"raw_score": score},
-                duration=duration,
-                success=True
-            )
+        # Efficiency = quality / time (with minimum time to avoid division by zero)
+        time_penalty = max(execution_time, 0.1)
+        efficiency = (quality / time_penalty) if success else 0.0
+        total_score += efficiency
 
-        except Exception as e:
-            duration = time.time() - start_time
-            result = FitnessResult(
-                score=float('-inf'),
-                metrics={},
-                duration=duration,
-                success=False,
-                error_message=str(e)
-            )
-
-        return result
-
-    async def evaluate_async(self, genome: AgentGenome, fitness_function: Callable[[AgentGenome], Awaitable[float]]) -> FitnessResult:
-        """Asynchronously evaluate genome fitness"""
-        start_time = time.time()
-
-        try:
-            score = await fitness_function(genome)
-            duration = time.time() - start_time
-
-            result = FitnessResult(
-                score=score,
-                metrics={"raw_score": score},
-                duration=duration,
-                success=True
-            )
-
-        except Exception as e:
-            duration = time.time() - start_time
-            result = FitnessResult(
-                score=float('-inf'),
-                metrics={},
-                duration=duration,
-                success=False,
-                error_message=str(e)
-            )
-
-        return result
-
-    def get_cached_result(self, genome_id: str) -> Optional[FitnessResult]:
-        """Get cached fitness result for genome"""
-        return self.evaluation_cache.get(genome_id)
-
-    def cache_result(self, genome_id: str, result: FitnessResult):
-        """Cache fitness result for genome"""
-        if len(self.evaluation_cache) >= self.max_cache_size:
-            # Simple cache eviction - remove oldest
-            oldest_key = next(iter(self.evaluation_cache))
-            del self.evaluation_cache[oldest_key]
-
-        self.evaluation_cache[genome_id] = result
+    return total_score / len(task_results)
 
 
-# Common fitness functions
+def resource_utilization(genome: AgentGenome, metrics: Dict[str, Any]) -> float:
+    """
+    Measure resource utilization efficiency.
 
-def simple_weighted_sum_fitness(genome: AgentGenome) -> float:
-    """Simple fitness based on weighted sum of genome weights"""
-    return sum(genome.weights)
+    Args:
+        genome: The agent genome being evaluated
+        metrics: System resource metrics
 
+    Returns:
+        Resource efficiency score (0.0 to 1.0, higher is better)
+    """
+    cpu_usage = metrics.get("cpu_percent", 50.0) / 100.0
+    memory_usage = metrics.get("memory_percent", 50.0) / 100.0
+    network_usage = metrics.get("network_utilization", 0.5)
 
-def quadratic_fitness(genome: AgentGenome) -> float:
-    """Fitness based on quadratic function of weights"""
-    return sum(w ** 2 for w in genome.weights)
-
-
-def target_vector_fitness(target: List[float]):
-    """Create fitness function that measures distance to target vector"""
-    def fitness(genome: AgentGenome) -> float:
-        if len(genome.weights) != len(target):
-            return float('-inf')
-
-        # Negative distance (higher fitness = closer to target)
-        distance = sum((a - b) ** 2 for a, b in zip(genome.weights, target))
-        return -distance
-
-    return fitness
+    # Lower resource usage is better (more efficient)
+    # Convert to efficiency score where 1.0 = optimal resource usage
+    efficiency = 1.0 - (cpu_usage * 0.4 + memory_usage * 0.4 + network_usage * 0.2)
+    return max(0.0, min(1.0, efficiency))
 
 
-def agent_task_performance_fitness(task_metrics: Dict[str, float]):
-    """Create fitness function based on agent task performance metrics"""
-    def fitness(genome: AgentGenome) -> float:
-        # This would integrate with the agent dispatch system
-        # For now, return a placeholder based on genome properties
-        base_score = sum(abs(w) for w in genome.weights)  # Encourage diverse weights
+def learning_adaptability(genome: AgentGenome, evolution_history: List[Dict[str, Any]]) -> float:
+    """
+    Measure how well the agent adapts and improves over generations.
 
-        # Factor in task metrics (would be calculated from actual task execution)
-        task_completion = task_metrics.get("completion_rate", 0.5)
-        efficiency = task_metrics.get("efficiency", 0.5)
+    Args:
+        genome: The agent genome being evaluated
+        evolution_history: History of fitness scores across generations
 
-        return base_score * (task_completion + efficiency) / 2
+    Returns:
+        Adaptability score (0.0 to 1.0)
+    """
+    if len(evolution_history) < 2:
+        return 0.5  # Neutral score for insufficient history
 
-    return fitness
+    fitness_scores = [gen.get("fitness_score", 0) for gen in evolution_history]
 
+    # Calculate improvement trend
+    improvements = []
+    for i in range(1, len(fitness_scores)):
+        improvement = fitness_scores[i] - fitness_scores[i-1]
+        improvements.append(improvement)
 
-def multi_objective_fitness(weights: List[float]):
-    """Create multi-objective fitness function"""
-    def fitness(genome: AgentGenome) -> float:
-        if len(genome.weights) != len(weights):
-            return float('-inf')
+    # Positive improvements indicate learning
+    positive_improvements = sum(1 for imp in improvements if imp > 0)
+    adaptability = positive_improvements / len(improvements) if improvements else 0.5
 
-        # Weighted sum of multiple objectives
-        objectives = [
-            sum(genome.weights),  # Objective 1: sum
-            sum(w ** 2 for w in genome.weights),  # Objective 2: quadratic
-            max(genome.weights) - min(genome.weights),  # Objective 3: range
-        ]
-
-        return sum(w * obj for w, obj in zip(weights, objectives))
-
-    return fitness
+    return adaptability
 
 
-class TaskBasedFitnessEvaluator:
-    """Evaluates fitness by running agents on actual tasks"""
+def behavioral_diversity(genome: AgentGenome, population: List[AgentGenome]) -> float:
+    """
+    Measure behavioral diversity compared to population.
 
-    def __init__(self):
-        self.task_results: Dict[str, Dict[str, Any]] = {}
+    Args:
+        genome: The agent genome being evaluated
+        population: Other genomes in the population
 
-    async def evaluate_on_task(self, genome: AgentGenome, task_definition: Dict[str, Any]) -> FitnessResult:
-        """Evaluate genome by dispatching it to perform a task"""
-        start_time = time.time()
+    Returns:
+        Diversity score (0.0 to 1.0, higher = more diverse)
+    """
+    if not population:
+        return 0.5
 
-        try:
-            # This would integrate with the agent dispatch system
-            # For now, simulate task execution based on genome
+    distances = [genome.distance(other) for other in population if other != genome]
 
-            # Simulate task execution time based on genome complexity
-            execution_time = abs(sum(genome.weights)) * 0.1 + 0.5
+    if not distances:
+        return 0.5
 
-            # Simulate success rate based on genome "quality"
-            quality_score = sum(1 for w in genome.weights if -0.5 <= w <= 0.5) / len(genome.weights)
-            success_rate = min(1.0, quality_score + 0.3)
+    avg_distance = sum(distances) / len(distances)
 
-            # Calculate fitness based on simulated performance
-            fitness_score = success_rate * (1.0 / execution_time) * 100
-
-            metrics = {
-                "execution_time": execution_time,
-                "success_rate": success_rate,
-                "quality_score": quality_score,
-                "task_type": task_definition.get("type", "unknown")
-            }
-
-            result = FitnessResult(
-                score=fitness_score,
-                metrics=metrics,
-                duration=time.time() - start_time,
-                success=True
-            )
-
-        except Exception as e:
-            result = FitnessResult(
-                score=float('-inf'),
-                metrics={},
-                duration=time.time() - start_time,
-                success=False,
-                error_message=str(e)
-            )
-
-        return result
-
-    def get_task_statistics(self) -> Dict[str, Any]:
-        """Get statistics about task evaluations"""
-        if not self.task_results:
-            return {}
-
-        scores = [r["score"] for r in self.task_results.values()]
-        return {
-            "total_evaluations": len(self.task_results),
-            "avg_score": sum(scores) / len(scores),
-            "max_score": max(scores),
-            "min_score": min(scores)
-        }
+    # Normalize to 0-1 scale (assuming max reasonable distance is 10)
+    diversity = min(1.0, avg_distance / 10.0)
+    return diversity
 
 
-# Benchmark fitness functions for testing evolution algorithms
+def robustness_score(genome: AgentGenome, stress_test_results: List[Dict[str, Any]]) -> float:
+    """
+    Measure agent robustness under stress conditions.
 
-def sphere_fitness(genome: AgentGenome) -> float:
-    """Sphere function: f(x) = sum(x_i^2), minimum at x_i = 0"""
-    return -sum(w ** 2 for w in genome.weights)  # Negative for maximization
+    Args:
+        genome: The agent genome being evaluated
+        stress_test_results: Results from stress testing scenarios
+
+    Returns:
+        Robustness score (0.0 to 1.0)
+    """
+    if not stress_test_results:
+        return 0.5
+
+    total_tests = len(stress_test_results)
+    passed_tests = sum(1 for result in stress_test_results if result.get("passed", False))
+
+    # Bonus for handling extreme conditions
+    extreme_conditions = [r for r in stress_test_results if r.get("extreme_condition", False)]
+    extreme_passed = sum(1 for r in extreme_conditions if r.get("passed", False))
+
+    base_score = passed_tests / total_tests if total_tests > 0 else 0.0
+    extreme_bonus = (extreme_passed / len(extreme_conditions)) * 0.2 if extreme_conditions else 0.0
+
+    return min(1.0, base_score + extreme_bonus)
 
 
-def rastrigin_fitness(genome: AgentGenome) -> float:
-    """Rastrigin function: multimodal optimization benchmark"""
-    A = 10
-    n = len(genome.weights)
-    return -(A * n + sum(w ** 2 - A * (2 * 3.14159 * w) ** 2 for w in genome.weights))
+def cooperation_index(genome: AgentGenome, interaction_history: List[Dict[str, Any]]) -> float:
+    """
+    Measure cooperative behavior in multi-agent scenarios.
+
+    Args:
+        genome: The agent genome being evaluated
+        interaction_history: History of interactions with other agents
+
+    Returns:
+        Cooperation score (0.0 to 1.0)
+    """
+    if not interaction_history:
+        return 0.5
+
+    cooperative_actions = sum(1 for interaction in interaction_history
+                            if interaction.get("cooperative", False))
+    total_interactions = len(interaction_history)
+
+    cooperation_rate = cooperative_actions / total_interactions
+
+    # Factor in mutual benefit
+    mutual_benefits = sum(1 for interaction in interaction_history
+                         if interaction.get("mutual_benefit", False))
+    mutual_bonus = (mutual_benefits / total_interactions) * 0.3
+
+    return min(1.0, cooperation_rate + mutual_bonus)
 
 
-def rosenbrock_fitness(genome: AgentGenome) -> float:
-    """Rosenbrock function: classic optimization benchmark"""
-    if len(genome.weights) < 2:
-        return -float('inf')
-
-    score = 0
-    for i in range(len(genome.weights) - 1):
-        x_i = genome.weights[i]
-        x_next = genome.weights[i + 1]
-        score += 100 * (x_next - x_i ** 2) ** 2 + (1 - x_i) ** 2
-
-    return -score  # Negative for maximization
-
-
-# Registry of available fitness functions
-FITNESS_FUNCTIONS = {
-    "simple_sum": simple_weighted_sum_fitness,
-    "quadratic": quadratic_fitness,
-    "sphere": sphere_fitness,
-    "rastrigin": rastrigin_fitness,
-    "rosenbrock": rosenbrock_fitness,
+# Registry of performance measures
+PERFORMANCE_MEASURES = {
+    "task_completion": task_completion_rate,
+    "execution_efficiency": execution_efficiency,
+    "resource_utilization": resource_utilization,
+    "learning_adaptability": learning_adaptability,
+    "behavioral_diversity": behavioral_diversity,
+    "robustness": robustness_score,
+    "cooperation": cooperation_index,
 }
 
 
-def get_fitness_function(name: str) -> Optional[Callable[[AgentGenome], float]]:
-    """Get fitness function by name"""
-    return FITNESS_FUNCTIONS.get(name)
+def get_performance_measure(name: str) -> Callable:
+    """
+    Get a performance measurement function by name.
+
+    Args:
+        name: Name of the performance measure
+
+    Returns:
+        Performance measurement function
+
+    Raises:
+        ValueError: If performance measure not found
+    """
+    if name not in PERFORMANCE_MEASURES:
+        available = list(PERFORMANCE_MEASURES.keys())
+        raise ValueError(f"Unknown performance measure: {name}. Available: {available}")
+
+    return PERFORMANCE_MEASURES[name]
+
+
+def composite_fitness_score(
+    genome: AgentGenome,
+    measures: Dict[str, float],
+    weights: Dict[str, float]
+) -> float:
+    """
+    Calculate composite fitness score from multiple performance measures.
+
+    Args:
+        genome: The agent genome being evaluated
+        measures: Dictionary of measure_name -> measure_value
+        weights: Dictionary of measure_name -> weight
+
+    Returns:
+        Weighted composite fitness score
+    """
+    total_score = 0.0
+    total_weight = 0.0
+
+    for measure_name, weight in weights.items():
+        if measure_name in measures:
+            total_score += measures[measure_name] * weight
+            total_weight += weight
+
+    return total_score / total_weight if total_weight > 0 else 0.0
+
+
+# Example fitness function combining multiple measures
+def comprehensive_agent_fitness(
+    genome: AgentGenome,
+    task_results: List[Dict[str, Any]] = None,
+    metrics: Dict[str, Any] = None,
+    evolution_history: List[Dict[str, Any]] = None,
+    population: List[AgentGenome] = None,
+    stress_results: List[Dict[str, Any]] = None,
+    interactions: List[Dict[str, Any]] = None
+) -> float:
+    """
+    Comprehensive fitness function combining multiple performance aspects.
+
+    Args:
+        genome: Agent genome to evaluate
+        task_results: Task execution results
+        metrics: System resource metrics
+        evolution_history: Evolution history for adaptability
+        population: Population for diversity calculation
+        stress_results: Stress test results
+        interactions: Multi-agent interaction history
+
+    Returns:
+        Comprehensive fitness score
+    """
+    measures = {}
+    weights = {}
+
+    # Task performance (most important)
+    if task_results:
+        measures["task_completion"] = task_completion_rate(genome, task_results)
+        measures["execution_efficiency"] = execution_efficiency(genome, task_results)
+        weights["task_completion"] = 0.4
+        weights["execution_efficiency"] = 0.3
+
+    # Resource efficiency
+    if metrics:
+        measures["resource_utilization"] = resource_utilization(genome, metrics)
+        weights["resource_utilization"] = 0.1
+
+    # Learning and adaptation
+    if evolution_history:
+        measures["learning_adaptability"] = learning_adaptability(genome, evolution_history)
+        weights["learning_adaptability"] = 0.1
+
+    # Diversity and robustness
+    if population:
+        measures["behavioral_diversity"] = behavioral_diversity(genome, population)
+        weights["behavioral_diversity"] = 0.05
+
+    if stress_results:
+        measures["robustness"] = robustness_score(genome, stress_results)
+        weights["robustness"] = 0.05
+
+    # Cooperation (if applicable)
+    if interactions:
+        measures["cooperation"] = cooperation_index(genome, interactions)
+        weights["cooperation"] = 0.1
+
+    return composite_fitness_score(genome, measures, weights)
