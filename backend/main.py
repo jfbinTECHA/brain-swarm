@@ -21,6 +21,20 @@ except ImportError:
     federation_available = False
     print("Warning: Federation bridge not available")
 
+# Import agent evolution engine
+try:
+    from backend.agent_evolve import (
+        AgentGenome,
+        EvolutionaryAlgorithm,
+        EvolutionConfig,
+        FitnessEvaluator,
+        get_fitness_function
+    )
+    evolution_available = True
+except ImportError:
+    evolution_available = False
+    print("Warning: Agent evolution engine not available")
+
 app = FastAPI(title="Brain-Swarm API", version="0.2.0")
 
 # Agent registry
@@ -185,6 +199,107 @@ async def api_get_peers():
 
     peers = await get_peer_list()
     return {"peers": peers}
+
+# Evolution endpoints
+@app.post("/evolution/genome/random")
+def create_random_genome(num_weights: int = 10, mutation_rate: float = 0.05):
+    """Create a random agent genome"""
+    if not evolution_available:
+        raise HTTPException(status_code=503, detail="Evolution engine not available")
+
+    genome = AgentGenome.random(num_weights, mutation_rate)
+    return {"genome": genome.to_dict()}
+
+@app.post("/evolution/genome/mutate")
+def mutate_genome(genome_data: dict):
+    """Mutate an existing genome"""
+    if not evolution_available:
+        raise HTTPException(status_code=503, detail="Evolution engine not available")
+
+    genome = AgentGenome.from_dict(genome_data)
+    mutated = genome.mutate()
+    return {"original": genome.to_dict(), "mutated": mutated.to_dict()}
+
+@app.post("/evolution/genome/crossover")
+def crossover_genomes(genome1_data: dict, genome2_data: dict):
+    """Perform crossover between two genomes"""
+    if not evolution_available:
+        raise HTTPException(status_code=503, detail="Evolution engine not available")
+
+    genome1 = AgentGenome.from_dict(genome1_data)
+    genome2 = AgentGenome.from_dict(genome2_data)
+    child1, child2 = genome1.crossover(genome2)
+    return {"parent1": genome1.to_dict(), "parent2": genome2.to_dict(),
+            "child1": child1.to_dict(), "child2": child2.to_dict()}
+
+@app.post("/evolution/evaluate")
+def evaluate_genome(genome_data: dict, fitness_function: str = "sphere"):
+    """Evaluate genome fitness"""
+    if not evolution_available:
+        raise HTTPException(status_code=503, detail="Evolution engine not available")
+
+    genome = AgentGenome.from_dict(genome_data)
+    fitness_func = get_fitness_function(fitness_function)
+
+    if not fitness_func:
+        raise HTTPException(status_code=400, detail=f"Unknown fitness function: {fitness_function}")
+
+    evaluator = FitnessEvaluator()
+    result = evaluator.evaluate_sync(genome, fitness_func)
+
+    return {
+        "genome": genome.to_dict(),
+        "fitness_function": fitness_function,
+        "result": {
+            "score": result.score,
+            "metrics": result.metrics,
+            "duration": result.duration,
+            "success": result.success,
+            "error_message": result.error_message
+        }
+    }
+
+@app.post("/evolution/evolve")
+def evolve_population(population_size: int = 20, generations: int = 10,
+                     fitness_function: str = "sphere", num_weights: int = 5):
+    """Run evolutionary algorithm"""
+    if not evolution_available:
+        raise HTTPException(status_code=503, detail="Evolution engine not available")
+
+    fitness_func = get_fitness_function(fitness_function)
+    if not fitness_func:
+        raise HTTPException(status_code=400, detail=f"Unknown fitness function: {fitness_function}")
+
+    # Configure evolution
+    config = EvolutionConfig(
+        population_size=population_size,
+        max_generations=generations
+    )
+
+    # Create algorithm
+    ea = EvolutionaryAlgorithm(config)
+
+    # Initialize population
+    def genome_factory():
+        return AgentGenome.random(num_weights)
+
+    ea.initialize_population(genome_factory)
+
+    # Evolve
+    evolution_history = []
+    while ea.evolve_generation(fitness_func):
+        stats = ea.get_population_stats()
+        evolution_history.append(stats)
+
+    # Get final results
+    best_genome = ea.get_best_genome()
+
+    return {
+        "generations_run": len(evolution_history),
+        "final_stats": ea.get_population_stats(),
+        "best_genome": best_genome.to_dict(),
+        "evolution_history": evolution_history
+    }
 
 # Federation initialization
 federation_bridge = None
