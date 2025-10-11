@@ -2,58 +2,101 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "🧹 Clean cache & backup files",
+      "label": "🧪 Deep Clean: Dry Run (preflight only)",
       "type": "shell",
-      "command": "git rm -r --cached __pycache__ .pytest_cache *.db *.duckdb *.log *.save* || true && rm -rf __pycache__ .pytest_cache *.db *.duckdb *.log *.save* && git add . && git commit -m 'chore: clean cache and backup files' || echo 'No cache files to clean'"
+      "command": "set -e; \
+        echo '🔎 Preflight checks…'; \
+        git fetch --all --tags; \
+        if ! git diff --quiet; then echo '❌ Uncommitted changes. Commit/stash first.'; exit 1; fi; \
+        echo '✅ Working tree clean'; \
+        command -v git-filter-repo >/dev/null 2>&1 || echo 'ℹ️  Note: git-filter-repo not found (will install during full run)'; \
+        echo '✅ Preflight complete. Ready for full deep clean.'"
     },
     {
-      "label": "🧱 Reorganize repository structure",
+      "label": "💾 Deep Clean: Create Backups (tag + mirror)",
       "type": "shell",
-      "command": "mkdir -p docs infra tests .github/workflows && mv docker-compose.yml infra/ 2>/dev/null || true && git add . && git commit -m 'chore(structure): reorganize repo into infra/docs/tests folders' || echo 'Structure already clean'"
+      "command": "set -e; \
+        TS=$(date +%Y%m%d-%H%M%S); \
+        TAG=pre-deepclean-$TS; \
+        echo \"🏷️  Creating safety tag $TAG\"; \
+        git fetch --all --tags; \
+        git tag \"$TAG\"; \
+        echo '📦 Creating mirror backup ../brain-swarm-backup.mirror'; \
+        rm -rf ../brain-swarm-backup.mirror; \
+        git clone --mirror . ../brain-swarm-backup.mirror; \
+        echo \"✅ Backup ready. Restore tag: $TAG\""
     },
     {
-      "label": "🧩 Set up CI & test scaffold",
+      "label": "🧹 Deep Clean: Run git filter-repo",
       "type": "shell",
-      "command": "mkdir -p .github/workflows tests && echo 'def test_placeholder(): assert True' > tests/test_api.py && echo 'name: CI\\non: [push, pull_request]\\njobs:\\n  build:\\n    runs-on: ubuntu-latest\\n    steps:\\n      - uses: actions/checkout@v4\\n      - name: Set up Python\\n        uses: actions/setup-python@v5\\n        with:\\n          python-version: 3.12\\n      - name: Install dependencies\\n        run: pip install -r backend/requirements.txt pytest ruff black isort\\n      - name: Lint and test\\n        run: |\\n          ruff check .\\n          pytest -v' > .github/workflows/ci.yml && git add . && git commit -m 'ci: add workflow and test scaffold' || echo 'CI already configured'"
+      "command": "set -e; \
+        echo '📦 Ensuring git-filter-repo is available…'; \
+        python3 -m pip install --user git-filter-repo >/dev/null 2>&1 || true; \
+        command -v git-filter-repo >/dev/null 2>&1 || { echo '❌ git-filter-repo not found. Install manually then retry.'; exit 1; }; \
+        echo '🧽 Rewriting history to remove artifacts…'; \
+        git filter-repo \
+          --invert-paths \
+          --path venv \
+          --path __pycache__ \
+          --path .pytest_cache \
+          --path .mypy_cache \
+          --path .coverage \
+          --path-glob '*.pyc' \
+          --path-glob '*.pyo' \
+          --path-glob 'Thumbs.db' \
+          --path-glob '.DS_Store'; \
+        echo '✅ History rewritten locally.'"
     },
     {
-      "label": "🚀 Push & Tag v0.2-prep",
+      "label": "🚀 Deep Clean: Force-push rewritten branches",
       "type": "shell",
-      "command": "git push origin main || git push origin master && git tag -a v0.2-prep -m 'Repository cleanup and structure reorganization' && git push origin v0.2-prep || echo 'Tag already exists'"
+      "command": "set -e; \
+        echo '⬆️  Pushing rewritten history with --force-with-lease'; \
+        for BR in main develop develop-v3; do \
+          if git show-ref --verify --quiet refs/heads/$BR; then \
+            echo \" → $BR\"; \
+            git push --force-with-lease origin $BR; \
+          fi; \
+        done; \
+        echo '🏷️  Syncing tags'; \
+        git push --force-with-lease --tags origin; \
+        echo '✅ Remote updated. Re-enable branch protections if disabled.'"
     },
     {
-      "label": "🔍 Verify GitHub Actions pipeline status",
+      "label": "🔎 Deep Clean: Post-checks",
       "type": "shell",
-      "command": "curl -s https://api.github.com/repos/jfbinTECHA/brain-swarm/actions/runs?per_page=1 | grep -E 'status|conclusion' || echo 'Unable to fetch workflow status'"
+      "command": "set -e; \
+        echo '📏 Repo size:'; git count-objects -vH; \
+        echo '🧪 Scanning history for removed paths (should print nothing)…'; \
+        if git log --name-only --pretty='' | grep -E '^(venv/|__pycache__/|.pytest_cache/)' ; then \
+          echo '⚠️  Some entries still found above. Review filter-repo paths.'; exit 1; \
+        else \
+          echo '✅ No removed artifacts found in history.'; \
+        fi"
     },
     {
-      "label": "🏗️ Run Full Build",
-      "type": "shell",
-      "command": "make up && pytest && make down || echo 'Build test failed'"
-    },
-    {
-      "label": "🔒 Generate SBOM & Scan",
-      "type": "shell",
-      "command": "mkdir -p reports && (make sbom > reports/sbom.txt 2>&1 || trivy fs . --format table -o reports/security.txt) || echo 'SBOM/Scan not available'"
-    },
-    {
-      "label": "📖 Docs Preview",
-      "type": "shell",
-      "command": "mkdocs serve || python -m http.server 8000 docs/ || echo 'Docs preview not available'"
-    },
-    {
-      "label": "🧰 Full Cleanup Routine",
+      "label": "🧰 Deep Clean: Full Sequence (safe)",
       "dependsOn": [
-        "🧹 Clean cache & backup files",
-        "🧱 Reorganize repository structure",
-        "🧩 Set up CI & test scaffold",
-        "🚀 Push & Tag v0.2-prep",
-        "🔍 Verify GitHub Actions pipeline status",
-        "🏗️ Run Full Build",
-        "🔒 Generate SBOM & Scan",
-        "📖 Docs Preview"
+        "🧪 Deep Clean: Dry Run (preflight only)",
+        "💾 Deep Clean: Create Backups (tag + mirror)",
+        "🧹 Deep Clean: Run git filter-repo",
+        "🚀 Deep Clean: Force-push rewritten branches",
+        "🔎 Deep Clean: Post-checks"
       ],
       "dependsOrder": "sequence"
+    },
+    {
+      "label": "↩️ Deep Clean: Revert to backup tag (manual tag needed)",
+      "type": "shell",
+      "command": "set -e; \
+        TAG=${REVERT_TAG:-pre-deepclean}; \
+        echo \"⚠️  Reverting current branch to tag: $TAG\"; \
+        git fetch --all --tags; \
+        git reset --hard \"$TAG\"; \
+        echo '🔁 Force-pushing the revert'; \
+        CUR=$(git rev-parse --abbrev-ref HEAD); \
+        git push --force-with-lease origin \"$CUR\"; \
+        echo '✅ Reverted current branch to backup tag.'"
     }
   ]
 }

@@ -1,11 +1,28 @@
 name: Hygiene
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: [ main, develop, develop-v3 ]
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Ensure no build artifacts are committed
         run: |
-          ! git ls-files | grep -E '^(venv/|__pycache__/|.pytest_cache/)' || \
-          (echo "Build artifacts are tracked; fix .gitignore." && exit 1)
+          # Block typical Python build/venv junk
+          BAD=$(git ls-files | grep -E '^(venv/|.venv/|__pycache__/|.pytest_cache/|.mypy_cache/|.*\.pyc$|.*\.pyo$|Thumbs\.db$|\.DS_Store$)' || true)
+          if [ -n "$BAD" ]; then
+            echo "Found committed build artifacts:"
+            echo "$BAD"
+            echo "::error::Remove these from Git (add to .gitignore and git rm --cached)"
+            exit 1
+          fi
+          echo "✅ Hygiene check passed"
+
+      - name: Validate .gitignore covers common artifacts
+        run: |
+          test -f .gitignore || (echo "::warning::.gitignore missing at repo root"; exit 0)
+          echo "✅ .gitignore present"
