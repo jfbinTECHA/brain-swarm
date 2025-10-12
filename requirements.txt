@@ -10,3 +10,9 @@ requests
 python-dotenv
 prometheus-client
 prometheus-fastapi-instrumentator
+hvac
+boto3==1.35.0
+psutil
+sqlmodel
+PyJWT==2.9.0
+networkx==3.3
