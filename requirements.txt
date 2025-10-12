@@ -2,7 +2,6 @@ fastapi==0.118.0
 uvicorn[standard]==0.30.0
 redis==5.0.1
 duckdb==0.10.2
-chromadb==0.5.3
 openai==1.35.13
 pydantic==2.7.4
 pydantic-settings==2.3.4
