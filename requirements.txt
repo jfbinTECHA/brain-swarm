@@ -16,3 +16,5 @@ psutil
 sqlmodel
 PyJWT==2.9.0
 networkx==3.3
+
+sqlmodel==0.0.21
