@@ -8,9 +8,7 @@
   <img src="https://img.shields.io/badge/Use_Case-Maine_DHS_EBT_LiveHeap%20🧩-blueviolet?style=flat-square" alt="Use Case">
 </p>
 
----
-
-> *An adaptive, multi-agent AI coordination framework for dynamic task orchestration, memory management, and human-in-the-loop intelligence.*
+> **Brain-Swarm** orchestrates multi-agent intelligence using memory synchronization, adaptive planning, and human-in-the-loop governance — bringing self-organizing AI to secure, data-driven public systems.
 
 ---
 
