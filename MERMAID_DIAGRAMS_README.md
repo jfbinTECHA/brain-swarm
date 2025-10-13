@@ -127,6 +127,10 @@ classDef securityClass fill:#ffebee,stroke:#b71c1c,stroke-width:2px
 %% Highlight specific components for presentations
 classDef highlightClass fill:#fff9c4,stroke:#f57f17,stroke-width:3px
 class REGISTRY highlightClass
+
+graph TD
+    A[Brain Swarm] --> B[Registry]
+    B --> C[Discovery]
 ```
 
 ### Simplified Versions
