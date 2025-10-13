@@ -37,10 +37,10 @@ graph TD
     A --> E[Deployment Layer]
 
     subgraph CORE["Brain-Swarm Core"]
-        B1[Supervisor Agent\n(Task Control, Routing)]
-        B2[Planner Agent\n(Workflow Optimization)]
-        B3[Analyst Agents\n(Eligibility, Risk, Compliance)]
-        B4[LiveHeap Engine\n(State Memory, Caching)]
+        B1[Supervisor Agent\n(Task Control)]
+        B2[Planner Agent\n(Workflow Opt)]
+        B3[Analyst Agents\n(Eligibility)]
+        B4[LiveHeap Engine\n(State Memory)]
     end
 
     subgraph DOCS["Docs"]
