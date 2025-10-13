@@ -159,11 +159,18 @@ pytest tests/test_api.py
 ## 🧩 Use Case: Maine DHS EBT LiveHeap Pilot
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Build-Stable%20✅-brightgreen?style=flat-square" alt="Build Status">
-  <img src="https://img.shields.io/badge/Docs-Complete%20📘-blue?style=flat-square" alt="Documentation Status">
-  <img src="https://img.shields.io/badge/License-MIT%20⚖️-lightgrey?style=flat-square" alt="License: MIT">
-  <img src="https://img.shields.io/badge/AI_Framework-BrainSwarm%20🤖-orange?style=flat-square" alt="AI Framework">
-  <img src="https://img.shields.io/badge/Use_Case-Maine_DHS_EBT_LiveHeap%20🧩-blueviolet?style=flat-square" alt="Use Case">
+  <a href="docs/EBT_LIVEHEAP_SYSTEM_DESIGN.md">
+    <img src="https://img.shields.io/badge/View%20Docs-📘%20System%20Design-blue?style=for-the-badge" alt="View Docs">
+  </a>
+  <a href="docs/EBT_LIVEHEAP_AGENT_BEHAVIOR_TREE.md">
+    <img src="https://img.shields.io/badge/Agent%20Flow-🧠%20Behavior%20Tree-blueviolet?style=for-the-badge" alt="Agent Behavior Tree">
+  </a>
+  <a href="#-use-case-maine-dhs--ebt-liveheap-pilot">
+    <img src="https://img.shields.io/badge/Use%20Case-EBT%20LiveHeap%20🧩-orange?style=for-the-badge" alt="Use Case Section">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT%20⚖️-lightgrey?style=for-the-badge" alt="License">
+  </a>
 </p>
 
 **Summary:**
