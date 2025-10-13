@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from api.main import app as brain_app  # Import the existing Brain Swarm API
 
@@ -12,6 +13,17 @@ app = FastAPI(
 @app.get("/")
 def root():
     return {"message": "Brain Swarm Federation is alive!"}
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
+@app.get("/healthz")
+def healthz():
+    return {
+        "ok": True,
+        "vector_store": "enabled" if os.getenv("CHROMA_URL") else "disabled"
+    }
 
 # Mount the existing Brain Swarm API
 try:

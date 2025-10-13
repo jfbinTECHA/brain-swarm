@@ -6,39 +6,49 @@ version: '3.8'
 
 services:
   brain-swarm-api:
-    build: ..
-    ports:
-      - "${NODE__PORT:-8000}:8000"
+    build:
+      context: ..
+      dockerfile: Dockerfile
     environment:
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - NODE__NODE_NAME=${NODE__NODE_NAME:-brain_swarm_api}
-      - NODE__SWARM_ID=${NODE__SWARM_ID:-default_swarm}
-      - NODE__HOST=0.0.0.0
-      - NODE__PORT=8000
-      - DATABASE__URL=${DATABASE__URL:-sqlite:///data/brain_swarm.db}
-      - LOGGING__LEVEL=${LOGGING__LEVEL:-INFO}
-      - FEDERATION__ENABLED=${FEDERATION__ENABLED:-false}
-      # Scalability configuration
-      - SCALABILITY__ENABLED=${SCALABILITY__ENABLED:-false}
-      - SCALABILITY__MESSAGE_QUEUE_MODE=${SCALABILITY__MESSAGE_QUEUE_MODE:-single_node}
-      - SCALABILITY__REDIS_URLS=${SCALABILITY__REDIS_URLS:-["redis://redis:6379"]}
-      - SCALABILITY__PARTITIONS=${SCALABILITY__PARTITIONS:-8}
-      - SCALABILITY__ASYNC_AGENTS_ENABLED=${SCALABILITY__ASYNC_AGENTS_ENABLED:-false}
-      - SCALABILITY__AGENT_POOL_MIN=${SCALABILITY__AGENT_POOL_MIN:-1}
-      - SCALABILITY__AGENT_POOL_MAX=${SCALABILITY__AGENT_POOL_MAX:-10}
-      - SCALABILITY__LOAD_BALANCING_STRATEGY=${SCALABILITY__LOAD_BALANCING_STRATEGY:-least_loaded}
-      - SCALABILITY__MULTI_CLUSTER_ENABLED=${SCALABILITY__MULTI_CLUSTER_ENABLED:-false}
-      - SCALABILITY__CLUSTER_ID=${SCALABILITY__CLUSTER_ID:-default_cluster}
-      - SCALABILITY__CLUSTER_ROLE=${SCALABILITY__CLUSTER_ROLE:-primary}
-      - SCALABILITY__AUTO_SCALING_ENABLED=${SCALABILITY__AUTO_SCALING_ENABLED:-false}
-    volumes:
-      - ./data:/app/data
-      - ../.env:/app/.env:ro
+      PYTHONPATH: /app
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:swarm@postgres:5432/brainswarm
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      NODE__NODE_NAME: ${NODE__NODE_NAME:-brain_swarm_api}
+      NODE__SWARM_ID: ${NODE__SWARM_ID:-default_swarm}
+      NODE__HOST: 0.0.0.0
+      NODE__PORT: 8000
+      DATABASE__URL: ${DATABASE__URL:-sqlite:///data/brain_swarm.db}
+      LOGGING__LEVEL: ${LOGGING__LEVEL:-INFO}
+      FEDERATION__ENABLED: ${FEDERATION__ENABLED:-false}
+      SCALABILITY__ENABLED: ${SCALABILITY__ENABLED:-false}
+      SCALABILITY__MESSAGE_QUEUE_MODE: ${SCALABILITY__MESSAGE_QUEUE_MODE:-single_node}
+      SCALABILITY__REDIS_URLS: ${SCALABILITY__REDIS_URLS:-["redis://redis:6379"]}
+      SCALABILITY__PARTITIONS: ${SCALABILITY__PARTITIONS:-8}
+      SCALABILITY__ASYNC_AGENTS_ENABLED: ${SCALABILITY__ASYNC_AGENTS_ENABLED:-false}
+      SCALABILITY__AGENT_POOL_MIN: ${SCALABILITY__AGENT_POOL_MIN:-1}
+      SCALABILITY__AGENT_POOL_MAX: ${SCALABILITY__AGENT_POOL_MAX:-10}
+      SCALABILITY__LOAD_BALANCING_STRATEGY: ${SCALABILITY__LOAD_BALANCING_STRATEGY:-least_loaded}
+      SCALABILITY__MULTI_CLUSTER_ENABLED: ${SCALABILITY__MULTI_CLUSTER_ENABLED:-false}
+      SCALABILITY__CLUSTER_ID: ${SCALABILITY__CLUSTER_ID:-default_cluster}
+      SCALABILITY__CLUSTER_ROLE: ${SCALABILITY__CLUSTER_ROLE:-primary}
+      SCALABILITY__AUTO_SCALING_ENABLED: ${SCALABILITY__AUTO_SCALING_ENABLED:-false}
+      CHROMA_URL: http://chroma:8000
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+    env_file:
+      - ../.env
     depends_on:
       - redis
     networks:
       - brain-swarm-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD","curl","-fsS","http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
 
   brain-swarm-operations:
     build: ..

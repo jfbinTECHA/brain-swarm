@@ -9,15 +9,28 @@ ENV PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 
 # Install system dependencies for C++ compilation
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     build-essential \
+    g++ \
+    cmake \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install deps from repo root (build context MUST be the repo root)
+COPY requirements*.txt /tmp/
+
+# Guard: prove networkx pin exists in the file we install
+RUN grep -i '^networkx==3\.3$' /tmp/requirements.txt
+
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+ && pip install --no-cache-dir -r /tmp/requirements-bridge.txt \
+ && pip install --no-cache-dir -r /tmp/requirements-cortex.txt \
+ && pip install --no-cache-dir -r /tmp/requirements-dev.txt
+
+# Import guard
+COPY scripts/import_guard.py /tmp/import_guard.py
+RUN python /tmp/import_guard.py
 
 # Copy project
 COPY . .
@@ -31,4 +44,4 @@ USER app
 EXPOSE 8000
 
 # Run the application
-CMD ["python", "-m", "backend.main"]
+CMD ["uvicorn","backend.main:app","--host","0.0.0.0","--port","8000"]
