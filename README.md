@@ -270,3 +270,7 @@ make logs
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+*Last updated: October 2025 — Authored by jfbinTECHA with ChatGPT AI collaboration.*
