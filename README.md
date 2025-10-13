@@ -68,6 +68,27 @@ graph TD
 
 **🚀 Quick Start**: `make up` | **📊 Dashboard**: http://localhost:3000 | **📖 Docs**: [/docs/](/docs/)
 
+## 🌐 Full-Stack System Flow
+
+The following diagram illustrates the **complete end-to-end integration** between citizens, the DHS EBT infrastructure, and the Brain-Swarm AI framework.
+It shows how each subsystem — from human users to autonomous agents — participates in a continuous, intelligent feedback loop.
+
+```mermaid
+graph LR
+    A[👩‍👩‍👧 Citizen Portal<br>(Web/Mobile EBT Access)] --> B[📡 DHS API Gateway]
+    B --> C[🧠 Brain-Swarm Supervisor Agent]
+    C --> D1[📊 Planner Agent<br>(Workflow Orchestration)]
+    C --> D2[🔍 Analyst Cluster<br>(Eligibility, Fraud, Compliance)]
+    D1 --> E1[⚙️ LiveHeap Engine<br>(In-Memory State)]
+    D2 --> E1
+    E1 --> F[🗄️ DHS Data Lake<br>(Historical + Financial Records)]
+    F --> G[📈 Monitoring Dashboard<br>(Program KPIs, Agent Logs)]
+    G --> H[🏛️ DHS Supervisors<br>(Oversight & Auditing)]
+    H --> I[🔁 Feedback Loop<br>(Policy Adjustments, Model Training)]
+    I --> C
+    E1 -->|Case Status Updates| A
+```
+
 ## ⚙️ Deployment Workflow
 
 ```mermaid
