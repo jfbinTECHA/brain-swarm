@@ -20,6 +20,52 @@
 
 A lean, self-healing Docker-based AI prototype stack featuring FastAPI, Redis, DuckDB, Prometheus, and Grafana for monitoring and visualization.
 
+## 🧩 Repository Overview
+
+```mermaid
+graph TD
+    A[📁 brain-swarm Repository] --> B[🤖 Core AI Engine]
+    A --> C[📘 Documentation / Docs Folder]
+    A --> D[🧪 Use Cases]
+    A --> E[⚙️ Deployment Layer]
+
+    subgraph CORE["🤖 Brain-Swarm Core"]
+        B1[Supervisor Agent<br>(Task Control, Routing)]
+        B2[Planner Agent<br>(Workflow Optimization)]
+        B3[Analyst Agents<br>(Eligibility, Risk, Compliance)]
+        B4[LiveHeap Engine<br>(State Memory, Caching)]
+    end
+
+    subgraph DOCS["📘 Docs"]
+        C1[EBT_LIVEHEAP_SYSTEM_DESIGN.md]
+        C2[EBT_LIVEHEAP_AGENT_BEHAVIOR_TREE.md]
+        C3[README.md Overview + Use Cases]
+    end
+
+    subgraph USECASES["🧪 Use Cases"]
+        D1[EBT LiveHeap Pilot<br>(Maine DHS Integration)]
+        D2[Future Federated AI Use Cases<br>(Modular Expansion)]
+    end
+
+    subgraph DEPLOY["⚙️ Deployment"]
+        E1[Local Sandbox / Docker Compose]
+        E2[API Gateway Integration]
+        E3[Dashboard + Monitor Layer]
+    end
+
+    %% Connections
+    B1 --> B4
+    B2 --> B4
+    B3 --> B4
+    B4 --> C1
+    B4 --> C2
+    C1 --> D1
+    C2 --> D1
+    D1 --> E1
+    D1 --> E2
+    D1 --> E3
+```
+
 **🚀 Quick Start**: `make up` | **📊 Dashboard**: http://localhost:3000 | **📖 Docs**: [/docs/](/docs/)
 
 ## Quick Start
