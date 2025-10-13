@@ -160,7 +160,113 @@ It introduces intelligent agent coordination, live memory streaming, and process
 - [Full-Stack System Flow](docs/EBT_LIVEHEAP_FULLSTACK_FLOW.md)
 
 **🚀 Deployment Phase**
-> *Status:* Sandbox / Pilot Proposal  
+> *Status:* Sandbox / Pilot Proposal
 > *Goal:* Integrate prototype Brain-Swarm deployment with DHS test datasets to validate eligibility automation, fraud detection, and dashboard performance.
 
 ---
+
+## 🧩 Integration with Maine DHS EBT Systems
+
+### 🔗 API Gateway Connection
+- **Endpoint:** `https://api.dhs.maine.gov/ebt/liveheap`
+- **Authentication:** OAuth2 with GovNet certificates
+- **Data Format:** JSON payloads with encrypted PII
+- **Rate Limits:** 1000 requests/minute (configurable)
+
+### 📊 LiveHeap Memory Synchronization
+- **State Persistence:** Redis-backed in-memory cache
+- **Data Streams:** Real-time event processing from DHS Data Lake
+- **Audit Trail:** Immutable logs for compliance
+- **Failover:** Automatic recovery with state reconstruction
+
+### 🤖 Agent Deployment Configuration
+```yaml
+# Example agent-config.yaml
+supervisor:
+  routing_rules: eligibility_first
+  escalation_threshold: 0.85
+analyst_cluster:
+  fraud_detection: enabled
+  compliance_check: strict
+  confidence_threshold: 0.92
+liveheap:
+  sync_interval: 30s
+  retention_policy: 90_days
+```
+
+### 📈 Monitoring & Dashboards
+- **Metrics Endpoint:** `/metrics` (Prometheus format)
+- **Dashboard URL:** `https://dashboard.dhs.maine.gov/liveheap`
+- **Alert Rules:** Configurable thresholds for agent performance
+- **Log Aggregation:** ELK stack integration
+
+### 🔒 Security & Compliance
+- **Encryption:** AES-256 for data at rest/transit
+- **Access Control:** Role-based permissions (RBAC)
+- **Audit Logs:** SOC2 compliant event tracking
+- **Data Residency:** All data remains within GovNet boundaries
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker and Docker Compose
+- Git
+- Python 3.12+ (for local development)
+
+### Local Development Setup
+```bash
+git clone https://github.com/jfbinTECHA/brain-swarm.git
+cd brain-swarm
+
+# Configure environment
+cp .env.example .env
+
+# Start local stack
+make up
+
+# Access services
+open http://localhost:3000  # Grafana Dashboard
+open http://localhost:8001/docs  # API Documentation
+```
+
+### DHS Integration Testing
+```bash
+# Run integration tests
+make test-integration
+
+# Deploy to sandbox
+make deploy-sandbox
+
+# Monitor logs
+make logs
+```
+
+---
+
+## 📚 Documentation
+
+- **[System Architecture](docs/EBT_LIVEHEAP_SYSTEM_DESIGN.md)** - Complete technical design
+- **[Agent Behavior Tree](docs/EBT_LIVEHEAP_AGENT_BEHAVIOR_TREE.md)** - AI agent coordination
+- **[Full-Stack Flow](docs/EBT_LIVEHEAP_FULLSTACK_FLOW.md)** - End-to-end integration
+- **[API Reference](docs/api/overview.md)** - REST API documentation
+- **[Deployment Guide](docs/installation.md)** - Setup and configuration
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make changes and add tests
+4. Run `make test` to ensure everything works
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
