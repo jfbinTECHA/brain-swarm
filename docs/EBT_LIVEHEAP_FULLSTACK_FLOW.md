@@ -5,15 +5,15 @@ This diagram shows the end-to-end integration of citizens, DHS EBT systems, Brai
 
 ```mermaid
 graph LR
-    A[Citizen Portal (Web/Mobile Access)] --> B[DHS API Gateway]
-    B --> C[Brain-Swarm Supervisor Agent]
-    C --> D1[Planner Agent (Workflow)]
-    C --> D2[Analyst Cluster (Eligibility/Fraud)]
-    D1 --> E1[LiveHeap Engine (In-Memory State)]
+    A[Citizen Portal] --> B[DHS API Gateway]
+    B --> C[Supervisor Agent]
+    C --> D1[Planner Agent]
+    C --> D2[Analyst Cluster]
+    D1 --> E1[LiveHeap Engine]
     D2 --> E1
-    E1 --> F[DHS Data Lake (Records)]
-    F --> G[Monitoring Dashboard (KPIs)]
-    G --> H[DHS Supervisors (Oversight)]
-    H --> I[Feedback Loop (Policy Updates)]
+    E1 --> F[DHS Data Lake]
+    F --> G[Monitoring Dashboard]
+    G --> H[DHS Supervisors]
+    H --> I[Feedback Loop]
     I --> C
-    E1 -->|Case Status| A
+    E1 --> A
