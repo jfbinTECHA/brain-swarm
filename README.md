@@ -108,18 +108,18 @@ flowchart TD
 
 ```mermaid
 graph LR
-    A[Citizen Portal\n(Web/Mobile Access)] --> B[DHS API Gateway]
-    B --> C[Brain-Swarm Supervisor Agent]
-    C --> D1[Planner Agent\n(Workflow)]
-    C --> D2[Analyst Cluster\n(Eligibility/Fraud)]
-    D1 --> E1[LiveHeap Engine\n(In-Memory State)]
+    A[Citizen Portal] --> B[DHS API Gateway]
+    B --> C[Supervisor Agent]
+    C --> D1[Planner Agent]
+    C --> D2[Analyst Cluster]
+    D1 --> E1[LiveHeap Engine]
     D2 --> E1
-    E1 --> F[DHS Data Lake\n(Historical + Financial)]
-    F --> G[Monitoring Dashboard\n(KPIs, Agent Logs)]
-    G --> H[DHS Supervisors\n(Oversight)]
-    H --> I[Feedback Loop\n(Policy Adjustments)]
+    E1 --> F[DHS Data Lake]
+    F --> G[Monitoring Dashboard]
+    G --> H[DHS Supervisors]
+    H --> I[Feedback Loop]
     I --> C
-    E1 -->|Case Status Updates| A
+    E1 -->|Updates| A
 ```
 
 ### Flow Summary
