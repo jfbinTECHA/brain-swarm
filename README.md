@@ -155,11 +155,11 @@ pytest tests/test_api.py
 ## 🧩 Use Case: Maine DHS EBT LiveHeap Pilot
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Prototype%20🧪-blueviolet?style=for-the-badge" alt="Status: Prototype">
-  <img src="https://img.shields.io/badge/Docs-Available%20📄-brightgreen?style=for-the-badge" alt="Docs Available">
-  <img src="https://img.shields.io/badge/License-MIT%20⚖️-lightgrey?style=for-the-badge" alt="License">
-  <img src="https://img.shields.io/badge/AI%20Framework-BrainSwarm%20🤖-orange?style=for-the-badge" alt="AI Framework: BrainSwarm">
-  <img src="https://img.shields.io/badge/Use%20Case-Maine%20DHS%20EBT%20LiveHeap%20🧩-blue?style=for-the-badge" alt="Use Case: DHS EBT LiveHeap">
+  <img src="https://img.shields.io/badge/Build-Stable%20✅-brightgreen?style=flat-square" alt="Build Status">
+  <img src="https://img.shields.io/badge/Docs-Complete%20📘-blue?style=flat-square" alt="Documentation Status">
+  <img src="https://img.shields.io/badge/License-MIT%20⚖️-lightgrey?style=flat-square" alt="License: MIT">
+  <img src="https://img.shields.io/badge/AI_Framework-BrainSwarm%20🤖-orange?style=flat-square" alt="AI Framework">
+  <img src="https://img.shields.io/badge/Use_Case-Maine_DHS_EBT_LiveHeap%20🧩-blueviolet?style=flat-square" alt="Use Case">
 </p>
 
 **Summary:**
