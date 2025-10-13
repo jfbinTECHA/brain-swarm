@@ -79,13 +79,13 @@ graph TD
 ```mermaid
 flowchart TD
     A[Developer / IT Admin] --> B[Clone brain-swarm Repository]
-    B --> C[Configure Environment\n(Docker Compose / .env)]
-    C --> D[Launch Local Sandbox\n(Brain-Swarm Core + LiveHeap Engine)]
-    D --> E[Deploy Agents\n(Supervisor / Planner / Analyst)]
-    E --> F[Connect to DHS API Gateway\n(GovNet Sandbox)]
-    F --> G[Activate Monitoring Dashboard\n(LiveHeap Metrics & Logs)]
+    B --> C[Configure Environment]
+    C --> D[Launch Local Sandbox]
+    D --> E[Deploy Agents]
+    E --> F[Connect to DHS API Gateway]
+    F --> G[Activate Monitoring Dashboard]
     G --> H{Tests Pass?}
-    H -->|Yes| I[Deploy to Pilot Environment\n(Maine DHS EBT Sandbox)]
+    H -->|Yes| I[Deploy to Pilot Environment]
     H -->|No| J[Review Logs & Re-train Models]
     I --> K[Real-Time Agent Coordination Live]
     K --> L[DHS Supervisors Access Dashboard]
