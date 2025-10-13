@@ -1,5 +1,13 @@
 # 🧠 Cortex AI Prototype
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Prototype%20🧪-blueviolet?style=for-the-badge" alt="Status: Prototype">
+  <img src="https://img.shields.io/badge/Docs-Available%20📄-brightgreen?style=for-the-badge" alt="Docs Available">
+  <img src="https://img.shields.io/badge/License-MIT%20⚖️-lightgrey?style=for-the-badge" alt="License">
+  <img src="https://img.shields.io/badge/AI%20Framework-BrainSwarm%20🤖-orange?style=for-the-badge" alt="AI Framework: BrainSwarm">
+  <img src="https://img.shields.io/badge/Use%20Case-Maine%20DHS%20EBT%20LiveHeap%20🧩-blue?style=for-the-badge" alt="Use Case: DHS EBT LiveHeap">
+</p>
+
 [![Lint](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/lint.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/lint.yml)
 [![Test](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/test.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/test.yml)
 [![Build](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/build.yml/badge.svg)](https://github.com/jfbinTECHA/brain-swarm/actions/workflows/build.yml)
