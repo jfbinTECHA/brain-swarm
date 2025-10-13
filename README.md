@@ -50,8 +50,8 @@ graph TD
     end
 
     subgraph USECASES["Use Cases"]
-        D1[EBT LiveHeap Pilot\n(Maine DHS Integration)]
-        D2[Future Federated AI Use Cases\n(Modular Expansion)]
+        D1[EBT LiveHeap Pilot]
+        D2[Future Federated AI]
     end
 
     subgraph DEPLOY["Deployment"]
