@@ -144,6 +144,33 @@ pytest tests/test_api.py
 - **[EBT LiveHeap System Design](/docs/EBT_LIVEHEAP_SYSTEM_DESIGN.md)** - Maine DHS EBT automation with Brain-Swarm agents
 - **[EBT LiveHeap Agent Behavior Tree](/docs/EBT_LIVEHEAP_AGENT_BEHAVIOR_TREE.md)** - Agent hierarchy and roles for EBT processing
 
+### 🧠 Use Case: Maine DHS — EBT LiveHeap Pilot
+
+**Overview:**
+The **EBT LiveHeap Pilot** demonstrates how the Brain-Swarm framework can modernize the Maine Department of Human Services (DHS) **Electronic Benefit Transfer (EBT)** system.
+It introduces intelligent agent coordination, live memory streaming, and process automation — improving efficiency, transparency, and citizen experience.
+
+**💡 Objectives**
+- Automate eligibility checks with Analyst Agents
+- Detect fraud and duplicate claims in real-time
+- Optimize task routing for case workers through Planner Agents
+- Maintain synchronized program state via LiveHeap memory
+- Deliver transparent metrics to DHS dashboards
+
+**🧩 Integration Summary**
+- **Brain-Swarm Layer:** Supervisor, Planner, Analyst agents orchestrate decisions
+- **LiveHeap Engine:** Provides real-time, in-memory state persistence and analytics
+- **DHS API Gateway:** Serves as the secure interface between state systems and AI agents
+- **GovNet Infrastructure:** Hosts all components under state-level compliance
+
+**📄 Related Documentation**
+- [EBT LiveHeap System Design](docs/EBT_LIVEHEAP_SYSTEM_DESIGN.md)
+- [EBT LiveHeap Agent Behavior Tree](docs/EBT_LIVEHEAP_AGENT_BEHAVIOR_TREE.md)
+
+**🚀 Deployment Phase**
+> *Status:* Sandbox / Pilot Proposal
+> *Goal:* Integrate prototype Brain-Swarm deployment with DHS test datasets to validate eligibility automation, fraud detection, and dashboard performance.
+
 ## Contributing
 
 1. Fork the repository
