@@ -68,6 +68,24 @@ graph TD
 
 **🚀 Quick Start**: `make up` | **📊 Dashboard**: http://localhost:3000 | **📖 Docs**: [/docs/](/docs/)
 
+## ⚙️ Deployment Workflow
+
+```mermaid
+flowchart TD
+    A[👩‍💻 Developer / IT Admin] --> B[📦 Clone brain-swarm Repository]
+    B --> C[⚙️ Configure Environment<br>(Docker Compose / .env)]
+    C --> D[🚀 Launch Local Sandbox<br>(Brain-Swarm Core + LiveHeap Engine)]
+    D --> E[🧠 Deploy Agents<br>(Supervisor / Planner / Analyst)]
+    E --> F[📡 Connect to DHS API Gateway<br>(GovNet Sandbox)]
+    F --> G[📊 Activate Monitoring Dashboard<br>(LiveHeap Metrics & Logs)]
+    G --> H{✅ Tests Pass?}
+    H -->|Yes| I[📈 Deploy to Pilot Environment<br>(Maine DHS EBT Sandbox)]
+    H -->|No| J[🔧 Review Logs & Re-train Models]
+    I --> K[🕸️ Real-Time Agent Coordination Live]
+    K --> L[🏛️ DHS Supervisors Access Dashboard]
+    L --> M[📬 Automated Reports & Citizen Notifications]
+```
+
 ## Quick Start
 
 ### Prerequisites
