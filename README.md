@@ -154,6 +154,14 @@ pytest tests/test_api.py
 
 ## 🧩 Use Case: Maine DHS EBT LiveHeap Pilot
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Prototype%20🧪-blueviolet?style=for-the-badge" alt="Status: Prototype">
+  <img src="https://img.shields.io/badge/Docs-Available%20📄-brightgreen?style=for-the-badge" alt="Docs Available">
+  <img src="https://img.shields.io/badge/License-MIT%20⚖️-lightgrey?style=for-the-badge" alt="License">
+  <img src="https://img.shields.io/badge/AI%20Framework-BrainSwarm%20🤖-orange?style=for-the-badge" alt="AI Framework: BrainSwarm">
+  <img src="https://img.shields.io/badge/Use%20Case-Maine%20DHS%20EBT%20LiveHeap%20🧩-blue?style=for-the-badge" alt="Use Case: DHS EBT LiveHeap">
+</p>
+
 **Summary:**
 The EBT LiveHeap concept integrates Brain-Swarm’s multi-agent intelligence into the Maine DHS EBT program to automate eligibility checks, detect fraud, and streamline benefit renewals.
 
