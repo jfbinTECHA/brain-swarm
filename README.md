@@ -119,7 +119,7 @@ graph LR
     G --> H[DHS Supervisors]
     H --> I[Feedback Loop]
     I --> C
-    E1 -->|Updates| A
+    E1 --> A
 ```
 
 ### Flow Summary
