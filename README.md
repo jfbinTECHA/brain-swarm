@@ -141,6 +141,8 @@ pytest tests/test_api.py
 
 - **[Maine Operations Brief](/docs/MAINE_OPS_BRIEF.md)** - Public health and forestry integration
 - **[Deployment Scenario](/docs/DEPLOYMENT_SCENARIO.md)** - Sensor network and emergency response integration
+- **[EBT LiveHeap System Design](/docs/EBT_LIVEHEAP_SYSTEM_DESIGN.md)** - Maine DHS EBT automation with Brain-Swarm agents
+- **[EBT LiveHeap Agent Behavior Tree](/docs/EBT_LIVEHEAP_AGENT_BEHAVIOR_TREE.md)** - Agent hierarchy and roles for EBT processing
 
 ## Contributing
 
