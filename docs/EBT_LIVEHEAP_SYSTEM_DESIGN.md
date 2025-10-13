@@ -8,24 +8,24 @@ It integrates **AI-driven agents**, **real-time memory streams**, and **state-se
 ```mermaid
 graph TD
     subgraph DHS["Maine DHS Environment"]
-        D1[Citizen Portal\n(Web/Mobile Access)]
-        D2[Case Worker Dashboard\n(Eligibility & Benefits)]
-        D3[EBT Core System\n(Balances, Transactions)]
+        D1[Citizen Portal]
+        D2[Case Worker Dashboard]
+        D3[EBT Core System]
         D4[Document Intake / OCR]
         D5[Reporting & Audit Tools]
     end
 
     subgraph BrainSwarm["Brain-Swarm AI Layer"]
-        B1[Supervisor Agent\n(Task Routing & Policy)]
-        B2[Analyst Agents\n(Eligibility, Fraud, Insights)]
-        B3[Planner Agent\n(Process Optimization)]
-        B4[Knowledge Core\n(Rules, ML Models, Data)]
-        B5[LiveHeap Engine\n(Real-time State & Cache)]
+        B1[Supervisor Agent]
+        B2[Analyst Agents]
+        B3[Planner Agent]
+        B4[Knowledge Core]
+        B5[LiveHeap Engine]
     end
 
     subgraph CloudInfra["GovNet / State Cloud"]
         C1[DHS API Gateway]
-        C2[Data Lake\n(Citizen, Program, Financial)]
+        C2[Data Lake]
         C3[Monitoring & Dashboards]
         C4[Authentication & Identity]
     end
@@ -136,18 +136,18 @@ flowchart TD
 ## Simplified Data Flow
 ```mermaid
 graph LR
-    A[Citizen Portal\n(Web/Mobile Access)] --> B[DHS API Gateway]
-    B --> C[Brain-Swarm Supervisor Agent]
-    C --> D1[Planner Agent\n(Workflow Orchestration)]
-    C --> D2[Analyst Cluster\n(Eligibility, Fraud, Compliance)]
-    D1 --> E1[LiveHeap Engine\n(In-Memory State)]
+    A[Citizen Portal] --> B[DHS API Gateway]
+    B --> C[Supervisor Agent]
+    C --> D1[Planner Agent]
+    C --> D2[Analyst Cluster]
+    D1 --> E1[LiveHeap Engine]
     D2 --> E1
-    E1 --> F[DHS Data Lake\n(Historical + Financial)]
-    F --> G[Monitoring Dashboard\n(Program KPIs, Agent Logs)]
-    G --> H[DHS Supervisors\n(Oversight & Auditing)]
-    H --> I[Feedback Loop\n(Policy Adjustments, Training)]
+    E1 --> F[DHS Data Lake]
+    F --> G[Monitoring Dashboard]
+    G --> H[DHS Supervisors]
+    H --> I[Feedback Loop]
     I --> C
-    E1 -->|Case Status Updates| A
+    E1 --> A
 ```
 
 ## � Implementation Roadmap
